@@ -29,7 +29,7 @@ The first version has a dark, sidebar-and-dialog "dev tool" look. The product is
 | `--danger` | `#E5484D` | destructive |
 | `--success` | `#2F9E62` | |
 | `--warning` | `#D97706` | |
-| Highlighter pastels (fill / text) | blue `#DCE6FF`/`#2B4ACB`, violet `#E9DDFF`/`#6B3FD1`, peach `#FFE4D1`/`#B4520E`, mint `#D8F5E3`/`#1F7A48`, lavender `#E6E0FF`/`#5A3EBF`, rose `#FFDCDF`/`#B3262E`, lemon `#FFF3C4`/`#8A6100` | URL segments, method chips, field-type chips |
+| Highlighter pastels (fill / text) | blue `#DCE6FF`/`#2B4ACB`, violet `#E9DDFF`/`#6B3FD1`, peach `#FFE4D1`/`#9A4508`, mint `#D8F5E3`/`#1F7A48`, lavender `#E6E0FF`/`#5A3EBF`, rose `#FFDCDF`/`#B3262E`, lemon `#FFF3C4`/`#8A6100` | URL segments, method chips, field-type chips |
 
 Method chips: GET mint, POST blue, PUT peach, PATCH lavender, DELETE rose. URL segments: `/api` blue, `/{slug}` violet, `/:param` peach. Field-type chips: lemon.
 

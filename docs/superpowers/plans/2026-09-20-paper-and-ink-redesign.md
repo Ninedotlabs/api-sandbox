@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Light only. `next-themes`, `ThemeProvider`, `ThemeToggle` and every `dark:` class are removed.
-- Palette (exact): paper `#F7F7F4`, grid-line `#E9E9E4`, card `#FFFFFF`, ink `#18181B`, ink-muted `#6B6B72`, line `#E4E4DF`, sketch `#C9C9C2`, primary `#3B5BDB`, soft `#EEEEEA`, soft-hover `#E4E4DF`, danger `#E5484D`, success `#2F9E62`, warning `#D97706`. Pastels (fill / text): blue `#DCE6FF`/`#2B4ACB`, violet `#E9DDFF`/`#6B3FD1`, peach `#FFE4D1`/`#B4520E`, mint `#D8F5E3`/`#1F7A48`, lavender `#E6E0FF`/`#5A3EBF`, rose `#FFDCDF`/`#B3262E`, lemon `#FFF3C4`/`#8A6100`.
+- Palette (exact): paper `#F7F7F4`, grid-line `#E9E9E4`, card `#FFFFFF`, ink `#18181B`, ink-muted `#6B6B72`, line `#E4E4DF`, sketch `#C9C9C2`, primary `#3B5BDB`, soft `#EEEEEA`, soft-hover `#E4E4DF`, danger `#E5484D`, success `#2F9E62`, warning `#D97706`. Pastels (fill / text): blue `#DCE6FF`/`#2B4ACB`, violet `#E9DDFF`/`#6B3FD1`, peach `#FFE4D1`/`#9A4508`, mint `#D8F5E3`/`#1F7A48`, lavender `#E6E0FF`/`#5A3EBF`, rose `#FFDCDF`/`#B3262E`, lemon `#FFF3C4`/`#8A6100`.
 - Method chips: GET mint, POST blue, PUT peach, PATCH lavender, DELETE rose. URL segments: `/api` blue, `/{slug}` violet, `/:param` peach. Field-type chips lemon.
 - Grid paper: `body` background = two 1px `linear-gradient` lines, `background-size: 32px 32px`.
 - Type: JetBrains Mono for all UI (`--font-sans` and `--font-mono` both point at it); Pacifico only via the `font-script` utility.

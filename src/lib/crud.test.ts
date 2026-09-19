@@ -1,5 +1,6 @@
-import { buildCrudRoutes, crudOptions } from "./crud";
+import { buildCrudRoutes, crudOptions, generateAllCrud } from "./crud";
 import { groupRoutes, missingCrud, uniquePath } from "./routes";
+import { buildTemplateModels } from "./templates";
 import type { Model, Project } from "./types";
 
 const order: Model = { id: "m1", name: "Order", fields: [] };
@@ -38,4 +39,16 @@ it("finds an unused path", () => {
   const r = buildCrudRoutes(order, ["list"], [])[0];
   expect(uniquePath([])).toBe("/new-route");
   expect(uniquePath([{ ...r, path: "/new-route" }, { ...r, path: "/new-route-2" }])).toBe("/new-route-3");
+});
+
+it("generates every missing standard endpoint across models, in canonical order", () => {
+  const models = buildTemplateModels("store");
+  const product = models[0];
+  const existing = buildCrudRoutes(product, ["list"], []);
+  const project = { models, routes: existing } as Project;
+  const routes = generateAllCrud(project);
+  expect(routes).toHaveLength(14);
+  expect(routes.slice(0, 4).map((r) => r.action)).toEqual(["get", "create", "update", "delete"]);
+  expect(routes.every((r) => models.some((m) => m.id === r.modelId))).toBe(true);
+  expect(generateAllCrud({ models, routes: [...existing, ...routes] } as Project)).toEqual([]);
 });

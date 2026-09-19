@@ -1,6 +1,6 @@
 import { createId } from "./ids";
 import { article, pluralize, resourcePath } from "./slug";
-import type { HttpMethod, Model, Route, RouteAction } from "./types";
+import type { HttpMethod, Model, Project, Route, RouteAction } from "./types";
 
 export type CrudAction = Exclude<RouteAction, "custom">;
 
@@ -38,4 +38,18 @@ export function buildCrudRoutes(model: Model, actions: CrudAction[], existing: R
       description: o.label,
       filters: [],
     }));
+}
+
+const ALL_ACTIONS: CrudAction[] = ["list", "get", "create", "update", "delete"];
+
+/** Every standard endpoint that any model in the project is still missing, model by model in canonical order. */
+export function generateAllCrud(project: Project): Route[] {
+  const existing = [...project.routes];
+  const out: Route[] = [];
+  for (const model of project.models) {
+    const routes = buildCrudRoutes(model, ALL_ACTIONS, existing);
+    existing.push(...routes);
+    out.push(...routes);
+  }
+  return out;
 }

@@ -85,7 +85,7 @@ export function CommandPalette({ project }: { project: Project }) {
           </CommandGroup>
         )}
         <CommandGroup heading="Actions">
-          <CommandItem value="action new api" onSelect={() => go("/projects/new")}>
+          <CommandItem value="action new api" onSelect={() => go("/projects")}>
             <Plus className="size-4" /> New API
           </CommandItem>
         </CommandGroup>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CodeBlock } from "@/components/domain/code-block";
 import { MethodBadge } from "@/components/domain/method-badge";
 import { UrlSegments } from "@/components/domain/url-segments";
+import { PathPreview } from "@/components/routes/path-preview";
 import { Button } from "@/components/ui/button";
 import type { DocEndpoint } from "@/lib/docs";
 import { routeParams } from "@/lib/paths";
@@ -14,7 +15,8 @@ export function EndpointDoc({ endpoint, slug, tryHref }: { endpoint: DocEndpoint
     <div className="space-y-4 rounded-2xl border bg-card p-5 shadow-card">
       <div className="flex flex-wrap items-center gap-3">
         <MethodBadge method={route.method} showLabel />
-        <UrlSegments slug={slug} tail={route.path} />
+        <UrlSegments slug={slug} tail={undefined} />
+        <PathPreview base="" path={route.path} />
         <Button variant="outline" size="sm" className="ml-auto" asChild>
           <Link href={tryHref}>
             <Play className="size-4" /> Try it

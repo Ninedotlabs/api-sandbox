@@ -74,7 +74,7 @@ Top to bottom:
 3. **Resource cards**, one per model, sketch style, in a vertical list. Each card header row:
    - Left: the model's name in mono (14px) and a small record bar: a 96px track with a violet fill proportional to sample-record count (max = the largest count among models) and the number next to it (from `consoleService.sampleData(...).length`).
    - Middle: field count chip ("4 fields") and one method chip per route (in canonical order).
-   - Right: pill buttons **Fields · Routes · Data** (toggle; the open one is `--soft` filled) and a rose trash icon button.
+   - Right: pill buttons **Fields · Routes · Data** (toggle; the open one is ink filled, the rest `--soft`) and a rose trash icon button.
    - Below the header, the open panel (accordion; only one panel open per card, any number of cards open):
      - **Fields** = existing `ModelFieldTable` restyled (paper inputs, lemon type chips, dashed "+ Add field" row). Save/Discard buttons at the bottom of the panel.
      - **Routes** = list of the model's routes (method chip, path with peach `:id`, friendly name, a **Test** link to `/console?route=…`, trash). Below it, if any standard endpoint is missing, an inline row "Add standard endpoints:" with the five options as toggle chips (existing ones shown checked and disabled) and an **Add** button. Below that, a "+ Custom route" button that appends an inline route editor (the existing `RouteEditor` restyled) for a new route, and each route row can expand into the same editor via an "Edit" link.

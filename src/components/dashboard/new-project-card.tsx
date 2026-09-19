@@ -47,11 +47,10 @@ export function NewProjectCard({ existingProjects, onCreate, autoFocus }: Props)
     <SketchCard className="p-5">
       <form onSubmit={submit} className="flex h-full flex-col gap-3">
         <label htmlFor="new-project-name" className="text-sm font-semibold">
-          New API
+          New API name
         </label>
         <Input
           id="new-project-name"
-          aria-label="New API name"
           autoFocus={autoFocus}
           value={name}
           placeholder="My Store"

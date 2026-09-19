@@ -40,7 +40,9 @@ export function EndpointCard({ project, generateCount, onNewModel, onGenerateAll
           {generateCount === 0 ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span tabIndex={0}>{generate}</span>
+                <span tabIndex={0} role="button" aria-disabled="true" aria-label="Generate all">
+                  {generate}
+                </span>
               </TooltipTrigger>
               <TooltipContent>Every model already has its endpoints</TooltipContent>
             </Tooltip>

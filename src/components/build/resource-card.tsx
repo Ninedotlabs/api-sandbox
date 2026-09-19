@@ -55,11 +55,11 @@ export function ResourceCard({ project, model, recordCount, maxCount, openPanel,
       <div className="flex flex-wrap items-center gap-3 p-4">
         <div className="flex min-w-0 items-center gap-3">
           <h3 className="truncate text-sm font-semibold">{model.name}</h3>
-          <div className="flex items-center gap-2" aria-label={`${recordCount} sample records`}>
+          <div className="flex items-center gap-2">
             <div className="h-2 w-24 overflow-hidden rounded-full bg-soft">
               <div className="h-full rounded-full bg-pastel-violet-ink/70" style={{ width: `${fill}%` }} />
             </div>
-            <span className="text-xs text-ink-muted">{recordCount}</span>
+            <span className="text-xs text-ink-muted" aria-label={`${recordCount} sample records`}>{recordCount}</span>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -75,6 +75,7 @@ export function ResourceCard({ project, model, recordCount, maxCount, openPanel,
               variant="secondary"
               size="sm"
               aria-expanded={openPanel === p.id}
+              aria-controls={`model-${model.id}-panel`}
               className={cn("rounded-xl", openPanel === p.id ? "bg-ink text-paper hover:bg-ink/90" : "bg-soft")}
               onClick={() => onToggle(p.id)}
             >
@@ -87,7 +88,7 @@ export function ResourceCard({ project, model, recordCount, maxCount, openPanel,
         </div>
       </div>
       {openPanel && (
-        <div className="border-t p-4">
+        <div id={`model-${model.id}-panel`} className="border-t p-4">
           {openPanel === "fields" && <ResourceFieldsPanel project={project} model={model} />}
           {openPanel === "routes" && <ResourceRoutesPanel project={project} model={model} />}
           {openPanel === "data" && <ResourceDataPanel project={project} model={model} />}

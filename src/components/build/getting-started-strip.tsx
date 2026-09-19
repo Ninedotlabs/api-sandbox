@@ -18,7 +18,14 @@ export function GettingStartedStrip({ steps }: { steps: ChecklistStep[] }) {
               s.done ? "bg-pastel-mint text-pastel-mint-ink" : s.id === next.id ? "bg-pastel-blue text-pastel-blue-ink" : "bg-soft text-ink-muted",
             )}
           >
-            {s.done ? <Check className="size-3" aria-label="done" /> : <span>{i + 1}</span>}
+            {s.done ? (
+              <>
+                <Check className="size-3" aria-hidden />
+                <span className="sr-only">Done</span>
+              </>
+            ) : (
+              <span>{i + 1}</span>
+            )}
             {s.label}
           </li>
         ))}

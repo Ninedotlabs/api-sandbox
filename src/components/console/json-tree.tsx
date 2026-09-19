@@ -7,7 +7,7 @@ interface Props {
 function valueClass(value: unknown): string {
   if (typeof value === "string") return "text-success";
   if (typeof value === "number") return "text-warning";
-  if (typeof value === "boolean") return "text-method-patch";
+  if (typeof value === "boolean") return "text-pastel-lavender-ink";
   return "text-muted-foreground";
 }
 

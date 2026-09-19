@@ -6,7 +6,7 @@ const TOKEN_CLASS: Record<TokenKind, string> = {
   key: "text-primary",
   string: "text-success",
   number: "text-warning",
-  boolean: "text-method-patch",
+  boolean: "text-pastel-lavender-ink",
   null: "text-muted-foreground",
   punct: "text-muted-foreground",
 };

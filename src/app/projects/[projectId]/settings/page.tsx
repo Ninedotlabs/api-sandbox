@@ -43,9 +43,9 @@ export default function SettingsPage() {
   }
 
   async function remove() {
-    router.push("/projects");
     try {
       const snapshot = await deleteProject(project.id);
+      router.push("/projects");
       toast(`${snapshot.name} deleted`, {
         action: {
           label: "Undo",
@@ -66,7 +66,7 @@ export default function SettingsPage() {
   return (
     <div className="max-w-2xl space-y-8">
       <PageHeader title="Settings" description="Rename your API or change its address." />
-      <form onSubmit={save} className="space-y-5 rounded-2xl border bg-surface p-5 shadow-card">
+      <form onSubmit={save} className="space-y-5 rounded-2xl border bg-card p-5 shadow-card">
         <div className="space-y-2">
           <Label htmlFor="settings-name">API name</Label>
           <Input id="settings-name" value={name} aria-invalid={!!errors.name} onChange={(e) => setName(e.target.value)} />

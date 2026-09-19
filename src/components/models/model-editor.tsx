@@ -16,7 +16,7 @@ import { SampleDataTable } from "./sample-data-table";
 export function ModelEditor({ project, model }: { project: Project; model: Model }) {
   const saveModel = useProjectStore((s) => s.saveModel);
   const deleteModel = useProjectStore((s) => s.deleteModel);
-  const restoreProject = useProjectStore((s) => s.restoreProject);
+  const restoreModel = useProjectStore((s) => s.restoreModel);
   const router = useRouter();
 
   async function handleSave(next: Model) {
@@ -29,11 +29,21 @@ export function ModelEditor({ project, model }: { project: Project; model: Model
   }
 
   async function handleDelete() {
-    const snapshot = await deleteModel(project.id, model.id);
-    router.push(`/projects/${project.id}/models`);
-    toast(`${model.name} deleted`, {
-      action: { label: "Undo", onClick: () => void restoreProject(snapshot) },
-    });
+    try {
+      const removed = await deleteModel(project.id, model.id);
+      router.push(`/projects/${project.id}/models`);
+      toast(`${model.name} deleted`, {
+        action: {
+          label: "Undo",
+          onClick: () =>
+            void restoreModel(project.id, removed).catch((e) => {
+              toast.error(e instanceof Error ? e.message : "Could not undo.");
+            }),
+        },
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not delete the model.");
+    }
   }
 
   return (

@@ -22,7 +22,7 @@ export default function RoutesPage() {
   const project = useCurrentProject();
   const addRoutes = useProjectStore((s) => s.addRoutes);
   const deleteRoute = useProjectStore((s) => s.deleteRoute);
-  const restoreProject = useProjectStore((s) => s.restoreProject);
+  const restoreRoute = useProjectStore((s) => s.restoreRoute);
   const router = useRouter();
   const [crudModel, setCrudModel] = useState<Model | null>(null);
   const base = baseUrl(project.slug);
@@ -47,12 +47,12 @@ export default function RoutesPage() {
 
   async function remove(route: Route) {
     try {
-      const snapshot = await deleteRoute(project.id, route.id);
+      const removed = await deleteRoute(project.id, route.id);
       toast("Route deleted", {
         action: {
           label: "Undo",
           onClick: () =>
-            void restoreProject(snapshot).catch((e) => {
+            void restoreRoute(project.id, removed).catch((e) => {
               toast.error(e instanceof Error ? e.message : "Could not undo.");
             }),
         },

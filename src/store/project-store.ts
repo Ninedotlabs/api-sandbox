@@ -1,5 +1,12 @@
 import { create } from "zustand";
-import { modelService, projectService, routeService, type CreateProjectInput } from "@/lib/services";
+import {
+  modelService,
+  projectService,
+  routeService,
+  type CreateProjectInput,
+  type RemovedModel,
+  type RemovedRoute,
+} from "@/lib/services";
 import type { Model, Project, Route } from "@/lib/types";
 
 interface ProjectState {
@@ -12,10 +19,14 @@ interface ProjectState {
   restoreProject(project: Project): Promise<void>;
   createModel(projectId: string, name: string): Promise<Model>;
   saveModel(projectId: string, model: Model): Promise<void>;
-  deleteModel(projectId: string, modelId: string): Promise<Project>;
+  /** Returns what Undo needs to put back just this model. */
+  deleteModel(projectId: string, modelId: string): Promise<RemovedModel>;
+  restoreModel(projectId: string, removed: RemovedModel): Promise<void>;
   addRoutes(projectId: string, routes: Route[]): Promise<void>;
   saveRoute(projectId: string, route: Route): Promise<void>;
-  deleteRoute(projectId: string, routeId: string): Promise<Project>;
+  /** Returns what Undo needs to put back just this route. */
+  deleteRoute(projectId: string, routeId: string): Promise<RemovedRoute>;
+  restoreRoute(projectId: string, removed: RemovedRoute): Promise<void>;
 }
 
 export const useProjectStore = create<ProjectState>()((set, get) => {
@@ -69,10 +80,13 @@ export const useProjectStore = create<ProjectState>()((set, get) => {
       await refresh(projectId);
     },
     async deleteModel(projectId, modelId) {
-      const previous = snapshot(projectId);
-      await modelService.remove(projectId, modelId);
+      const removed = await modelService.remove(projectId, modelId);
       await refresh(projectId);
-      return previous;
+      return removed;
+    },
+    async restoreModel(projectId, removed) {
+      await modelService.restore(projectId, removed);
+      await refresh(projectId);
     },
     async addRoutes(projectId, routes) {
       await routeService.createMany(projectId, routes);
@@ -83,10 +97,13 @@ export const useProjectStore = create<ProjectState>()((set, get) => {
       await refresh(projectId);
     },
     async deleteRoute(projectId, routeId) {
-      const previous = snapshot(projectId);
-      await routeService.remove(projectId, routeId);
+      const removed = await routeService.remove(projectId, routeId);
       await refresh(projectId);
-      return previous;
+      return removed;
+    },
+    async restoreRoute(projectId, removed) {
+      await routeService.restore(projectId, removed);
+      await refresh(projectId);
     },
   };
 });

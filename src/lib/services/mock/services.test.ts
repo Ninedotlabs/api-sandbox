@@ -93,3 +93,18 @@ it("removes and restores routes and models with Undo", async () => {
   expect(after.routes.map((r) => r.id)).toEqual(routes.map((r) => r.id));
   await expect(mockRouteService.remove(p.id, "missing")).rejects.toThrow("This route no longer exists.");
 });
+
+it("keeps a session log of sent requests, newest first, capped at 50", async () => {
+  const p = await newStore();
+  const [list] = buildCrudRoutes(p.models[0], ["list"], []);
+  await mockRouteService.createMany(p.id, [list]);
+  for (let i = 0; i < 52; i++) {
+    await mockConsoleService.send(p.id, { routeId: list.id, params: {}, query: {}, body: undefined });
+  }
+  const log = await mockConsoleService.log(p.id);
+  expect(log).toHaveLength(50);
+  expect(log[0]).toMatchObject({ method: "GET", path: "/products", response: { status: 200 } });
+  expect(new Date(log[0].at).getTime()).toBeGreaterThanOrEqual(new Date(log[49].at).getTime());
+  await mockConsoleService.clearLog(p.id);
+  expect(await mockConsoleService.log(p.id)).toEqual([]);
+});

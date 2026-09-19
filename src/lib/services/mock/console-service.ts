@@ -1,13 +1,16 @@
+import { createId } from "@/lib/ids";
 import { ensureDataset, executeRoute, seedDataset, type Dataset, type EngineResult } from "@/lib/mock-engine";
 import type { Project } from "@/lib/types";
-import type { ConsoleService } from "../types";
+import type { ConsoleService, LogEntry } from "../types";
 import { findProject } from "./db";
 import { delay } from "./latency";
 
 const datasets = new Map<string, Dataset>();
+const logs = new Map<string, LogEntry[]>();
 
 export function resetMockDatasets() {
   datasets.clear();
+  logs.clear();
 }
 
 function datasetFor(project: Project): Dataset {
@@ -28,7 +31,22 @@ export const mockConsoleService: ConsoleService = {
         ? executeRoute(project, route, request, datasetFor(project))
         : { status: 404, body: { error: "This route no longer exists." } };
     const settled = await delay(result);
-    return { ...settled, durationMs: Math.max(1, Math.round(performance.now() - started)) };
+    const response = { ...settled, durationMs: Math.max(1, Math.round(performance.now() - started)) };
+    if (route) {
+      const entries = logs.get(projectId) ?? [];
+      entries.unshift({
+        id: createId("log"),
+        at: new Date().toISOString(),
+        routeId: route.id,
+        method: route.method,
+        path: route.path,
+        request,
+        response,
+      });
+      entries.splice(50);
+      logs.set(projectId, entries);
+    }
+    return response;
   },
 
   async sampleData(projectId, modelId) {
@@ -38,6 +56,15 @@ export const mockConsoleService: ConsoleService = {
 
   async reset(projectId) {
     datasets.delete(projectId);
+    return delay(undefined);
+  },
+
+  async log(projectId) {
+    return delay(logs.get(projectId) ?? []);
+  },
+
+  async clearLog(projectId) {
+    logs.delete(projectId);
     return delay(undefined);
   },
 };

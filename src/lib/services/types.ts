@@ -1,4 +1,4 @@
-import type { Model, Project, Route, TemplateId, TestRequest, TestResponse } from "@/lib/types";
+import type { HttpMethod, Model, Project, Route, TemplateId, TestRequest, TestResponse } from "@/lib/types";
 
 export interface CreateProjectInput {
   name: string;
@@ -48,8 +48,22 @@ export interface RouteService {
   restore(projectId: string, removed: RemovedRoute): Promise<Route>;
 }
 
+/** A single sent request, kept for the session's console log. */
+export interface LogEntry {
+  id: string;
+  at: string;
+  routeId: string;
+  method: HttpMethod;
+  path: string;
+  request: TestRequest;
+  response: TestResponse;
+}
+
 export interface ConsoleService {
   send(projectId: string, request: TestRequest): Promise<TestResponse>;
   sampleData(projectId: string, modelId: string): Promise<Record<string, unknown>[]>;
   reset(projectId: string): Promise<void>;
+  /** The session's sent requests for this project, newest first (max 50). */
+  log(projectId: string): Promise<LogEntry[]>;
+  clearLog(projectId: string): Promise<void>;
 }

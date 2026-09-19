@@ -4,6 +4,7 @@ import { MoreHorizontal, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/domain/page-header";
+import { CrudBanner } from "@/components/routes/crud-banner";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -55,6 +56,7 @@ export function ModelEditor({ project, model }: { project: Project; model: Model
           </DropdownMenu>
         }
       />
+      <CrudBanner project={project} model={model} />
       <Tabs defaultValue="fields">
         <TabsList>
           <TabsTrigger value="fields">Fields</TabsTrigger>

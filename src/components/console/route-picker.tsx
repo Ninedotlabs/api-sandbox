@@ -28,7 +28,7 @@ export function RoutePicker({ project, selectedId, onSelect }: Props) {
                   r.id === selectedId && "bg-accent-soft text-accent-ink",
                 )}
               >
-                <MethodBadge method={r.method} className="w-16 justify-center" />
+                <MethodBadge method={r.method} />
                 <span className="min-w-0 truncate">{r.description || r.path}</span>
               </button>
             ))}

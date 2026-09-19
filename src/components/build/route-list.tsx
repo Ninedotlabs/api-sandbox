@@ -47,7 +47,7 @@ export function RouteList({ project, routes }: Props) {
         return (
           <li key={route.id} className="rounded-xl border bg-surface">
             <div className="flex flex-wrap items-center gap-3 p-3">
-              <MethodBadge method={route.method} className="w-16 justify-center" />
+              <MethodBadge method={route.method} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{name}</p>
                 <p className="truncate text-xs text-ink-3">

@@ -28,12 +28,10 @@ export function CodePanel({ code, language = "json", tone = "light", title, clas
   const map = slate ? SLATE : LIGHT;
   return (
     <div className={cn("overflow-hidden rounded-lg border", slate ? "border-slate-2 bg-slate text-slate-ink" : "border-line bg-panel text-ink", className)}>
-      {(title || true) && (
-        <div className={cn("flex items-center justify-between border-b px-3 py-1.5", slate ? "border-slate-2 bg-slate-2" : "border-line bg-panel-strong/60")}>
-          <span className={cn("kicker", slate && "text-slate-muted")}>{title ?? language.toUpperCase()}</span>
-          <CopyButton text={code} className={cn("size-6", slate && "text-slate-muted hover:text-slate-ink")} />
-        </div>
-      )}
+      <div className={cn("flex items-center justify-between border-b px-3 py-1.5", slate ? "border-slate-2 bg-slate-2" : "border-line bg-panel-strong/60")}>
+        <span className={cn("kicker", slate && "text-slate-muted")}>{title ?? language.toUpperCase()}</span>
+        <CopyButton text={code} className={cn("size-6", slate && "text-slate-muted hover:text-slate-ink")} />
+      </div>
       <pre className="max-h-[480px] overflow-auto px-3 py-2.5 font-mono text-[13px] leading-relaxed">
         <code>
           {language === "json" ? tokenizeJson(code).map((t, i) => <span key={i} className={map[t.kind]}>{t.text}</span>) : language === "http" ? <Http code={code} slate={slate} /> : code}

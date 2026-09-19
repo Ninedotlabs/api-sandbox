@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { InlineEdit } from "./inline-edit";
 
@@ -16,4 +16,24 @@ it("edits on click, validates, saves on Enter and cancels on Escape", async () =
   await user.click(screen.getByRole("button", { name: "Resource name: Product" }));
   await user.keyboard("{Escape}");
   expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+});
+
+it("keeps the editor open with the draft intact and shows the error when a blur races an in-flight save", async () => {
+  const user = userEvent.setup();
+  const onSave = vi.fn(
+    () =>
+      new Promise<void>((_, reject) => {
+        setTimeout(() => reject(new Error("Could not save.")), 0);
+      }),
+  );
+  render(<InlineEdit value="Product" ariaLabel="Resource name" onSave={onSave} />);
+  await user.click(screen.getByRole("button", { name: "Resource name: Product" }));
+  const input = screen.getByRole("textbox", { name: "Resource name" });
+  await user.clear(input);
+  await user.type(input, "Item");
+  await user.keyboard("{Enter}");
+  // The commit from Enter is still in flight; a blur that races it must not close the editor.
+  fireEvent.blur(input);
+  expect(await screen.findByRole("alert")).toHaveTextContent("Could not save.");
+  expect(screen.getByRole("textbox", { name: "Resource name" })).toHaveValue("Item");
 });

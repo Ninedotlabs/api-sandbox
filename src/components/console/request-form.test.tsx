@@ -14,12 +14,14 @@ const product = {
   ],
 };
 const routes = buildCrudRoutes(product, ["create", "get"], []);
+const create = routes.find((r) => r.action === "create")!;
+const get = routes.find((r) => r.action === "get")!;
 const project: Project = { id: "p1", name: "Store", slug: "store", description: "", models: [product], routes, createdAt: "", updatedAt: "" };
 
 it("builds the body from a schema form", async () => {
   const user = userEvent.setup();
   const onSend = vi.fn();
-  renderUi(<RequestForm project={project} route={routes[0]} sending={false} onSend={onSend} />);
+  renderUi(<RequestForm project={project} route={create} sending={false} onSend={onSend} />);
   expect(screen.getByText("/api/store/products")).toBeInTheDocument();
   await user.type(screen.getByLabelText(/^name/), "Lamp");
   await user.type(screen.getByLabelText(/^price/), "25");
@@ -30,7 +32,7 @@ it("builds the body from a schema form", async () => {
 it("reports invalid JSON in advanced mode", async () => {
   const user = userEvent.setup();
   const onSend = vi.fn();
-  renderUi(<RequestForm project={project} route={routes[0]} sending={false} onSend={onSend} />);
+  renderUi(<RequestForm project={project} route={create} sending={false} onSend={onSend} />);
   await user.click(screen.getByRole("switch", { name: "Advanced: JSON" }));
   const box = screen.getByLabelText("Request body JSON");
   await user.clear(box);
@@ -44,7 +46,7 @@ it("reports invalid JSON in advanced mode", async () => {
 it("asks for path values", async () => {
   const user = userEvent.setup();
   const onSend = vi.fn();
-  renderUi(<RequestForm project={project} route={routes[1]} sending={false} onSend={onSend} />);
+  renderUi(<RequestForm project={project} route={get} sending={false} onSend={onSend} />);
   await user.type(screen.getByLabelText("id"), "3");
   expect(screen.getByText("/api/store/products/3")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Send request" }));

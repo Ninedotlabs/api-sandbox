@@ -19,7 +19,13 @@ export function TopBar({ docsHref, showSearch = false }: Props) {
       <Wordmark />
       <div className="flex items-center gap-2">
         {showSearch && (
-          <Button variant="secondary" size="sm" className="gap-2 rounded-xl text-ink-muted" onClick={() => setCommandOpen(true)}>
+          <Button
+            variant="secondary"
+            size="sm"
+            aria-label="Search"
+            className="gap-2 rounded-xl text-ink-muted"
+            onClick={() => setCommandOpen(true)}
+          >
             <Search className="size-4" />
             <span className="hidden sm:inline">Search</span>
             <kbd className="rounded-md bg-card px-1.5 text-[10px]">⌘K</kbd>

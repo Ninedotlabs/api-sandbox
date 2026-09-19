@@ -1,4 +1,5 @@
 import { executeRoute, generateRecords, seedDataset, type Dataset, type EngineResult } from "./mock-engine";
+import { baseUrl } from "./slug";
 import type { Model, Project, Route } from "./types";
 
 const EXAMPLE_SEED = 7;
@@ -24,4 +25,12 @@ export function exampleResponse(route: Route, project: Project): EngineResult {
   const model = project.models.find((m) => m.id === route.modelId);
   const body = model && hasBody(route) ? bodyFrom(model, dataset) : undefined;
   return executeRoute(project, route, { params: { id: "1" }, query: {}, body }, dataset);
+}
+
+/** The example request as an HTTP message: request line, headers, then the body when there is one. */
+export function exampleRequestText(route: Route, project: Project): string {
+  const body = exampleRequest(route, project);
+  const lines = [`${route.method} ${baseUrl(project.slug)}${route.path}`];
+  if (body) lines.push("Content-Type: application/json", "", JSON.stringify(body, null, 2));
+  return lines.join("\n");
 }

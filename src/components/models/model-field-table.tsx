@@ -41,11 +41,11 @@ export function ModelFieldTable({ model, models, onSave }: Props) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="overflow-x-auto rounded-2xl border bg-surface">
+    <div className="space-y-3">
+      <div className="overflow-x-auto rounded-lg border border-line bg-surface">
         <Table>
           <TableHeader>
-            <TableRow className="bg-panel">
+            <TableRow className="bg-panel-strong/60">
               <TableHead className="w-8">
                 <span className="sr-only">Reorder</span>
               </TableHead>
@@ -90,10 +90,11 @@ export function ModelFieldTable({ model, models, onSave }: Props) {
           </TableBody>
         </Table>
       </div>
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {dirty && <span className="mr-auto text-sm text-warning">You have unsaved changes</span>}
+      <div className="sticky bottom-0 flex flex-wrap items-center justify-end gap-2 border-t border-line bg-surface py-2">
+        {dirty && <span className="mr-auto text-xs text-warning">You have unsaved changes</span>}
         <Button
           variant="outline"
+          size="sm"
           disabled={!dirty || saving}
           onClick={() => {
             setFields(model.fields);
@@ -102,7 +103,7 @@ export function ModelFieldTable({ model, models, onSave }: Props) {
         >
           Discard
         </Button>
-        <Button disabled={!dirty || saving} onClick={save}>
+        <Button size="sm" disabled={!dirty || saving} onClick={save}>
           {saving ? "Saving…" : "Save fields"}
         </Button>
       </div>

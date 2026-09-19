@@ -2,7 +2,7 @@ import { Play } from "lucide-react";
 import Link from "next/link";
 import { CodeBlock } from "@/components/domain/code-block";
 import { MethodBadge } from "@/components/domain/method-badge";
-import { PathPreview } from "@/components/routes/path-preview";
+import { PathText } from "@/components/domain/method-label";
 import { Button } from "@/components/ui/button";
 import type { DocEndpoint } from "@/lib/docs";
 import { routeParams } from "@/lib/paths";
@@ -15,7 +15,7 @@ export function EndpointDoc({ endpoint, slug, tryHref }: { endpoint: DocEndpoint
       <div className="flex flex-wrap items-center gap-3">
         <MethodBadge method={route.method} />
         <code className="font-mono text-sm">{`/api/${slug}`}</code>
-        <PathPreview base="" path={route.path} />
+        <PathText path={route.path} />
         <Button variant="outline" size="sm" className="ml-auto" asChild>
           <Link href={tryHref}>
             <Play className="size-4" /> Try it

@@ -60,7 +60,7 @@ function FieldSettings({ field, models, onChange }: Pick<Props, "field" | "model
       </Select>
     );
   }
-  return <span className="text-xs text-muted-foreground">{fieldTypeMeta(field.type).description}</span>;
+  return <span className="text-xs text-ink-3">{fieldTypeMeta(field.type).description}</span>;
 }
 
 export function FieldRow(props: Props) {
@@ -85,7 +85,7 @@ export function FieldRow(props: Props) {
             }
           }}
           aria-label={`Reorder ${label}. Use arrow keys to move`}
-          className="cursor-grab rounded p-1 text-muted-foreground hover:text-foreground"
+          className="cursor-grab rounded-sm p-1 text-ink-3 hover:text-ink"
         >
           <GripVertical className="size-4" />
         </button>
@@ -100,7 +100,7 @@ export function FieldRow(props: Props) {
           onChange={(e) => onChange({ name: e.target.value })}
         />
         {error && (
-          <p role="alert" className="mt-1 text-xs text-destructive">
+          <p role="alert" className="mt-1 text-xs text-danger">
             {error}
           </p>
         )}

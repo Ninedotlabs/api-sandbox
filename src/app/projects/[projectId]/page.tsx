@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Kicker } from "@/components/domain/kicker";
+import { EndpointEditor } from "@/components/editor/endpoint-editor";
 import { LifecycleGuide } from "@/components/editor/lifecycle-guide";
+import { ResourceEditor } from "@/components/editor/resource-editor";
 import { ApiTree } from "@/components/rail/api-tree";
 import { WorkspaceShell } from "@/components/shell/workspace-shell";
 import { useWorkspace } from "@/components/workspace/workspace-context";
@@ -21,8 +23,10 @@ function Editor({ onAddResource }: { onAddResource: () => void }) {
     onAddResource();
   }
 
-  if (selection?.kind === "resource") return <p className="p-6 text-sm text-ink-3">Resource editor (Task 6)</p>;
-  if (selection?.kind === "endpoint") return <p className="p-6 text-sm text-ink-3">Endpoint editor (Task 6)</p>;
+  const model = selection?.kind === "resource" ? project.models.find((m) => m.id === selection.id) : null;
+  if (model) return <ResourceEditor key={model.id} model={model} />;
+  const route = selection?.kind === "endpoint" ? project.routes.find((r) => r.id === selection.id) : null;
+  if (route) return <EndpointEditor key={route.id} route={route} />;
 
   return (
     <LifecycleGuide

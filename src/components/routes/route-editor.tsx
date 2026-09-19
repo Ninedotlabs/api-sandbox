@@ -1,20 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { CodeBlock } from "@/components/domain/code-block";
+import { useState } from "react";
 import { HelpHint } from "@/components/domain/help-hint";
+import { PathText } from "@/components/domain/method-label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ACTION_META, ACTIONS } from "@/lib/actions";
-import { exampleResponse } from "@/lib/examples";
 import { METHOD_META, METHODS } from "@/lib/methods";
 import { baseUrl } from "@/lib/slug";
 import type { HttpMethod, Project, Route, RouteAction } from "@/lib/types";
 import { validateRoute } from "@/lib/validation";
-import { PathPreview } from "./path-preview";
 
 const NONE = "none";
 
@@ -24,12 +22,13 @@ interface Props {
   onSave: (route: Route) => Promise<void> | void;
 }
 
+/** The shape of one endpoint: action, resource, method, path and list filters. */
 export function RouteEditor({ project, route, onSave }: Props) {
   const [draft, setDraft] = useState<Route>(route);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const model = project.models.find((m) => m.id === draft.modelId) ?? null;
-  const preview = useMemo(() => exampleResponse(draft, project), [draft, project]);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(route);
 
   const set = (patch: Partial<Route>) => {
     setDraft((d) => ({ ...d, ...patch }));
@@ -52,14 +51,19 @@ export function RouteEditor({ project, route, onSave }: Props) {
   }
 
   return (
-    <form onSubmit={save} className="grid gap-6 lg:grid-cols-[1fr_380px]">
-      <div className="space-y-5 rounded-2xl border bg-panel/50 p-5">
-        <div className="space-y-2">
+    <form onSubmit={save} className="space-y-4 rounded-lg border border-line bg-panel/60 p-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
           <Label htmlFor="route-name">Friendly name</Label>
-          <Input id="route-name" value={draft.description} placeholder="List all customers" onChange={(e) => set({ description: e.target.value })} />
+          <Input
+            id="route-name"
+            value={draft.description}
+            placeholder="List all customers"
+            onChange={(e) => set({ description: e.target.value })}
+          />
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <Label htmlFor="route-action" className="flex items-center gap-1.5">
             What should it do?
             <HelpHint term="an action">
@@ -84,11 +88,11 @@ export function RouteEditor({ project, route, onSave }: Props) {
               ))}
             </SelectContent>
           </Select>
-          <p className="text-xs text-muted-foreground">{ACTION_META[draft.action].description}</p>
+          <p className="text-xs text-ink-3">{ACTION_META[draft.action].description}</p>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="route-model">Which model?</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="route-model">Which resource?</Label>
           <Select value={draft.modelId ?? NONE} onValueChange={(v) => set({ modelId: v === NONE ? null : v, filters: [] })}>
             <SelectTrigger id="route-model" className="w-full">
               <SelectValue />
@@ -104,85 +108,84 @@ export function RouteEditor({ project, route, onSave }: Props) {
           </Select>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-[160px_1fr]">
-          <div className="space-y-2">
-            <Label htmlFor="route-method" className="flex items-center gap-1.5">
-              Method
-              <HelpHint term="a method">GET reads data, POST creates, PUT and PATCH update, DELETE removes.</HelpHint>
-            </Label>
-            <Select value={draft.method} onValueChange={(v) => set({ method: v as HttpMethod })}>
-              <SelectTrigger id="route-method" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {METHODS.map((m) => (
-                  <SelectItem key={m} value={m}>
-                    <span className="font-mono">{m}</span>
-                    <span className="text-muted-foreground">· {METHOD_META[m].label}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="route-path">Path</Label>
-            <Input
-              id="route-path"
-              value={draft.path}
-              className="font-mono"
-              aria-invalid={!!error}
-              aria-describedby="route-path-preview"
-              onChange={(e) => set({ path: e.target.value })}
-            />
-            <p id="route-path-preview" className="break-all text-xs text-muted-foreground">
-              Full address: <PathPreview base={baseUrl(project.slug)} path={draft.path} />
-            </p>
-          </div>
-        </div>
-
-        {draft.action === "list" && model && model.fields.length > 0 && (
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-medium">Let callers filter by</legend>
-            <div className="flex flex-wrap gap-4">
-              {model.fields.map((f) => (
-                <label key={f.id} className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={draft.filters.includes(f.name)}
-                    onCheckedChange={(v) =>
-                      set({ filters: v === true ? [...draft.filters, f.name] : draft.filters.filter((x) => x !== f.name) })
-                    }
-                  />
-                  <span className="font-mono">{f.name}</span>
-                </label>
+        <div className="space-y-1.5">
+          <Label htmlFor="route-method" className="flex items-center gap-1.5">
+            Method
+            <HelpHint term="a method">GET reads data, POST creates, PUT and PATCH update, DELETE removes.</HelpHint>
+          </Label>
+          <Select value={draft.method} onValueChange={(v) => set({ method: v as HttpMethod })}>
+            <SelectTrigger id="route-method" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {METHODS.map((m) => (
+                <SelectItem key={m} value={m}>
+                  <span className="font-mono">{m}</span>
+                  <span className="text-ink-3">· {METHOD_META[m].label}</span>
+                </SelectItem>
               ))}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Example: <code className="font-mono">?{draft.filters[0] ?? model.fields[0].name}=value</code>
-            </p>
-          </fieldset>
-        )}
-
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <div className="flex justify-end">
-          <Button type="submit" disabled={saving}>
-            {saving ? "Saving…" : "Save route"}
-          </Button>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      <aside className="space-y-2">
-        <h3 className="text-sm font-medium">Response preview</h3>
-        <p className="text-xs text-muted-foreground">An example of what callers get back (status {preview.status}).</p>
-        {preview.body === null ? (
-          <CodeBlock code="(empty: 204 No Content)" language="text" />
-        ) : (
-          <CodeBlock code={JSON.stringify(preview.body, null, 2)} />
-        )}
-      </aside>
+      <div className="space-y-1.5">
+        <Label htmlFor="route-path">Path</Label>
+        <Input
+          id="route-path"
+          value={draft.path}
+          className="font-mono"
+          aria-invalid={!!error}
+          aria-describedby="route-path-preview"
+          onChange={(e) => set({ path: e.target.value })}
+        />
+        <p id="route-path-preview" className="flex flex-wrap items-center gap-1 break-all text-xs text-ink-3">
+          Full address:
+          <span className="font-mono text-ink-2">{baseUrl(project.slug)}</span>
+          <PathText path={draft.path} className="text-ink-2" />
+        </p>
+      </div>
+
+      {draft.action === "list" && model && model.fields.length > 0 && (
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">Let callers filter by</legend>
+          <div className="flex flex-wrap gap-4">
+            {model.fields.map((f) => (
+              <label key={f.id} className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={draft.filters.includes(f.name)}
+                  onCheckedChange={(v) =>
+                    set({ filters: v === true ? [...draft.filters, f.name] : draft.filters.filter((x) => x !== f.name) })
+                  }
+                />
+                <span className="font-mono">{f.name}</span>
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-ink-3">
+            Example: <code className="font-mono">?{draft.filters[0] ?? model.fields[0].name}=value</code>
+          </p>
+        </fieldset>
+      )}
+
+      {(!model || draft.action === "custom") && (
+        <p className="text-xs text-warning">
+          This route has no model action yet. Link it to a model to return data.
+        </p>
+      )}
+
+      {error && (
+        <p role="alert" className="text-sm text-danger">
+          {error}
+        </p>
+      )}
+
+      <div className="flex items-center justify-end gap-2">
+        {dirty && <span className="mr-auto text-xs text-warning">Unsaved changes</span>}
+        <Button type="submit" size="sm" disabled={saving || !dirty}>
+          {saving ? "Saving…" : "Save route"}
+        </Button>
+      </div>
     </form>
   );
 }

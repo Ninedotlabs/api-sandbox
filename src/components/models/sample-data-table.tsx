@@ -32,13 +32,10 @@ export function SampleDataTable({ projectId, model }: { projectId: string; model
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        This is example data, generated to match your fields. Use the Test console to add or change records.
-      </p>
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No sample records yet.</p>
+        <p className="text-sm text-ink-3">No sample records yet.</p>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border bg-surface">
+        <div className="overflow-x-auto rounded-lg border border-line bg-surface">
           <Table>
             <TableHeader>
               <TableRow className="bg-panel">

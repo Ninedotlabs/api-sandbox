@@ -1,5 +1,6 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { buildCrudRoutes } from "@/lib/crud";
 import type { Model, Project, Route } from "@/lib/types";
 import { useProjectStore } from "@/store/project-store";
@@ -24,7 +25,30 @@ it("adds only the missing standard endpoints that are still ticked", async () =>
   expect(routes.map((r) => r.action)).toEqual(["get", "create", "update"]);
 });
 
-it("creates a custom route and opens its editor", async () => {
+it("excludes already-created actions from the count after the project updates", async () => {
+  const user = userEvent.setup();
+  const addRoutes = vi.fn().mockResolvedValue(undefined);
+  useProjectStore.setState({ addRoutes, saveRoute: vi.fn(), deleteRoute: vi.fn(), restoreRoute: vi.fn() } as never);
+  const { rerender } = renderUi(<ResourceRoutesPanel project={project} model={product} />);
+  await user.click(screen.getByRole("button", { name: "Add 4 endpoints" }));
+
+  const created = buildCrudRoutes(product, ["get", "create"], project.routes);
+  const updatedProject: Project = { ...project, routes: [...project.routes, ...created] };
+  rerender(
+    <TooltipProvider>
+      <ResourceRoutesPanel project={updatedProject} model={product} />
+    </TooltipProvider>,
+  );
+
+  expect(screen.queryByRole("button", { name: "Add 4 endpoints" })).not.toBeInTheDocument();
+  const button = screen.getByRole("button", { name: "Add 2 endpoints" });
+  expect(button).not.toBeDisabled();
+  await user.click(button);
+  const routes = addRoutes.mock.calls[1][1] as Route[];
+  expect(routes.map((r) => r.action)).toEqual(["update", "delete"]);
+});
+
+it("creates a custom route", async () => {
   const user = userEvent.setup();
   const addRoutes = vi.fn().mockResolvedValue(undefined);
   useProjectStore.setState({ addRoutes, saveRoute: vi.fn(), deleteRoute: vi.fn(), restoreRoute: vi.fn() } as never);

@@ -3,7 +3,7 @@
 import { Play, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { RequestForm } from "@/components/console/request-form";
 import { ResponseViewer } from "@/components/console/response-viewer";
@@ -27,6 +27,17 @@ function Console() {
   const [response, setResponse] = useState<TestResponse | null>(null);
   const [sending, setSending] = useState(false);
   const route = project.routes.find((r) => r.id === routeId) ?? null;
+
+  useEffect(() => {
+    const nextRequested = params.get("route");
+    // Syncs local selection with the ?route= URL param on every navigation, not just cold mount.
+    if (nextRequested && project.routes.some((r) => r.id === nextRequested)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRouteId(nextRequested);
+      setResponse(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
 
   async function send(request: Omit<TestRequest, "routeId">) {
     if (!route) return;

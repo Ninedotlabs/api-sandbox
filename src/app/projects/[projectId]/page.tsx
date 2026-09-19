@@ -30,6 +30,13 @@ function Build() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const modelIds = project.models.map((m) => m.id).join(",");
 
+  useEffect(() => {
+    const requested = params.get("model");
+    // Syncs local panel state with the ?model= URL param on every navigation, not just cold mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (requested) setOpen((o) => ({ ...o, [requested]: "fields" }));
+  }, [params]);
+
   const fetchCounts = useCallback(async () => {
     const entries = await Promise.all(
       project.models.map(async (m) => [m.id, (await consoleService.sampleData(project.id, m.id)).length] as const),

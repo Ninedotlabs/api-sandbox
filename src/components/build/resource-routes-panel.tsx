@@ -22,11 +22,13 @@ export function ResourceRoutesPanel({ project, model }: { project: Project; mode
   const missing = options.filter((o) => !exists(o));
   const [selected, setSelected] = useState<CrudAction[]>(() => missing.map((o) => o.action));
   const [busy, setBusy] = useState(false);
+  const effective = selected.filter((a) => missing.some((o) => o.action === a));
 
   async function addStandard() {
+    if (effective.length === 0) return;
     setBusy(true);
     try {
-      const next = buildCrudRoutes(model, selected, project.routes);
+      const next = buildCrudRoutes(model, effective, project.routes);
       await addRoutes(project.id, next);
       toast.success(`${countLabel(next.length, "endpoint")} created`);
     } catch (e) {
@@ -82,8 +84,8 @@ export function ResourceRoutesPanel({ project, model }: { project: Project; mode
               );
             })}
           </ul>
-          <Button size="sm" className="mt-3 rounded-xl" disabled={selected.length === 0 || busy} onClick={addStandard}>
-            Add {countLabel(selected.length, "endpoint")}
+          <Button size="sm" className="mt-3 rounded-xl" disabled={effective.length === 0 || busy} onClick={addStandard}>
+            Add {countLabel(effective.length, "endpoint")}
           </Button>
         </div>
       )}

@@ -2,7 +2,7 @@
 
 import { Send } from "lucide-react";
 import { useState } from "react";
-import { MethodBadge } from "@/components/domain/method-badge";
+import { MethodLabel } from "@/components/domain/method-label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,11 @@ interface Props {
   route: Route;
   sending: boolean;
   onSend: (request: Omit<TestRequest, "routeId">) => void;
+  /**
+   * Values to start from — an example body from the editor, or a replayed request from the log.
+   * Read once, so the caller remounts the form (a new `key`) to load a different draft.
+   */
+  initial?: Partial<Omit<TestRequest, "routeId">>;
 }
 
 const INPUT_TYPE: Partial<Record<Field["type"], string>> = { number: "number", date: "date", email: "email", url: "url" };
@@ -78,20 +83,25 @@ function FieldInput({ field, project, value, onChange }: {
   );
 }
 
-export function RequestForm({ project, route, sending, onSend }: Props) {
+export function RequestForm({ project, route, sending, onSend, initial }: Props) {
   const model = project.models.find((m) => m.id === route.modelId) ?? null;
   const params = routeParams(route.path);
   const bodyModel = model && (route.action === "create" || route.action === "update") ? model : null;
-  const [paramValues, setParamValues] = useState<Record<string, string>>({});
-  const [query, setQuery] = useState<Record<string, string>>({});
+  const [paramValues, setParamValues] = useState<Record<string, string>>(() => ({ ...initial?.params }));
+  const [query, setQuery] = useState<Record<string, string>>(() => ({ ...initial?.query }));
   // Untouched Yes/No switches read as "No", so a new record sends false rather than leaving the field out.
   const defaults: FormValues =
     bodyModel && route.action === "create"
       ? Object.fromEntries(bodyModel.fields.filter((f) => f.type === "boolean").map((f) => [f.name, false]))
       : {};
-  const [values, setValues] = useState<FormValues>(defaults);
+  const [values, setValues] = useState<FormValues>(() => ({
+    ...defaults,
+    ...(bodyModel && initial?.body !== undefined && initial.body !== null ? valuesFromBody(bodyModel, initial.body) : {}),
+  }));
   const [jsonMode, setJsonMode] = useState(false);
-  const [rawJson, setRawJson] = useState("{}");
+  const [rawJson, setRawJson] = useState(() =>
+    bodyModel && initial?.body !== undefined && initial.body !== null ? JSON.stringify(initial.body, null, 2) : "{}",
+  );
   const [jsonError, setJsonError] = useState<string | null>(null);
 
   const cleanQuery = Object.fromEntries(Object.entries(query).filter(([, v]) => v !== ""));
@@ -117,6 +127,17 @@ export function RequestForm({ project, route, sending, onSend }: Props) {
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    send();
+  }
+
+  // ⌘↵ / Ctrl+↵ sends from anywhere in the form, including the JSON textarea where ↵ is a newline.
+  function onKeyDown(e: React.KeyboardEvent<HTMLFormElement>) {
+    if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey) || sending) return;
+    e.preventDefault();
+    send();
+  }
+
+  function send() {
     let body: unknown = undefined;
     if (bodyModel) {
       if (jsonMode) {
@@ -134,15 +155,15 @@ export function RequestForm({ project, route, sending, onSend }: Props) {
   }
 
   return (
-    <form onSubmit={submit} noValidate className="space-y-5">
-      <div className="flex items-center gap-2 rounded-xl border bg-panel p-2">
-        <MethodBadge method={route.method} />
-        <span className="min-w-0 break-all font-mono text-sm">{url}</span>
+    <form onSubmit={submit} onKeyDown={onKeyDown} noValidate className="space-y-4">
+      <div className="flex items-center gap-2 rounded-md border border-line bg-panel-strong/60 p-1.5">
+        <MethodLabel method={route.method} />
+        <span className="min-w-0 break-all font-mono text-[13px]">{url}</span>
       </div>
 
       {params.length > 0 && (
         <fieldset className="space-y-3">
-          <legend className="text-sm font-medium">Which record?</legend>
+          <legend className="text-[13px] font-medium text-ink-2">Which record?</legend>
           {params.map((p) => (
             <div key={p} className="space-y-1.5">
               <Label htmlFor={`param-${p}`} className="font-mono">
@@ -161,7 +182,7 @@ export function RequestForm({ project, route, sending, onSend }: Props) {
 
       {route.action === "list" && route.filters.length > 0 && (
         <fieldset className="space-y-3">
-          <legend className="text-sm font-medium">Filters (optional)</legend>
+          <legend className="text-[13px] font-medium text-ink-2">Filters (optional)</legend>
           {route.filters.map((f) => (
             <div key={f} className="space-y-1.5">
               <Label htmlFor={`query-${f}`} className="font-mono">
@@ -176,7 +197,7 @@ export function RequestForm({ project, route, sending, onSend }: Props) {
       {bodyModel && (
         <fieldset className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <legend className="text-sm font-medium">Data to send</legend>
+            <legend className="text-[13px] font-medium text-ink-2">Data to send</legend>
             <div className="flex items-center gap-2">
               <Switch id="json-mode" checked={jsonMode} onCheckedChange={toggleJson} />
               <Label htmlFor="json-mode" className="text-xs text-muted-foreground">
@@ -215,9 +236,12 @@ export function RequestForm({ project, route, sending, onSend }: Props) {
         </fieldset>
       )}
 
-      <Button type="submit" disabled={sending} className="w-full sm:w-auto">
-        <Send className="size-4" /> {sending ? "Sending…" : "Send request"}
-      </Button>
+      <div className="flex items-center gap-3">
+        <Button type="submit" size="sm" disabled={sending}>
+          <Send className="size-4" /> {sending ? "Sending…" : "Send request"}
+        </Button>
+        <kbd className="font-mono text-[11px] text-ink-3">{"⌘↵"}</kbd>
+      </div>
     </form>
   );
 }

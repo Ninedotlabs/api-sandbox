@@ -101,4 +101,19 @@
 
 @layer components {
   .kicker { @apply font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3; }
+
+  /* The console's mock-server strip: a packet crossing the track while a request is in flight,
+     then a tick that fades out once it lands. Both are CSS only, so reduced motion shortens them. */
+  .animate-packet { animation: packet 600ms linear infinite; }
+  .animate-delivered { animation: delivered 400ms linear forwards; }
+}
+
+@keyframes packet {
+  from { left: 0; }
+  to { left: calc(100% - 6px); }
+}
+
+@keyframes delivered {
+  0%, 80% { opacity: 1; }
+  100% { opacity: 0; }
 }

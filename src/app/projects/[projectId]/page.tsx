@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Kicker } from "@/components/domain/kicker";
+import { ConsolePanel } from "@/components/console/console-panel";
 import { EndpointEditor } from "@/components/editor/endpoint-editor";
 import { LifecycleGuide } from "@/components/editor/lifecycle-guide";
 import { ResourceEditor } from "@/components/editor/resource-editor";
@@ -46,16 +46,6 @@ function Editor({ onAddResource }: { onAddResource: () => void }) {
         respond: () => router.push(`/projects/${project.id}/reference`),
       }}
     />
-  );
-}
-
-// The console pane lands in Task 7.
-function ConsolePanel() {
-  return (
-    <div className="p-4">
-      <Kicker>Console</Kicker>
-      <p className="mt-2 text-sm text-ink-3">The console lands next.</p>
-    </div>
   );
 }
 

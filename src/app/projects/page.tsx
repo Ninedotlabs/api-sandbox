@@ -17,13 +17,9 @@ export default function ProjectsPage() {
   const router = useRouter();
 
   async function create(input: CreateProjectInput) {
-    try {
-      const project = await createProject(input);
-      toast.success(`${project.name} is ready`);
-      router.push(`/projects/${project.id}`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not create the API.");
-    }
+    const project = await createProject(input);
+    toast.success(`${project.name} is ready`);
+    router.push(`/projects/${project.id}`);
   }
 
   return (

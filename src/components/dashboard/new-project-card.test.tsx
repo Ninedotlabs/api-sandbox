@@ -21,3 +21,13 @@ it("shows validation inline", async () => {
   expect(screen.getByRole("alert")).toHaveTextContent("Give your API a name.");
   expect(onCreate).not.toHaveBeenCalled();
 });
+
+it("surfaces a creation error inline and keeps the typed name", async () => {
+  const user = userEvent.setup();
+  const onCreate = vi.fn().mockRejectedValue(new Error("boom"));
+  render(<NewProjectCard existingProjects={[]} onCreate={onCreate} />);
+  await user.type(screen.getByLabelText("New API name"), "My Store");
+  await user.click(screen.getByRole("button", { name: "Create" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("boom");
+  expect(screen.getByLabelText("New API name")).toHaveValue("My Store");
+});

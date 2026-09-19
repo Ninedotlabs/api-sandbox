@@ -1,5 +1,7 @@
 # Universal API Builder: UI Design Plan (frontend only, mock data)
 
+> Visual system and shell superseded by `2026-09-20-paper-and-ink-redesign.md`.
+
 ## Context
 The goal is a "universal API" builder where **no-code users** can create data models, pick HTTP methods, set up routes, test them, and read auto-generated docs, all from a UI. This phase covers only the **design system, user journey and UI features**. It runs in **Next.js with mock data**. A Node/Express backend comes later, so the frontend talks to data through a service layer that can later point to real HTTP calls without changes to the UI.
 

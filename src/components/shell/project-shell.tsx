@@ -6,6 +6,7 @@ import type { Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/store/ui-store";
 import { AppSidebar } from "./app-sidebar";
+import { CommandPalette } from "./command-palette";
 import { Logo } from "./logo";
 import { TopBar } from "./top-bar";
 
@@ -42,6 +43,7 @@ export function ProjectShell({ project, children }: { project: Project; children
         <TopBar project={project} />
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>
       </div>
+      <CommandPalette project={project} />
     </div>
   );
 }

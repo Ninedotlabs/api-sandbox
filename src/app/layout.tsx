@@ -18,7 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${inter.variable} ${mono.variable}`} suppressHydrationWarning>
       <body>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
-          <TooltipProvider delay={200}>{children}</TooltipProvider>
+          <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
           <Toaster />
         </ThemeProvider>
       </body>

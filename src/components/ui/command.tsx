@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Command as CommandPrimitive } from "cmdk"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import {
   Dialog,
@@ -40,12 +40,11 @@ function CommandDialog({
   className,
   showCloseButton = false,
   ...props
-}: Omit<React.ComponentProps<typeof Dialog>, "children"> & {
+}: React.ComponentProps<typeof Dialog> & {
   title?: string
   description?: string
   className?: string
   showCloseButton?: boolean
-  children: React.ReactNode
 }) {
   return (
     <Dialog {...props}>

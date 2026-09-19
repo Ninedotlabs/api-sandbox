@@ -26,8 +26,10 @@ export function crudOptions(model: Model): CrudOption[] {
 }
 
 export function buildCrudRoutes(model: Model, actions: CrudAction[], existing: Route[]): Route[] {
-  return crudOptions(model)
-    .filter((o) => actions.includes(o.action))
+  const options = crudOptions(model);
+  return actions
+    .map((action) => options.find((o) => o.action === action))
+    .filter((o): o is CrudOption => !!o)
     .filter((o) => !existing.some((r) => r.method === o.method && r.path === o.path))
     .map((o) => ({
       id: createId("rt"),

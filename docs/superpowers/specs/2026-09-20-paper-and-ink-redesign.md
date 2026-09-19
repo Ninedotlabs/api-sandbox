@@ -114,3 +114,13 @@ Pure logic additions (`src/lib`): `generateAllCrud(project): Route[]` (routes to
 - Component tests (React Testing Library): `new-project-card` (create with template, validation), `resource-card` (opens/closes panels, shows method chips and field count), `resource-routes-panel` (standard-endpoints row adds only missing routes; custom route editor appears inline), `new-model-card` (Enter creates, Escape cancels, validation), `two-step-button`, `url-segments`, `project-tabs` (active state), `project-menu` (two-step delete).
 - Journey test unchanged (it's store-level).
 - Manual: walk Store template → open Product → Fields → add field → Routes → add standard endpoints → Test 400/201 → Docs. Phone width. Keyboard through the new-project card and resource card buttons. Lighthouse a11y ≥ 95.
+
+## Revision: calm pass (2026-09-20)
+After a first look the UI felt busy and hard to read. Changes, now in the code:
+- Grid: 64px cells at 5% ink (was 32px, `#E9E9E4`). Base type 15px / line-height 1.6; buttons 40px tall (sm 36px).
+- Getting-started strip: a single sentence ("Step 2 of 5 · Add fields …") with one button; the button performs the step on the page (opens the right panel or the new-model card) instead of linking.
+- Resource cards are white cards with a shadow (dashed is only for the new-item placeholders). Two-line header: name, then "4 fields · no routes yet · 5 sample records", plus a one-line hint when there is nothing yet. The record bar is gone. Panel buttons: Fields · Routes · Sample data.
+- Endpoint card is titled "Your API lives at" with the URL as pills only; actions are "New model", "Create all endpoints", "Reset sample data".
+- Top bar has no Docs link inside a project (the tab covers it). Empty-state titles are plain bold; the script face stays for the wordmark and the "Let's make an API" headline.
+- New-API card is titled "Create a new API" with a "Start from" chip row; project cards no longer stretch to the tallest card.
+- Test page: route picker 300px wide; JSON tree opens three levels so records are visible.

@@ -6,7 +6,7 @@ interface Props {
   className?: string;
 }
 
-const PILL = "rounded-md px-1.5 py-0.5 font-semibold";
+const PILL = "rounded-lg px-2 py-1 font-semibold";
 
 export function UrlSegments({ slug, tail, className }: Props) {
   return (

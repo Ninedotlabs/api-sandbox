@@ -45,7 +45,7 @@ export default function ProjectsPage() {
             <h1 className="mb-4 text-xl font-semibold">
               Your APIs <span className="text-ink-muted">· {countLabel(projects.length, "API")}</span>
             </h1>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <NewProjectCard existingProjects={projects} onCreate={create} />
               {projects.map((p) => (
                 <ProjectCard key={p.id} project={p} />

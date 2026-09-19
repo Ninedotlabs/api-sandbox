@@ -83,7 +83,20 @@ function Build() {
 
   return (
     <div className="space-y-5">
-      <GettingStartedStrip steps={steps} />
+      <GettingStartedStrip
+        steps={steps}
+        actions={{
+          model: () => setAdding(true),
+          fields: () => {
+            const target = project.models.find((m) => m.fields.length === 0) ?? project.models[0];
+            if (target) setOpen((o) => ({ ...o, [target.id]: "fields" }));
+          },
+          routes: () => {
+            const target = project.models.find((m) => !project.routes.some((r) => r.modelId === m.id)) ?? project.models[0];
+            if (target) setOpen((o) => ({ ...o, [target.id]: "routes" }));
+          },
+        }}
+      />
       <EndpointCard
         project={project}
         generateCount={pending.length}

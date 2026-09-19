@@ -46,14 +46,15 @@ export function NewProjectCard({ existingProjects, onCreate, autoFocus }: Props)
   return (
     <SketchCard className="p-5">
       <form onSubmit={submit} className="flex h-full flex-col gap-3">
-        <label htmlFor="new-project-name" className="text-sm font-semibold">
+        <h2 className="text-base font-semibold">Create a new API</h2>
+        <label htmlFor="new-project-name" className="sr-only">
           New API name
         </label>
         <Input
           id="new-project-name"
           autoFocus={autoFocus}
           value={name}
-          placeholder="My Store"
+          placeholder="Name it, like My Store"
           aria-invalid={!!error}
           onChange={(e) => {
             setName(e.target.value);
@@ -61,7 +62,8 @@ export function NewProjectCard({ existingProjects, onCreate, autoFocus }: Props)
           }}
         />
         <UrlSegments slug={slugify(name) || "your-api"} className="text-xs" />
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Starting point">
+        <p className="text-xs text-ink-muted">Start from</p>
+        <div className="-mt-1.5 flex flex-wrap gap-1.5" role="group" aria-label="Starting point">
           <button
             type="button"
             aria-pressed={templateId === null}

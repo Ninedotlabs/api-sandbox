@@ -15,7 +15,7 @@ interface Props {
 export function TopBar({ docsHref, showSearch = false }: Props) {
   const setCommandOpen = useUiStore((s) => s.setCommandOpen);
   return (
-    <header className="mx-auto flex h-16 max-w-[1180px] items-center justify-between px-4 md:px-8">
+    <header className="mx-auto flex h-20 max-w-[1180px] items-center justify-between px-4 md:px-8">
       <Wordmark />
       <div className="flex items-center gap-2">
         {showSearch && (

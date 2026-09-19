@@ -88,7 +88,7 @@ function Console() {
           </Button>
         }
       />
-      <div className="grid gap-6 lg:grid-cols-[240px_1fr] xl:grid-cols-[240px_1fr_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[300px_1fr] xl:grid-cols-[300px_1fr_1fr]">
         <RoutePicker
           project={project}
           selectedId={routeId}

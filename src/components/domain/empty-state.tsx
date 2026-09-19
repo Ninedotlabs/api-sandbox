@@ -13,7 +13,7 @@ export function EmptyState({ icon: Icon, title, description, action }: Props) {
       <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-pastel-blue text-pastel-blue-ink">
         <Icon className="size-6" />
       </div>
-      <h3 className="font-script text-2xl">{title}</h3>
+      <h3 className="text-lg font-semibold">{title}</h3>
       <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>
       {action && <div className="mt-6">{action}</div>}
     </div>

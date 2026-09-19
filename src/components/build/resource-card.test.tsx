@@ -25,9 +25,8 @@ it("shows the summary and toggles panels", async () => {
     <ResourceCard project={project} model={product} recordCount={5} maxCount={10} openPanel={null} onToggle={onToggle} />,
   );
   expect(screen.getByText("1 field")).toBeInTheDocument();
-  expect(screen.getByText("GET")).toBeInTheDocument();
-  expect(screen.getByText("POST")).toBeInTheDocument();
-  expect(screen.getByText("5")).toBeInTheDocument();
+  expect(screen.getByText("2 routes")).toBeInTheDocument();
+  expect(screen.getByText("5 sample records")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Fields" }));
   expect(onToggle).toHaveBeenCalledWith("fields");
 

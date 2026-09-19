@@ -18,7 +18,7 @@ export function JsonTree({ value, name, depth = 0 }: Props) {
     const isArray = Array.isArray(value);
     const entries = isArray ? value.map((v, i) => [String(i), v] as const) : Object.entries(value);
     return (
-      <details open={depth < 2} className="font-mono text-xs">
+      <details open={depth < 3} className="font-mono text-xs">
         <summary className="cursor-pointer select-none hover:text-foreground">
           {label}
           <span className="text-muted-foreground">

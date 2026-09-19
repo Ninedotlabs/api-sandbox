@@ -22,7 +22,7 @@ export function buildChecklist(project: Project, progress: ProjectProgress = {})
       label: "Create a model",
       description: "Decide what your API stores, like Customers or Orders.",
       done: project.models.length > 0,
-      href: `${base}/models`,
+      href: base,
       cta: "Create a model",
     },
     {
@@ -30,7 +30,7 @@ export function buildChecklist(project: Project, progress: ProjectProgress = {})
       label: "Add fields",
       description: "Describe each model with fields such as name or price.",
       done: project.models.some((m) => m.fields.length > 0),
-      href: `${base}/models`,
+      href: base,
       cta: "Add fields",
     },
     {
@@ -38,7 +38,7 @@ export function buildChecklist(project: Project, progress: ProjectProgress = {})
       label: "Generate routes",
       description: "Create the web addresses apps call to use your data.",
       done: project.routes.length > 0,
-      href: `${base}/routes`,
+      href: base,
       cta: "Set up routes",
     },
     {

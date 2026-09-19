@@ -15,5 +15,5 @@ it("opens with Ctrl+K and lists models", async () => {
   fireEvent.keyDown(window, { key: "k", ctrlKey: true });
   expect(await screen.findByPlaceholderText(/Search pages/)).toBeInTheDocument();
   expect(screen.getByText("Customer")).toBeInTheDocument();
-  expect(screen.getByText("Docs")).toBeInTheDocument();
+  expect(screen.getByText("Reference")).toBeInTheDocument();
 });

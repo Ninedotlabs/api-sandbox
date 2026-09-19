@@ -64,7 +64,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="max-w-2xl space-y-8">
+    <div className="mx-auto max-w-4xl space-y-8 px-6 py-10">
       <PageHeader title="Settings" description="Rename your API or change its address." />
       <form onSubmit={save} className="space-y-5 rounded-2xl border bg-surface p-5">
         <div className="space-y-2">

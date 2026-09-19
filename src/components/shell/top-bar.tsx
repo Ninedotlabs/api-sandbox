@@ -1,40 +1,79 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { ListTree, Search, SquareTerminal } from "lucide-react";
 import Link from "next/link";
 import { Wordmark } from "@/components/brand/wordmark";
+import { useWorkspace } from "@/components/workspace/workspace-context";
 import { Button } from "@/components/ui/button";
+import type { Project } from "@/lib/types";
 import { useUiStore } from "@/store/ui-store";
+import { ProjectMenu } from "./project-menu";
+import { ProjectSwitcher } from "./project-switcher";
 import { UserAvatar } from "./user-avatar";
 
-interface Props {
-  docsHref?: string;
-  showSearch?: boolean;
+/** The drawer toggles live in the workspace context, so they only exist inside a project. */
+function DrawerToggles() {
+  const { railOpen, setRailOpen, consoleOpen, setConsoleOpen } = useWorkspace();
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Tree"
+        className="rounded-md text-ink-2 md:hidden"
+        onClick={() => setRailOpen(!railOpen)}
+      >
+        <ListTree className="size-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="gap-1.5 rounded-md px-2 text-ink-2 min-[1100px]:hidden"
+        onClick={() => setConsoleOpen(!consoleOpen)}
+      >
+        <SquareTerminal className="size-4" />
+        Console
+      </Button>
+    </>
+  );
 }
 
-export function TopBar({ docsHref, showSearch = false }: Props) {
+export function TopBar({ project }: { project?: Project }) {
   const setCommandOpen = useUiStore((s) => s.setCommandOpen);
+
   return (
-    <header className="mx-auto flex h-20 max-w-[1180px] items-center justify-between px-4 md:px-8">
+    <header className="flex h-12 items-center gap-2 border-b border-line bg-rail px-3">
       <Wordmark />
-      <div className="flex items-center gap-2">
-        {showSearch && (
-          <Button
-            variant="secondary"
-            size="sm"
-            aria-label="Search"
-            className="gap-2 rounded-xl text-ink-3"
-            onClick={() => setCommandOpen(true)}
-          >
-            <Search className="size-4" />
-            <span className="hidden sm:inline">Search</span>
-            <kbd className="rounded-md bg-surface px-1.5 text-[10px]">⌘K</kbd>
-          </Button>
-        )}
-        {docsHref && (
-          <Link href={docsHref} className="rounded-xl px-3 py-1.5 text-sm hover:bg-panel">
-            Docs
-          </Link>
+      {project && (
+        <>
+          <span aria-hidden className="text-ink-3">
+            /
+          </span>
+          <ProjectSwitcher project={project} />
+        </>
+      )}
+      <div className="ml-auto flex items-center gap-1">
+        {project && (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Search"
+              className="gap-2 rounded-md px-2 text-ink-2"
+              onClick={() => setCommandOpen(true)}
+            >
+              <Search className="size-4" />
+              <kbd className="hidden font-mono text-[11px] text-ink-3 sm:inline">⌘K</kbd>
+            </Button>
+            <Link
+              href={`/projects/${project.id}/reference`}
+              className="rounded-md px-2 py-1 text-sm text-ink-2 transition-colors duration-150 hover:bg-panel hover:text-ink"
+            >
+              Reference
+            </Link>
+            <DrawerToggles />
+            <ProjectMenu project={project} />
+          </>
         )}
         <UserAvatar />
       </div>

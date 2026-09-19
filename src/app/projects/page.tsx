@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { NewProjectCard } from "@/components/dashboard/new-project-card";
 import { ProjectCard } from "@/components/domain/project-card";
-import { DashboardHeader } from "@/components/shell/dashboard-header";
+import { TopBar } from "@/components/shell/top-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { countLabel } from "@/lib/format";
 import type { CreateProjectInput } from "@/lib/services";
@@ -24,7 +24,7 @@ export default function ProjectsPage() {
 
   return (
     <div className="min-h-screen">
-      <DashboardHeader />
+      <TopBar />
       <main className="mx-auto max-w-[1180px] px-4 py-6 md:px-8">
         {!loaded ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

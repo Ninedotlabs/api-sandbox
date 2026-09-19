@@ -2,8 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { NewProjectCard } from "@/components/dashboard/new-project-card";
-import { ProjectCard } from "@/components/domain/project-card";
+import { Kicker } from "@/components/domain/kicker";
+import { NewProjectRow } from "@/components/projects/new-project-row";
+import { ProjectList } from "@/components/projects/project-list";
 import { TopBar } from "@/components/shell/top-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { countLabel } from "@/lib/format";
@@ -25,33 +26,20 @@ export default function ProjectsPage() {
   return (
     <div className="min-h-screen">
       <TopBar />
-      <main className="mx-auto max-w-[1180px] px-4 py-6 md:px-8">
+      <main className="mx-auto max-w-5xl space-y-4 px-4 py-8 md:px-6">
+        <div className="flex items-baseline gap-3">
+          <h1 className="text-xl font-semibold">Projects</h1>
+          {loaded && <Kicker>{countLabel(projects.length, "project")}</Kicker>}
+        </div>
+        <div className="overflow-hidden rounded-lg border border-line bg-surface">
+          <NewProjectRow existingProjects={projects} onCreate={create} autoFocus={loaded && projects.length === 0} />
+        </div>
         {!loaded ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 3 }, (_, i) => (
-              <Skeleton key={i} className="h-44 rounded-2xl" />
-            ))}
-          </div>
+          <Skeleton className="h-40 w-full rounded-lg" />
         ) : projects.length === 0 ? (
-          <div className="mx-auto max-w-md space-y-6 pt-10 text-center">
-            <h1 className="text-4xl font-semibold">{"Let's make an API"}</h1>
-            <p className="text-sm text-ink-3">Name it, pick a starting point, and we build the endpoints for you.</p>
-            <div className="text-left">
-              <NewProjectCard existingProjects={projects} onCreate={create} autoFocus />
-            </div>
-          </div>
+          <p className="px-1 text-sm text-ink-3">Define a resource, mock its endpoints, send a request.</p>
         ) : (
-          <>
-            <h1 className="mb-4 text-xl font-semibold">
-              Your APIs <span className="text-ink-3">· {countLabel(projects.length, "API")}</span>
-            </h1>
-            <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <NewProjectCard existingProjects={projects} onCreate={create} />
-              {projects.map((p) => (
-                <ProjectCard key={p.id} project={p} />
-              ))}
-            </div>
-          </>
+          <ProjectList projects={projects} />
         )}
       </main>
     </div>

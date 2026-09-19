@@ -15,12 +15,9 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
 
   if (!loaded) {
     return (
-      <div className="flex min-h-screen">
-        <Skeleton className="hidden h-screen w-60 rounded-none md:block" />
-        <div className="flex-1 space-y-4 p-8">
-          <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-40 w-full" />
-        </div>
+      <div className="mx-auto max-w-[1180px] space-y-4 p-8">
+        <Skeleton className="h-8 w-48 rounded-xl" />
+        <Skeleton className="h-40 w-full rounded-2xl" />
       </div>
     );
   }

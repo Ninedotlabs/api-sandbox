@@ -1,40 +1,35 @@
 "use client";
 
-import { Menu, Search } from "lucide-react";
-import { useState } from "react";
+import { Search } from "lucide-react";
+import Link from "next/link";
+import { Wordmark } from "@/components/domain/wordmark";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import type { Project } from "@/lib/types";
 import { useUiStore } from "@/store/ui-store";
-import { AppSidebar } from "./app-sidebar";
-import { ProjectSwitcher } from "./project-switcher";
 import { UserAvatar } from "./user-avatar";
 
-export function TopBar({ project }: { project: Project }) {
-  const [menuOpen, setMenuOpen] = useState(false);
+interface Props {
+  docsHref?: string;
+  showSearch?: boolean;
+}
+
+export function TopBar({ docsHref, showSearch = false }: Props) {
   const setCommandOpen = useUiStore((s) => s.setCommandOpen);
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur">
-      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-        <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu">
-            <Menu className="size-4" />
+    <header className="mx-auto flex h-16 max-w-[1180px] items-center justify-between px-4 md:px-8">
+      <Wordmark />
+      <div className="flex items-center gap-2">
+        {showSearch && (
+          <Button variant="secondary" size="sm" className="gap-2 rounded-xl text-ink-muted" onClick={() => setCommandOpen(true)}>
+            <Search className="size-4" />
+            <span className="hidden sm:inline">Search</span>
+            <kbd className="rounded-md bg-card px-1.5 text-[10px]">⌘K</kbd>
           </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-64 p-0">
-          <SheetTitle className="px-4 pt-4 text-sm">{project.name}</SheetTitle>
-          <AppSidebar projectId={project.id} onNavigate={() => setMenuOpen(false)} />
-        </SheetContent>
-      </Sheet>
-      <ProjectSwitcher current={project} />
-      <div className="ml-auto flex items-center gap-1">
-        <Button variant="outline" size="sm" className="hidden gap-2 text-muted-foreground sm:flex" onClick={() => setCommandOpen(true)}>
-          <Search className="size-4" /> Search
-          <kbd className="rounded border bg-surface px-1.5 font-mono text-[10px]">⌘K</kbd>
-        </Button>
-        <Button variant="ghost" size="icon" className="sm:hidden" aria-label="Search" onClick={() => setCommandOpen(true)}>
-          <Search className="size-4" />
-        </Button>
+        )}
+        {docsHref && (
+          <Link href={docsHref} className="rounded-xl px-3 py-1.5 text-sm hover:bg-soft">
+            Docs
+          </Link>
+        )}
         <UserAvatar />
       </div>
     </header>

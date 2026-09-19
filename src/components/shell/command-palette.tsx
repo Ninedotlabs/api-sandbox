@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { Plus, Settings } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { MethodBadge } from "@/components/domain/method-badge";
@@ -35,7 +35,7 @@ export function CommandPalette({ project }: { project: Project }) {
   };
 
   return (
-    <CommandDialog open={open} onOpenChange={setOpen} title="Search" description="Jump to a page, model or route">
+    <CommandDialog open={open} onOpenChange={setOpen} title="Search" description="Jump to a page, model or route" className="rounded-2xl">
       <CommandInput placeholder="Search pages, models and routes…" />
       <CommandList>
         <CommandEmpty>Nothing found.</CommandEmpty>
@@ -45,11 +45,14 @@ export function CommandPalette({ project }: { project: Project }) {
               <Icon className="size-4" /> {label}
             </CommandItem>
           ))}
+          <CommandItem value="page Settings" onSelect={() => go(`/projects/${project.id}/settings`)}>
+            <Settings className="size-4" /> Settings
+          </CommandItem>
         </CommandGroup>
         {project.models.length > 0 && (
           <CommandGroup heading="Models">
             {project.models.map((m) => (
-              <CommandItem key={m.id} value={`model ${m.name}`} onSelect={() => go(`/projects/${project.id}/models/${m.id}`)}>
+              <CommandItem key={m.id} value={`model ${m.name}`} onSelect={() => go(`/projects/${project.id}?model=${m.id}`)}>
                 {m.name}
               </CommandItem>
             ))}
@@ -61,7 +64,7 @@ export function CommandPalette({ project }: { project: Project }) {
               <CommandItem
                 key={r.id}
                 value={`route ${r.method} ${r.path} ${r.description}`}
-                onSelect={() => go(`/projects/${project.id}/routes/${r.id}`)}
+                onSelect={() => go(`/projects/${project.id}/console?route=${r.id}`)}
               >
                 <MethodBadge method={r.method} tooltip={false} />
                 <span className="truncate">{r.description}</span>

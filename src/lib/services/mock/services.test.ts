@@ -60,3 +60,36 @@ it("runs requests against sample data", async () => {
   expect(all.durationMs).toBeGreaterThan(0);
   expect(await mockConsoleService.sampleData(p.id, product.id)).toHaveLength(6);
 });
+
+it("keeps sample data in line with model edits", async () => {
+  const p = await newStore();
+  const product = p.models[0];
+  expect(Object.keys((await mockConsoleService.sampleData(p.id, product.id))[0])).toContain("inStock");
+  await mockModelService.update(p.id, {
+    ...product,
+    fields: [
+      ...product.fields.filter((f) => f.name !== "inStock"),
+      { id: "f_sku", name: "sku", type: "text", required: false, unique: false },
+    ],
+  });
+  const [record] = await mockConsoleService.sampleData(p.id, product.id);
+  expect(record).not.toHaveProperty("inStock");
+  expect(typeof record.sku).toBe("string");
+});
+
+it("removes and restores routes and models with Undo", async () => {
+  const p = await newStore();
+  const customer = p.models.find((m) => m.name === "Customer")!;
+  const routes = buildCrudRoutes(customer, ["list", "get"], []);
+  await mockRouteService.createMany(p.id, routes);
+  const removedRoute = await mockRouteService.remove(p.id, routes[0].id);
+  expect(removedRoute).toEqual({ route: routes[0], beforeId: routes[1].id });
+  await mockRouteService.restore(p.id, removedRoute);
+  const removedModel = await mockModelService.remove(p.id, customer.id);
+  expect(removedModel.routes.map((r) => r.route.id)).toEqual(routes.map((r) => r.id));
+  await mockModelService.restore(p.id, removedModel);
+  const after = (await mockProjectService.get(p.id))!;
+  expect(after.models.map((m) => m.name)).toEqual(["Product", "Customer", "Order"]);
+  expect(after.routes.map((r) => r.id)).toEqual(routes.map((r) => r.id));
+  await expect(mockRouteService.remove(p.id, "missing")).rejects.toThrow("This route no longer exists.");
+});

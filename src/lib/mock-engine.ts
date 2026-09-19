@@ -59,18 +59,43 @@ export function generateRecords(model: Model, count: number, dataset: Dataset): 
   }));
 }
 
+function fitsField(field: Field, value: unknown, dataset: Dataset): boolean {
+  if (value === null) return true;
+  if (field.type === "link") return typeof value === "string";
+  return typeError(field, value, dataset) === null;
+}
+
+/**
+ * Make sure every model has sample records that match its current fields.
+ * New models get fresh records; existing records drop removed fields, gain new
+ * ones and have values of the wrong type regenerated. Other values are kept.
+ */
 export function ensureDataset(project: Project, dataset: Dataset, count = 5): Dataset {
+  // Links generated before their target model had records; filled once all models exist.
+  const pendingLinks: { record: DataRecord; field: Field }[] = [];
+  const fill = (record: DataRecord, field: Field) => {
+    record[field.name] = generateValue(field, dataset);
+    if (field.type === "link") pendingLinks.push({ record, field });
+  };
   for (const model of project.models) {
-    if (!dataset[model.id]) dataset[model.id] = generateRecords(model, count, dataset);
-  }
-  // Fill links whose target model was generated after the linking model.
-  for (const model of project.models) {
-    for (const field of model.fields) {
-      if (field.type !== "link") continue;
-      for (const record of dataset[model.id]) {
-        if (record[field.name] === null) record[field.name] = generateValue(field, dataset);
+    const existing = dataset[model.id];
+    if (!existing) {
+      dataset[model.id] = generateRecords(model, count, dataset);
+      for (const field of model.fields) {
+        if (field.type === "link") for (const record of dataset[model.id]) pendingLinks.push({ record, field });
+      }
+      continue;
+    }
+    const names = new Set(model.fields.map((f) => f.name));
+    for (const record of existing) {
+      for (const key of Object.keys(record)) if (key !== "id" && !names.has(key)) delete record[key];
+      for (const field of model.fields) {
+        if (!(field.name in record) || !fitsField(field, record[field.name], dataset)) fill(record, field);
       }
     }
+  }
+  for (const { record, field } of pendingLinks) {
+    if (record[field.name] === null) record[field.name] = generateValue(field, dataset);
   }
   return dataset;
 }

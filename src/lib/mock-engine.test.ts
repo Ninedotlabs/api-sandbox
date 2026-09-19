@@ -1,6 +1,6 @@
 import { buildCrudRoutes } from "./crud";
 import { exampleRequest, exampleResponse } from "./examples";
-import { executeRoute, seedDataset, type Dataset } from "./mock-engine";
+import { ensureDataset, executeRoute, seedDataset, type Dataset } from "./mock-engine";
 import { buildTemplateModels } from "./templates";
 import type { Project, Route } from "./types";
 
@@ -98,4 +98,50 @@ it("builds deterministic examples", () => {
   expect(response.status).toBe(201);
   expect(response.body).toMatchObject(body);
   expect(exampleRequest(routeFor(project, "Product", "list"), project)).toBeNull();
+});
+
+describe("ensureDataset on an existing dataset", () => {
+  it("brings records in line with the model's current fields", () => {
+    const product = modelNamed(project, "Product");
+    const edited: Project = {
+      ...project,
+      models: project.models.map((m) =>
+        m.id !== product.id
+          ? m
+          : {
+              ...m,
+              fields: [
+                ...m.fields
+                  .filter((f) => f.name !== "inStock")
+                  .map((f) => (f.name === "name" ? { ...f, name: "title" } : f.name === "price" ? { ...f, type: "text" as const } : f)),
+                { id: "f_sku", name: "sku", type: "number" as const, required: false, unique: false },
+              ],
+            },
+      ),
+    };
+    const before = ds[product.id].map((r) => ({ ...r }));
+    const records = ensureDataset(edited, ds)[product.id];
+    expect(records).toHaveLength(5);
+    for (const [i, r] of records.entries()) {
+      expect(Object.keys(r).sort()).toEqual(["category", "id", "price", "sku", "title"]);
+      expect(r.id).toBe(before[i].id);
+      expect(r.category).toBe(before[i].category);
+      expect(typeof r.title).toBe("string");
+      expect(typeof r.price).toBe("string");
+      expect(typeof r.sku).toBe("number");
+    }
+  });
+
+  it("leaves links a user left empty alone", () => {
+    const blogModels = buildTemplateModels("blog");
+    const blogRoutes = blogModels.flatMap((m) => buildCrudRoutes(m, ["create"], []));
+    const blog: Project = { ...project, id: "p2", models: blogModels, routes: blogRoutes };
+    const blogDs = seedDataset(blog);
+    const post = modelNamed(blog, "Post");
+    const create = blogRoutes.find((r) => r.modelId === post.id)!;
+    const created = executeRoute(blog, create, req({ title: "Hello" }), blogDs);
+    expect(created).toMatchObject({ status: 201, body: { author: null } });
+    ensureDataset(blog, blogDs);
+    expect(blogDs[post.id].find((r) => r.title === "Hello")!.author).toBeNull();
+  });
 });

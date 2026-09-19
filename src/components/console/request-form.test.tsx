@@ -52,3 +52,33 @@ it("asks for path values", async () => {
   await user.click(screen.getByRole("button", { name: "Send request" }));
   expect(onSend).toHaveBeenCalledWith({ params: { id: "3" }, query: {}, body: undefined });
 });
+
+it("stays in JSON mode when the JSON is invalid", async () => {
+  const user = userEvent.setup();
+  renderUi(<RequestForm project={project} route={create} sending={false} onSend={vi.fn()} />);
+  const toggle = screen.getByRole("switch", { name: "Advanced: JSON" });
+  await user.click(toggle);
+  const box = screen.getByLabelText("Request body JSON");
+  await user.clear(box);
+  await user.click(box);
+  await user.paste('{"name": "Lamp"');
+  await user.click(toggle);
+  expect(screen.getByRole("alert")).toHaveTextContent("That isn't valid JSON");
+  expect(screen.getByLabelText("Request body JSON")).toHaveValue('{"name": "Lamp"');
+  expect(toggle).toBeChecked();
+});
+
+it("sends untouched Yes/No fields as false when creating", async () => {
+  const user = userEvent.setup();
+  const onSend = vi.fn();
+  const task = {
+    id: "m2",
+    name: "Task",
+    fields: [{ id: "f3", name: "done", type: "boolean" as const, required: true, unique: false }],
+  };
+  const [createTask] = buildCrudRoutes(task, ["create"], []);
+  const todo: Project = { ...project, models: [task], routes: [createTask] };
+  renderUi(<RequestForm project={todo} route={createTask} sending={false} onSend={onSend} />);
+  await user.click(screen.getByRole("button", { name: "Send request" }));
+  expect(onSend).toHaveBeenCalledWith({ params: {}, query: {}, body: { done: false } });
+});

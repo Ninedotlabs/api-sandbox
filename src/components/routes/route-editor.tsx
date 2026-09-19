@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CodeBlock } from "@/components/domain/code-block";
 import { HelpHint } from "@/components/domain/help-hint";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,7 @@ export function RouteEditor({ project, route, onSave }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const model = project.models.find((m) => m.id === draft.modelId) ?? null;
-  const preview = exampleResponse(draft, project);
+  const preview = useMemo(() => exampleResponse(draft, project), [draft, project]);
 
   const set = (patch: Partial<Route>) => {
     setDraft((d) => ({ ...d, ...patch }));

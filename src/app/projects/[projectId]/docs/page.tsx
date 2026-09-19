@@ -18,11 +18,12 @@ export default function DocsPage() {
   const sections = useMemo(() => buildDocs(project), [project]);
   const base = baseUrl(project.slug);
 
+  const hasDocs = sections.length > 0;
   useEffect(() => {
-    markProgress(project.id, "viewedDocs");
-  }, [project.id, markProgress]);
+    if (hasDocs) markProgress(project.id, "viewedDocs");
+  }, [project.id, hasDocs, markProgress]);
 
-  if (sections.length === 0) {
+  if (!hasDocs) {
     return (
       <EmptyState
         icon={BookOpen}

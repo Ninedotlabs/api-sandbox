@@ -84,7 +84,12 @@ export function RequestForm({ project, route, sending, onSend }: Props) {
   const bodyModel = model && (route.action === "create" || route.action === "update") ? model : null;
   const [paramValues, setParamValues] = useState<Record<string, string>>({});
   const [query, setQuery] = useState<Record<string, string>>({});
-  const [values, setValues] = useState<FormValues>({});
+  // Untouched Yes/No switches read as "No", so a new record sends false rather than leaving the field out.
+  const defaults: FormValues =
+    bodyModel && route.action === "create"
+      ? Object.fromEntries(bodyModel.fields.filter((f) => f.type === "boolean").map((f) => [f.name, false]))
+      : {};
+  const [values, setValues] = useState<FormValues>(defaults);
   const [jsonMode, setJsonMode] = useState(false);
   const [rawJson, setRawJson] = useState("{}");
   const [jsonError, setJsonError] = useState<string | null>(null);
@@ -100,9 +105,11 @@ export function RequestForm({ project, route, sending, onSend }: Props) {
       setJsonError(null);
     } else {
       try {
-        setValues(valuesFromBody(bodyModel, JSON.parse(rawJson)));
-      } catch {
-        // Keep the previous form values if the JSON can't be parsed.
+        setValues({ ...defaults, ...valuesFromBody(bodyModel, JSON.parse(rawJson)) });
+      } catch (err) {
+        // Stay in JSON mode so the typed JSON isn't lost.
+        setJsonError(`That isn't valid JSON: ${(err as Error).message}`);
+        return;
       }
     }
     setJsonMode(on);

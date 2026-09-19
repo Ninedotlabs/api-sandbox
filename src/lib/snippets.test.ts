@@ -23,3 +23,14 @@ it("builds a POST with a JSON body", () => {
   expect(s.python).toContain("requests.post(");
   expect(s.python).toContain('json={"name": "Lamp", "price": 25}');
 });
+
+it("escapes single quotes in the cURL body and renders Python literals for tricky values", () => {
+  const create = routes.find((r) => r.action === "create")!;
+  const body = { name: "O'Brien", tags: ["a,\"b", "c\":d"], active: true, note: null };
+  const s = buildSnippets(project, create, body);
+  expect(s.curl).toContain("'\\''");
+  expect(s.curl).toBe(
+    `curl -X POST http://localhost:3000/api/shop/products \\\n  -H "Content-Type: application/json" \\\n  -d '{"name":"O'\\''Brien","tags":["a,\\"b","c\\":d"],"active":true,"note":null}'`,
+  );
+  expect(s.python).toContain('"tags": ["a,\\"b", "c\\":d"], "active": True, "note": None');
+});

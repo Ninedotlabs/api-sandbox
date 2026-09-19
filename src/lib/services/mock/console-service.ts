@@ -40,7 +40,7 @@ export const mockConsoleService: ConsoleService = {
         routeId: route.id,
         method: route.method,
         path: route.path,
-        request,
+        request: JSON.parse(JSON.stringify(request)),
         response,
       });
       entries.splice(50);

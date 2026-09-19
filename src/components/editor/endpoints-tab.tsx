@@ -87,6 +87,7 @@ export function EndpointsTab({ model }: { model: Model }) {
                   variant="outline"
                   size="xs"
                   className="ml-auto"
+                  aria-label={`Open ${route.method} ${route.path}`}
                   onClick={() => select({ kind: "endpoint", id: route.id })}
                 >
                   Open

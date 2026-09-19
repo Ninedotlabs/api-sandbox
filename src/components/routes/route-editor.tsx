@@ -28,7 +28,7 @@ export function RouteEditor({ project, route, onSave }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const model = project.models.find((m) => m.id === draft.modelId) ?? null;
-  const dirty = JSON.stringify(draft) !== JSON.stringify(route);
+  const dirty = JSON.stringify({ ...draft, description: "" }) !== JSON.stringify({ ...route, description: "" });
 
   const set = (patch: Partial<Route>) => {
     setDraft((d) => ({ ...d, ...patch }));
@@ -42,7 +42,9 @@ export function RouteEditor({ project, route, onSave }: Props) {
     if (err) return;
     setSaving(true);
     try {
-      await onSave(draft);
+      // The description belongs to the editor header, which may have renamed it
+      // since this draft was seeded — always submit the current one.
+      await onSave({ ...draft, description: route.description });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save the route.");
     } finally {
@@ -53,16 +55,6 @@ export function RouteEditor({ project, route, onSave }: Props) {
   return (
     <form onSubmit={save} className="space-y-4 rounded-lg border border-line bg-panel/60 p-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="route-name">Friendly name</Label>
-          <Input
-            id="route-name"
-            value={draft.description}
-            placeholder="List all customers"
-            onChange={(e) => set({ description: e.target.value })}
-          />
-        </div>
-
         <div className="space-y-1.5">
           <Label htmlFor="route-action" className="flex items-center gap-1.5">
             What should it do?

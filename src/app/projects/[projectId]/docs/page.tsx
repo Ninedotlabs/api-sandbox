@@ -6,9 +6,9 @@ import { useEffect, useMemo } from "react";
 import { EndpointDoc } from "@/components/docs/endpoint-doc";
 import { ModelFieldsDoc } from "@/components/docs/model-fields-doc";
 import { EmptyState } from "@/components/domain/empty-state";
-import { UrlSegments } from "@/components/domain/url-segments";
 import { Button } from "@/components/ui/button";
 import { buildDocs } from "@/lib/docs";
+import { baseUrl } from "@/lib/slug";
 import { useUiStore } from "@/store/ui-store";
 import { useCurrentProject } from "@/store/use-project";
 
@@ -43,7 +43,7 @@ export default function DocsPage() {
         <ul className="space-y-1 text-sm">
           {[{ id: "introduction", title: "Introduction" }, ...sections].map((s) => (
             <li key={s.id}>
-              <a href={`#${s.id}`} className="block rounded-xl px-3 py-1.5 text-muted-foreground hover:bg-soft hover:text-foreground">
+              <a href={`#${s.id}`} className="block rounded-xl px-3 py-1.5 text-muted-foreground hover:bg-panel hover:text-foreground">
                 {s.title}
               </a>
             </li>
@@ -55,7 +55,9 @@ export default function DocsPage() {
           <h1 className="text-2xl font-semibold">{project.name} API</h1>
           {project.description && <p className="text-muted-foreground">{project.description}</p>}
           <p className="flex flex-wrap items-center gap-1 text-sm">
-            Every address below starts with <UrlSegments slug={project.slug} />. Send and receive data as JSON.
+            {"Every address below starts with "}
+            <code className="font-mono">{baseUrl(project.slug)}</code>
+            {". Send and receive data as JSON."}
           </p>
         </section>
         {sections.map((s) => (

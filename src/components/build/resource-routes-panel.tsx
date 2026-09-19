@@ -59,7 +59,7 @@ export function ResourceRoutesPanel({ project, model }: { project: Project; mode
     <div className="space-y-4">
       <RouteList project={project} routes={routes} />
       {missing.length > 0 && (
-        <div className="rounded-xl border border-dashed border-sketch p-3">
+        <div className="rounded-xl border border-dashed border-line-strong p-3">
           <p className="mb-2 text-sm font-medium">Add standard endpoints</p>
           <ul className="flex flex-wrap gap-2">
             {options.map((o) => {
@@ -67,7 +67,7 @@ export function ResourceRoutesPanel({ project, model }: { project: Project; mode
               const id = `std-${model.id}-${o.action}`;
               return (
                 <li key={o.action}>
-                  <label htmlFor={id} className="inline-flex cursor-pointer items-center gap-2 rounded-full border bg-card px-3 py-1 text-xs has-[:checked]:border-primary">
+                  <label htmlFor={id} className="inline-flex cursor-pointer items-center gap-2 rounded-full border bg-surface px-3 py-1 text-xs has-[:checked]:border-primary">
                     <Checkbox
                       id={id}
                       aria-label={o.label}
@@ -77,7 +77,7 @@ export function ResourceRoutesPanel({ project, model }: { project: Project; mode
                         setSelected((s) => (v === true ? [...s, o.action] : s.filter((a) => a !== o.action)))
                       }
                     />
-                    <MethodBadge method={o.method} tooltip={false} />
+                    <MethodBadge method={o.method} />
                     {o.label}
                   </label>
                 </li>

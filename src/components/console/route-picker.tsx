@@ -11,7 +11,7 @@ interface Props {
 
 export function RoutePicker({ project, selectedId, onSelect }: Props) {
   return (
-    <nav aria-label="Routes to test" className="space-y-4 rounded-2xl border bg-card p-3 shadow-card">
+    <nav aria-label="Routes to test" className="space-y-4 rounded-2xl border bg-surface p-3">
       {groupRoutes(project)
         .filter((g) => g.routes.length > 0)
         .map((g) => (
@@ -24,11 +24,11 @@ export function RoutePicker({ project, selectedId, onSelect }: Props) {
                 aria-pressed={r.id === selectedId}
                 onClick={() => onSelect(r.id)}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-sm transition-colors duration-150 hover:bg-accent",
-                  r.id === selectedId && "bg-pastel-blue text-pastel-blue-ink",
+                  "flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-sm transition-colors duration-150 hover:bg-panel-strong",
+                  r.id === selectedId && "bg-accent-soft text-accent-ink",
                 )}
               >
-                <MethodBadge method={r.method} tooltip={false} className="w-16 justify-center" />
+                <MethodBadge method={r.method} className="w-16 justify-center" />
                 <span className="min-w-0 truncate">{r.description || r.path}</span>
               </button>
             ))}

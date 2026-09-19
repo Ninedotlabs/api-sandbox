@@ -128,7 +128,7 @@ function Build() {
           />
         )}
         {project.models.length === 0 && !adding && (
-          <p className="px-1 text-sm text-ink-muted">{"No models yet. Press “New model” to describe the first thing your API stores."}</p>
+          <p className="px-1 text-sm text-ink-3">{"No models yet. Press “New model” to describe the first thing your API stores."}</p>
         )}
         {other.length > 0 && <OtherRoutesCard project={project} routes={other} />}
       </div>

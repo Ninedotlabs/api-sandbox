@@ -34,8 +34,8 @@ export default function ProjectsPage() {
           </div>
         ) : projects.length === 0 ? (
           <div className="mx-auto max-w-md space-y-6 pt-10 text-center">
-            <h1 className="font-script text-4xl">{"Let's make an API"}</h1>
-            <p className="text-sm text-ink-muted">Name it, pick a starting point, and we build the endpoints for you.</p>
+            <h1 className="text-4xl font-semibold">{"Let's make an API"}</h1>
+            <p className="text-sm text-ink-3">Name it, pick a starting point, and we build the endpoints for you.</p>
             <div className="text-left">
               <NewProjectCard existingProjects={projects} onCreate={create} autoFocus />
             </div>
@@ -43,7 +43,7 @@ export default function ProjectsPage() {
         ) : (
           <>
             <h1 className="mb-4 text-xl font-semibold">
-              Your APIs <span className="text-ink-muted">· {countLabel(projects.length, "API")}</span>
+              Your APIs <span className="text-ink-3">· {countLabel(projects.length, "API")}</span>
             </h1>
             <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <NewProjectCard existingProjects={projects} onCreate={create} />

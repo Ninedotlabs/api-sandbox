@@ -97,7 +97,7 @@ function Console() {
             setResponse(null);
           }}
         />
-        <section className="rounded-2xl border bg-card p-5 shadow-card">
+        <section className="rounded-2xl border bg-surface p-5">
           {route ? (
             <RequestForm key={route.id} project={project} route={route} sending={sending} onSend={send} />
           ) : (

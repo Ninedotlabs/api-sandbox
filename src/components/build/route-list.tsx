@@ -37,7 +37,7 @@ export function RouteList({ project, routes }: Props) {
     }
   }
 
-  if (routes.length === 0) return <p className="text-sm text-ink-muted">No routes yet.</p>;
+  if (routes.length === 0) return <p className="text-sm text-ink-3">No routes yet.</p>;
 
   return (
     <ul className="space-y-2">
@@ -45,12 +45,12 @@ export function RouteList({ project, routes }: Props) {
         const name = route.description || route.path;
         const editing = editingId === route.id;
         return (
-          <li key={route.id} className="rounded-xl border bg-card">
+          <li key={route.id} className="rounded-xl border bg-surface">
             <div className="flex flex-wrap items-center gap-3 p-3">
               <MethodBadge method={route.method} className="w-16 justify-center" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{name}</p>
-                <p className="truncate text-xs text-ink-muted">
+                <p className="truncate text-xs text-ink-3">
                   <PathPreview base="" path={route.path} />
                 </p>
               </div>

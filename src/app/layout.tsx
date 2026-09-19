@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Pacifico } from "next/font/google";
+import { Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
+const sans = Instrument_Sans({ subsets: ["latin"], variable: "--font-instrument-sans" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains-mono" });
-const script = Pacifico({ subsets: ["latin"], weight: "400", variable: "--font-pacifico" });
 
 export const metadata: Metadata = {
   title: "Universal API",
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${mono.variable} ${script.variable}`}>
+    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
       <body>
         <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
         <Toaster />

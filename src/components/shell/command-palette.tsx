@@ -66,7 +66,7 @@ export function CommandPalette({ project }: { project: Project }) {
                 value={`route ${r.method} ${r.path} ${r.description}`}
                 onSelect={() => go(`/projects/${project.id}/console?route=${r.id}`)}
               >
-                <MethodBadge method={r.method} tooltip={false} />
+                <MethodBadge method={r.method} />
                 <span className="truncate">{r.description}</span>
                 <code className="ml-auto font-mono text-xs text-muted-foreground">{r.path}</code>
               </CommandItem>

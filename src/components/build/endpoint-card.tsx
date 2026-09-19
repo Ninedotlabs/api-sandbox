@@ -1,6 +1,5 @@
 import { Plus, RotateCcw, Wand2 } from "lucide-react";
 import { CopyButton } from "@/components/domain/copy-button";
-import { UrlSegments } from "@/components/domain/url-segments";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { baseUrl } from "@/lib/slug";
@@ -21,17 +20,17 @@ export function EndpointCard({ project, generateCount, onNewModel, onGenerateAll
     </Button>
   );
   return (
-    <section className="rounded-2xl border bg-card shadow-card">
+    <section className="rounded-2xl border bg-surface">
       <div className="flex flex-wrap items-center gap-3 p-6">
         <div className="min-w-0 flex-1">
           <h2 className="text-lg font-semibold">Your API lives at</h2>
-          <p className="mt-2 flex flex-wrap items-center gap-1.5 text-base text-ink-muted">
-            <UrlSegments slug={project.slug} tail="/:resource" className="text-base" />
+          <p className="mt-2 flex flex-wrap items-center gap-1.5 text-base text-ink-3">
+            <code className="font-mono">{baseUrl(project.slug)}/:resource</code>
           </p>
         </div>
         <CopyButton text={baseUrl(project.slug)} />
       </div>
-      <div className="flex flex-wrap items-center gap-2 rounded-b-2xl border-t bg-soft/60 px-6 py-4">
+      <div className="flex flex-wrap items-center gap-2 rounded-b-2xl border-t bg-panel/60 px-6 py-4">
         <Button onClick={onNewModel}>
           <Plus className="size-4" /> New model
         </Button>

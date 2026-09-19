@@ -31,7 +31,7 @@ export function TwoStepButton({ label, confirmLabel, onConfirm, variant = "dange
       disabled={disabled}
       aria-live="polite"
       className={cn(
-        variant === "danger" && "bg-pastel-rose text-pastel-rose-ink hover:bg-pastel-rose/80",
+        variant === "danger" && "bg-danger/10 text-danger hover:bg-danger/15",
         armed && variant === "danger" && "bg-destructive text-white hover:bg-destructive/90",
         className,
       )}

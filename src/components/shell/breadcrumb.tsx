@@ -8,8 +8,8 @@ export function Breadcrumb({ project }: { project: Project }) {
       <Link href="/projects" className="text-primary hover:underline">
         Projects
       </Link>
-      <span className="text-ink-muted">/</span>
-      <span className="flex size-8 items-center justify-center rounded-lg bg-pastel-violet font-semibold text-pastel-violet-ink">
+      <span className="text-ink-3">/</span>
+      <span className="flex size-8 items-center justify-center rounded-lg bg-accent-soft font-semibold text-accent-ink">
         {project.name.charAt(0).toUpperCase()}
       </span>
       <h1 className="truncate text-base font-semibold">{project.name}</h1>

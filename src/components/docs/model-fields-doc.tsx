@@ -5,10 +5,10 @@ import type { Model, Project } from "@/lib/types";
 export function ModelFieldsDoc({ model, project }: { model: Model; project: Project }) {
   if (model.fields.length === 0) return null;
   return (
-    <div className="overflow-x-auto rounded-2xl border bg-card">
+    <div className="overflow-x-auto rounded-2xl border bg-surface">
       <Table>
         <TableHeader>
-          <TableRow className="bg-soft">
+          <TableRow className="bg-panel">
             <TableHead>Field</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Required</TableHead>

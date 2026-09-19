@@ -53,7 +53,7 @@ export function RouteEditor({ project, route, onSave }: Props) {
 
   return (
     <form onSubmit={save} className="grid gap-6 lg:grid-cols-[1fr_380px]">
-      <div className="space-y-5 rounded-2xl border bg-soft/50 p-5">
+      <div className="space-y-5 rounded-2xl border bg-panel/50 p-5">
         <div className="space-y-2">
           <Label htmlFor="route-name">Friendly name</Label>
           <Input id="route-name" value={draft.description} placeholder="List all customers" onChange={(e) => set({ description: e.target.value })} />

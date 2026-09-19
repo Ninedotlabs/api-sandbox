@@ -1,12 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { SketchCard } from "@/components/domain/sketch-card";
-import { UrlSegments } from "@/components/domain/url-segments";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { CreateProjectInput } from "@/lib/services";
-import { slugify } from "@/lib/slug";
+import { baseUrl, slugify } from "@/lib/slug";
 import { TEMPLATES } from "@/lib/templates";
 import type { Project, TemplateId } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -18,7 +16,7 @@ interface Props {
   autoFocus?: boolean;
 }
 
-const CHIP = "rounded-full border px-3 py-1 text-xs transition-colors duration-150 hover:bg-soft";
+const CHIP = "rounded-full border px-3 py-1 text-xs transition-colors duration-150 hover:bg-panel";
 
 export function NewProjectCard({ existingProjects, onCreate, autoFocus }: Props) {
   const [name, setName] = useState("");
@@ -44,7 +42,7 @@ export function NewProjectCard({ existingProjects, onCreate, autoFocus }: Props)
   }
 
   return (
-    <SketchCard className="p-5">
+    <div className="rounded-lg border border-dashed border-line-strong p-5">
       <form onSubmit={submit} className="flex h-full flex-col gap-3">
         <h2 className="text-base font-semibold">Create a new API</h2>
         <label htmlFor="new-project-name" className="sr-only">
@@ -61,14 +59,14 @@ export function NewProjectCard({ existingProjects, onCreate, autoFocus }: Props)
             setError(null);
           }}
         />
-        <UrlSegments slug={slugify(name) || "your-api"} className="text-xs" />
-        <p className="text-xs text-ink-muted">Start from</p>
+        <code className="font-mono text-xs text-ink-3">{baseUrl(slugify(name) || "your-api")}</code>
+        <p className="text-xs text-ink-3">Start from</p>
         <div className="-mt-1.5 flex flex-wrap gap-1.5" role="group" aria-label="Starting point">
           <button
             type="button"
             aria-pressed={templateId === null}
             onClick={() => setTemplateId(null)}
-            className={cn(CHIP, templateId === null && "border-primary bg-pastel-blue text-pastel-blue-ink")}
+            className={cn(CHIP, templateId === null && "border-primary bg-accent-soft text-accent-ink")}
           >
             Blank
           </button>
@@ -78,7 +76,7 @@ export function NewProjectCard({ existingProjects, onCreate, autoFocus }: Props)
               type="button"
               aria-pressed={templateId === t.id}
               onClick={() => setTemplateId(t.id)}
-              className={cn(CHIP, templateId === t.id && "border-primary bg-pastel-blue text-pastel-blue-ink")}
+              className={cn(CHIP, templateId === t.id && "border-primary bg-accent-soft text-accent-ink")}
             >
               <span aria-hidden>{t.emoji} </span>
               {t.name}
@@ -94,6 +92,6 @@ export function NewProjectCard({ existingProjects, onCreate, autoFocus }: Props)
           {submitting ? "Creating…" : "Create"}
         </Button>
       </form>
-    </SketchCard>
+    </div>
   );
 }

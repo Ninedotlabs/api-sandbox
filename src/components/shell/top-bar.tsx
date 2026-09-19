@@ -2,7 +2,7 @@
 
 import { Search } from "lucide-react";
 import Link from "next/link";
-import { Wordmark } from "@/components/domain/wordmark";
+import { Wordmark } from "@/components/brand/wordmark";
 import { Button } from "@/components/ui/button";
 import { useUiStore } from "@/store/ui-store";
 import { UserAvatar } from "./user-avatar";
@@ -23,16 +23,16 @@ export function TopBar({ docsHref, showSearch = false }: Props) {
             variant="secondary"
             size="sm"
             aria-label="Search"
-            className="gap-2 rounded-xl text-ink-muted"
+            className="gap-2 rounded-xl text-ink-3"
             onClick={() => setCommandOpen(true)}
           >
             <Search className="size-4" />
             <span className="hidden sm:inline">Search</span>
-            <kbd className="rounded-md bg-card px-1.5 text-[10px]">⌘K</kbd>
+            <kbd className="rounded-md bg-surface px-1.5 text-[10px]">⌘K</kbd>
           </Button>
         )}
         {docsHref && (
-          <Link href={docsHref} className="rounded-xl px-3 py-1.5 text-sm hover:bg-soft">
+          <Link href={docsHref} className="rounded-xl px-3 py-1.5 text-sm hover:bg-panel">
             Docs
           </Link>
         )}

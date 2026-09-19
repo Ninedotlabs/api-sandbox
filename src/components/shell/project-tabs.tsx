@@ -17,8 +17,8 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
             href={navHref(projectId, segment)}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm text-ink-muted transition-colors duration-150 hover:bg-soft hover:text-ink",
-              active && "bg-soft font-semibold text-ink",
+              "inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm text-ink-3 transition-colors duration-150 hover:bg-panel hover:text-ink",
+              active && "bg-panel font-semibold text-ink",
             )}
           >
             <Icon className="size-4" />

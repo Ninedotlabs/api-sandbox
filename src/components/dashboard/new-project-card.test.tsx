@@ -7,7 +7,7 @@ it("creates an API from a template", async () => {
   const onCreate = vi.fn().mockResolvedValue(undefined);
   render(<NewProjectCard existingProjects={[]} onCreate={onCreate} />);
   await user.type(screen.getByLabelText("New API name"), "My Store");
-  expect(screen.getByText("/my-store")).toBeInTheDocument();
+  expect(screen.getByText("/api/my-store")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: /Store/ }));
   await user.click(screen.getByRole("button", { name: "Create" }));
   expect(onCreate).toHaveBeenCalledWith({ name: "My Store", description: "", templateId: "store" });

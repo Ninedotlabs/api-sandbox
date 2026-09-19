@@ -6,7 +6,7 @@ const TOKEN_CLASS: Record<TokenKind, string> = {
   key: "text-primary",
   string: "text-success",
   number: "text-warning",
-  boolean: "text-pastel-lavender-ink",
+  boolean: "text-syntax-boolean",
   null: "text-muted-foreground",
   punct: "text-muted-foreground",
 };
@@ -19,7 +19,7 @@ interface Props {
 
 export function CodeBlock({ code, language = "json", className }: Props) {
   return (
-    <div className={cn("relative rounded-2xl border bg-soft", className)}>
+    <div className={cn("relative rounded-2xl border bg-panel", className)}>
       <CopyButton text={code} className="absolute right-2 top-2" />
       <pre className="max-h-[480px] overflow-auto p-4 pr-12 font-mono text-xs leading-relaxed">
         <code>

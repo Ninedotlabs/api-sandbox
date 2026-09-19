@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { SketchCard } from "@/components/domain/sketch-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Model, Project } from "@/lib/types";
@@ -36,7 +35,7 @@ export function NewModelCard({ project, onCreated, onCancel }: Props) {
   }
 
   return (
-    <SketchCard className="p-4">
+    <div className="rounded-lg border border-dashed border-line-strong p-4">
       <form onSubmit={submit} className="flex flex-wrap items-center gap-3" onKeyDown={(e) => e.key === "Escape" && onCancel()}>
         <Input
           autoFocus
@@ -50,7 +49,7 @@ export function NewModelCard({ project, onCreated, onCancel }: Props) {
             setError(null);
           }}
         />
-        <span className="text-xs text-ink-muted">Singular, like Customer. Enter to create, Esc to cancel.</span>
+        <span className="text-xs text-ink-3">Singular, like Customer. Enter to create, Esc to cancel.</span>
         <Button type="submit" size="sm" className="rounded-xl" disabled={saving}>
           {saving ? "Creating…" : "Create model"}
         </Button>
@@ -63,6 +62,6 @@ export function NewModelCard({ project, onCreated, onCancel }: Props) {
           </p>
         )}
       </form>
-    </SketchCard>
+    </div>
   );
 }

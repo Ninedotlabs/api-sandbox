@@ -2,7 +2,6 @@
 
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
-import { SketchCard } from "@/components/domain/sketch-card";
 import { Button } from "@/components/ui/button";
 import { createId } from "@/lib/ids";
 import { uniquePath } from "@/lib/routes";
@@ -23,12 +22,12 @@ export function OtherRoutesCard({ project, routes }: { project: Project; routes:
     }
   }
   return (
-    <SketchCard className="space-y-3 p-4">
+    <div className="space-y-3 rounded-lg border border-dashed border-line-strong p-4">
       <h3 className="text-sm font-semibold">Other routes</h3>
       <RouteList project={project} routes={routes} />
       <Button variant="secondary" size="sm" className="rounded-xl" onClick={addCustom}>
         <Plus className="size-4" /> Custom route
       </Button>
-    </SketchCard>
+    </div>
   );
 }

@@ -38,10 +38,10 @@ export function SampleDataTable({ projectId, model }: { projectId: string; model
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">No sample records yet.</p>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border bg-card">
+        <div className="overflow-x-auto rounded-2xl border bg-surface">
           <Table>
             <TableHeader>
-              <TableRow className="bg-soft">
+              <TableRow className="bg-panel">
                 <TableHead className="font-mono">id</TableHead>
                 {model.fields.map((f) => (
                   <TableHead key={f.id} className="font-mono">

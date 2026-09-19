@@ -14,13 +14,13 @@ export function GettingStartedStrip({ steps, actions = {} }: Props) {
   const next = steps[index];
   const action = actions[next.id];
   return (
-    <section aria-label="Getting started" className="flex flex-wrap items-center gap-4 rounded-2xl border bg-card px-5 py-4 shadow-card">
+    <section aria-label="Getting started" className="flex flex-wrap items-center gap-4 rounded-2xl border bg-surface px-5 py-4">
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-semibold uppercase tracking-wide text-pastel-blue-ink">
+        <p className="text-xs font-semibold uppercase tracking-wide text-accent-ink">
           Step {index + 1} of {steps.length}
         </p>
         <p className="mt-0.5 font-semibold">{next.label}</p>
-        <p className="text-sm text-ink-muted">{next.description}</p>
+        <p className="text-sm text-ink-3">{next.description}</p>
       </div>
       {action ? (
         <Button onClick={action}>{next.cta}</Button>

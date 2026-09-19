@@ -7,10 +7,10 @@ export function ProjectCard({ project }: { project: Project }) {
   return (
     <Link
       href={`/projects/${project.id}`}
-      className="flex flex-col rounded-2xl border bg-card p-5 shadow-card transition-transform duration-150 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-ring"
+      className="flex flex-col rounded-2xl border bg-surface p-5 transition-transform duration-150 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-ring"
     >
       <div className="flex items-center gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-pastel-violet font-semibold text-pastel-violet-ink">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft font-semibold text-accent-ink">
           {project.name.charAt(0).toUpperCase()}
         </span>
         <div className="min-w-0">

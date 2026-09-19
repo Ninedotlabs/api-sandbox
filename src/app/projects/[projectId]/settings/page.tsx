@@ -66,7 +66,7 @@ export default function SettingsPage() {
   return (
     <div className="max-w-2xl space-y-8">
       <PageHeader title="Settings" description="Rename your API or change its address." />
-      <form onSubmit={save} className="space-y-5 rounded-2xl border bg-card p-5 shadow-card">
+      <form onSubmit={save} className="space-y-5 rounded-2xl border bg-surface p-5">
         <div className="space-y-2">
           <Label htmlFor="settings-name">API name</Label>
           <Input id="settings-name" value={name} aria-invalid={!!errors.name} onChange={(e) => setName(e.target.value)} />
@@ -89,7 +89,7 @@ export default function SettingsPage() {
         </div>
       </form>
 
-      <Card className="rounded-2xl border-pastel-rose-ink/30 shadow-card">
+      <Card className="rounded-2xl border-danger/30">
         <CardHeader>
           <CardTitle className="text-destructive">Delete this API</CardTitle>
           <CardDescription>Removes its models, routes and docs. You can undo right after.</CardDescription>

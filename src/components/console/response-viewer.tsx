@@ -17,7 +17,7 @@ const STATUS_TEXT: Record<number, { text: string; hint: string }> = {
 export function ResponseViewer({ response, loading }: { response: TestResponse | null; loading: boolean }) {
   if (loading) {
     return (
-      <div className="space-y-3 rounded-2xl border bg-surface p-4 shadow-card" aria-busy="true">
+      <div className="space-y-3 rounded-2xl border bg-surface p-4" aria-busy="true">
         <Skeleton className="h-6 w-40" />
         <Skeleton className="h-32 w-full" />
       </div>
@@ -36,9 +36,9 @@ export function ResponseViewer({ response, loading }: { response: TestResponse |
         <span
           className={cn(
             "rounded-full px-2.5 py-0.5 font-mono text-sm font-semibold",
-            tone === "success" && "bg-pastel-mint text-pastel-mint-ink",
-            tone === "warning" && "bg-pastel-peach text-pastel-peach-ink",
-            tone === "danger" && "bg-pastel-rose text-pastel-rose-ink",
+            tone === "success" && "bg-success/10 text-success",
+            tone === "warning" && "bg-warning/10 text-warning",
+            tone === "danger" && "bg-danger/10 text-danger",
           )}
         >
           {`${response.status} ${meta.text}`.trim()}
@@ -47,7 +47,7 @@ export function ResponseViewer({ response, loading }: { response: TestResponse |
       </div>
       {meta.hint && <p className="text-sm text-muted-foreground">{meta.hint}</p>}
       {hasBody && (
-        <div className="relative rounded-2xl border bg-card p-4 shadow-card">
+        <div className="relative rounded-2xl border bg-surface p-4">
           <CopyButton text={JSON.stringify(response.body, null, 2)} className="absolute right-2 top-2" />
           <JsonTree value={response.body} />
         </div>

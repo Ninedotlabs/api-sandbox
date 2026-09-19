@@ -55,18 +55,18 @@ export function ResourceCard({ project, model, recordCount, openPanel, onToggle 
   }
 
   return (
-    <article id={`model-${model.id}`} className="animate-in fade-in slide-in-from-bottom-1 rounded-2xl border bg-card shadow-card duration-200">
+    <article id={`model-${model.id}`} className="animate-in fade-in slide-in-from-bottom-1 rounded-2xl border bg-surface duration-200">
       <div className="flex flex-wrap items-center gap-4 p-5">
         <div className="min-w-0 flex-1">
           <h3 className="text-lg font-semibold">{model.name}</h3>
-          <p className="text-sm text-ink-muted">
+          <p className="text-sm text-ink-3">
             <span>{countLabel(model.fields.length, "field")}</span>
             <span aria-hidden> · </span>
             <span>{routes.length === 0 ? "no routes yet" : countLabel(routes.length, "route")}</span>
             <span aria-hidden> · </span>
             <span>{countLabel(recordCount, "sample record")}</span>
           </p>
-          {hint && !openPanel && <p className="mt-1 text-sm text-pastel-blue-ink">{hint}</p>}
+          {hint && !openPanel && <p className="mt-1 text-sm text-accent-ink">{hint}</p>}
         </div>
         <div className="flex items-center gap-1.5">
           {PANELS.map((p) => (
@@ -75,13 +75,13 @@ export function ResourceCard({ project, model, recordCount, openPanel, onToggle 
               variant="secondary"
               aria-expanded={openPanel === p.id}
               aria-controls={`model-${model.id}-panel`}
-              className="aria-expanded:bg-ink aria-expanded:text-paper aria-expanded:hover:bg-ink/90"
+              className="aria-expanded:bg-ink aria-expanded:text-page aria-expanded:hover:bg-ink/90"
               onClick={() => onToggle(p.id)}
             >
               {p.label}
             </Button>
           ))}
-          <Button variant="ghost" size="icon" className="text-ink-muted hover:text-destructive" aria-label={`Delete ${model.name}`} onClick={remove}>
+          <Button variant="ghost" size="icon" className="text-ink-3 hover:text-destructive" aria-label={`Delete ${model.name}`} onClick={remove}>
             <Trash2 className="size-4" />
           </Button>
         </div>

@@ -34,15 +34,21 @@ function Console() {
     try {
       setResponse(await consoleService.send(project.id, { routeId: route.id, ...request }));
       markProgress(project.id, "tested");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not send the request.");
     } finally {
       setSending(false);
     }
   }
 
   async function reset() {
-    await consoleService.reset(project.id);
-    setResponse(null);
-    toast("Sample data reset");
+    try {
+      await consoleService.reset(project.id);
+      setResponse(null);
+      toast("Sample data reset");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not reset the sample data.");
+    }
   }
 
   if (project.routes.length === 0) {

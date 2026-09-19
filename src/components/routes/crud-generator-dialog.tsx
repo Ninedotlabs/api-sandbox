@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { MethodBadge } from "@/components/domain/method-badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -32,6 +33,8 @@ export function CrudGeneratorDialog({ project, model, open, onOpenChange, onGene
     try {
       await onGenerate(buildCrudRoutes(model, selected, project.routes));
       onOpenChange(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not create the endpoints.");
     } finally {
       setSaving(false);
     }

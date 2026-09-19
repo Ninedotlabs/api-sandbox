@@ -37,13 +37,29 @@ export default function RoutesPage() {
       description: "New route",
       filters: [],
     };
-    await addRoutes(project.id, [route]);
-    router.push(`/projects/${project.id}/routes/${route.id}`);
+    try {
+      await addRoutes(project.id, [route]);
+      router.push(`/projects/${project.id}/routes/${route.id}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not create the route.");
+    }
   }
 
   async function remove(route: Route) {
-    const snapshot = await deleteRoute(project.id, route.id);
-    toast("Route deleted", { action: { label: "Undo", onClick: () => void restoreProject(snapshot) } });
+    try {
+      const snapshot = await deleteRoute(project.id, route.id);
+      toast("Route deleted", {
+        action: {
+          label: "Undo",
+          onClick: () =>
+            void restoreProject(snapshot).catch((e) => {
+              toast.error(e instanceof Error ? e.message : "Could not undo.");
+            }),
+        },
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not delete the route.");
+    }
   }
 
   if (project.models.length === 0 && project.routes.length === 0) {

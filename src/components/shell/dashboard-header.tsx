@@ -1,4 +1,3 @@
-import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "./logo";
 import { UserAvatar } from "./user-avatar";
 
@@ -8,7 +7,6 @@ export function DashboardHeader() {
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 md:px-8">
         <Logo />
         <div className="flex items-center gap-1">
-          <ThemeToggle />
           <UserAvatar />
         </div>
       </div>

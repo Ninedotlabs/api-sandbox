@@ -1,7 +1,6 @@
 "use client";
 
-import { Plus, SunMoon } from "lucide-react";
-import { useTheme } from "next-themes";
+import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { MethodBadge } from "@/components/domain/method-badge";
@@ -17,7 +16,6 @@ export function CommandPalette({ project }: { project: Project }) {
   const open = useUiStore((s) => s.commandOpen);
   const setOpen = useUiStore((s) => s.setCommandOpen);
   const projects = useProjectStore((s) => s.projects);
-  const { resolvedTheme, setTheme } = useTheme();
   const router = useRouter();
 
   useEffect(() => {
@@ -86,15 +84,6 @@ export function CommandPalette({ project }: { project: Project }) {
         <CommandGroup heading="Actions">
           <CommandItem value="action new api" onSelect={() => go("/projects/new")}>
             <Plus className="size-4" /> New API
-          </CommandItem>
-          <CommandItem
-            value="action toggle theme"
-            onSelect={() => {
-              setTheme(resolvedTheme === "light" ? "dark" : "light");
-              setOpen(false);
-            }}
-          >
-            <SunMoon className="size-4" /> Toggle theme
           </CommandItem>
         </CommandGroup>
       </CommandList>

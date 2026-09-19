@@ -2,102 +2,65 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
-
 @theme inline {
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-jetbrains-mono);
   --font-mono: var(--font-jetbrains-mono);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-success: var(--success);
-  --color-warning: var(--warning);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-method-get: var(--method-get);
-  --color-method-post: var(--method-post);
-  --color-method-put: var(--method-put);
-  --color-method-patch: var(--method-patch);
-  --color-method-delete: var(--method-delete);
-  --radius-sm: 6px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
-  --radius-xl: 10px;
-}
+  --font-script: var(--font-pacifico);
 
-:root {
-  --background: #ffffff;
-  --foreground: #09090b;
-  --surface: #f7f7f8;
-  --surface-2: #ffffff;
-  --card: #ffffff;
-  --card-foreground: #09090b;
-  --popover: #ffffff;
-  --popover-foreground: #09090b;
-  --primary: #6d4aff;
-  --primary-foreground: #ffffff;
-  --secondary: #f4f4f5;
-  --secondary-foreground: #09090b;
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
-  --accent: #f4f4f5;
-  --accent-foreground: #09090b;
-  --destructive: #dc2626;
-  --success: #16a34a;
-  --warning: #d97706;
-  --border: #e4e4e7;
-  --input: #e4e4e7;
-  --ring: #6d4aff;
-  --method-get: #15803d;
-  --method-post: #1d4ed8;
-  --method-put: #b45309;
-  --method-patch: #7e22ce;
-  --method-delete: #b91c1c;
-}
+  --color-paper: #f7f7f4;
+  --color-grid-line: #e9e9e4;
+  --color-ink: #18181b;
+  --color-ink-muted: #6b6b72;
+  --color-line: #e4e4df;
+  --color-sketch: #c9c9c2;
+  --color-soft: #eeeeea;
+  --color-soft-hover: #e4e4df;
 
-.dark {
-  --background: #0a0a0b;
-  --foreground: #fafafa;
-  --surface: #111113;
-  --surface-2: #18181b;
-  --card: #18181b;
-  --card-foreground: #fafafa;
-  --popover: #18181b;
-  --popover-foreground: #fafafa;
-  --primary: #7c5cff;
-  --primary-foreground: #ffffff;
-  --secondary: #27272a;
-  --secondary-foreground: #fafafa;
-  --muted: #27272a;
-  --muted-foreground: #a1a1aa;
-  --accent: #27272a;
-  --accent-foreground: #fafafa;
-  --destructive: #ef4444;
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --border: #27272a;
-  --input: #27272a;
-  --ring: #7c5cff;
-  --method-get: #22c55e;
-  --method-post: #3b82f6;
-  --method-put: #f59e0b;
-  --method-patch: #a855f7;
-  --method-delete: #ef4444;
+  --color-pastel-blue: #dce6ff;
+  --color-pastel-blue-ink: #2b4acb;
+  --color-pastel-violet: #e9ddff;
+  --color-pastel-violet-ink: #6b3fd1;
+  --color-pastel-peach: #ffe4d1;
+  --color-pastel-peach-ink: #b4520e;
+  --color-pastel-mint: #d8f5e3;
+  --color-pastel-mint-ink: #1f7a48;
+  --color-pastel-lavender: #e6e0ff;
+  --color-pastel-lavender-ink: #5a3ebf;
+  --color-pastel-rose: #ffdcdf;
+  --color-pastel-rose-ink: #b3262e;
+  --color-pastel-lemon: #fff3c4;
+  --color-pastel-lemon-ink: #8a6100;
+
+  /* shadcn semantic tokens, mapped to the paper palette */
+  --color-background: var(--color-paper);
+  --color-foreground: var(--color-ink);
+  --color-surface: var(--color-soft);
+  --color-surface-2: #ffffff;
+  --color-card: #ffffff;
+  --color-card-foreground: var(--color-ink);
+  --color-popover: #ffffff;
+  --color-popover-foreground: var(--color-ink);
+  --color-primary: #3b5bdb;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--color-soft);
+  --color-secondary-foreground: var(--color-ink);
+  --color-muted: var(--color-soft);
+  --color-muted-foreground: var(--color-ink-muted);
+  --color-accent: var(--color-soft);
+  --color-accent-foreground: var(--color-ink);
+  --color-destructive: #e5484d;
+  --color-success: #2f9e62;
+  --color-warning: #d97706;
+  --color-border: var(--color-line);
+  --color-input: var(--color-line);
+  --color-ring: #3b5bdb;
+
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  --shadow-card: 0 1px 2px rgb(24 24 27 / 4%), 0 8px 24px rgb(24 24 27 / 6%);
 }
 
 @layer base {
@@ -105,7 +68,11 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background font-sans text-foreground antialiased;
+    @apply bg-paper font-sans text-ink antialiased;
+    background-image:
+      linear-gradient(to right, var(--color-grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--color-grid-line) 1px, transparent 1px);
+    background-size: 32px 32px;
   }
   @media (prefers-reduced-motion: reduce) {
     *,

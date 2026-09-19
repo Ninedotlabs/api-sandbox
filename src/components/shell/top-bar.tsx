@@ -2,7 +2,6 @@
 
 import { Menu, Search } from "lucide-react";
 import { useState } from "react";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import type { Project } from "@/lib/types";
@@ -36,7 +35,6 @@ export function TopBar({ project }: { project: Project }) {
         <Button variant="ghost" size="icon" className="sm:hidden" aria-label="Search" onClick={() => setCommandOpen(true)}>
           <Search className="size-4" />
         </Button>
-        <ThemeToggle />
         <UserAvatar />
       </div>
     </header>

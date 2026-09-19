@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
-import { ThemeProvider } from "@/components/theme-provider";
+import { JetBrains_Mono, Pacifico } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains-mono" });
+const script = Pacifico({ subsets: ["latin"], weight: "400", variable: "--font-pacifico" });
 
 export const metadata: Metadata = {
   title: "Universal API",
@@ -15,12 +14,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${mono.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${mono.variable} ${script.variable}`}>
       <body>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
-          <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
-          <Toaster />
-        </ThemeProvider>
+        <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+        <Toaster />
       </body>
     </html>
   );

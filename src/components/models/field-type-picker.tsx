@@ -2,6 +2,7 @@
 
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
+import { TypeChip } from "@/components/domain/type-chip";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { FIELD_TYPES, fieldTypeMeta, type FieldTypeMeta } from "@/lib/field-types";
@@ -27,7 +28,7 @@ export function FieldTypePicker({ value, onChange }: Props) {
         setOpen(false);
       }}
       className={cn(
-        "flex items-start gap-3 rounded-md p-2 text-left transition-colors duration-150 hover:bg-accent",
+        "flex items-start gap-3 rounded-xl p-2 text-left transition-colors duration-150 hover:bg-accent",
         t.type === value && "bg-primary/10",
       )}
     >
@@ -45,8 +46,7 @@ export function FieldTypePicker({ value, onChange }: Props) {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="w-40 justify-start gap-2" aria-label={`Field type: ${current.label}`}>
-          <span className="font-mono text-xs">{current.icon}</span>
-          {current.label}
+          <TypeChip type={value} />
           <ChevronDown className="ml-auto size-3.5 opacity-60" />
         </Button>
       </PopoverTrigger>

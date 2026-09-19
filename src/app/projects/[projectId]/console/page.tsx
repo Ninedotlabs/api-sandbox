@@ -59,7 +59,7 @@ function Console() {
         description="Create some routes first, then come back to try them."
         action={
           <Button asChild>
-            <Link href={`/projects/${project.id}/routes`}>Go to routes</Link>
+            <Link href={`/projects/${project.id}`}>Go to Build</Link>
           </Button>
         }
       />
@@ -86,7 +86,7 @@ function Console() {
             setResponse(null);
           }}
         />
-        <section className="rounded-[10px] border bg-surface p-5">
+        <section className="rounded-2xl border bg-card p-5 shadow-card">
           {route ? (
             <RequestForm key={route.id} project={project} route={route} sending={sending} onSend={send} />
           ) : (

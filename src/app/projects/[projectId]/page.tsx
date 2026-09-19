@@ -40,9 +40,11 @@ function Build() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchCounts().then((next) => {
-      if (!cancelled) setCounts(next);
-    });
+    fetchCounts()
+      .then((next) => {
+        if (!cancelled) setCounts(next);
+      })
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Could not load sample data."));
     return () => {
       cancelled = true;
     };

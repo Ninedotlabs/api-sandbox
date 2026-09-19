@@ -135,9 +135,9 @@ export function RequestForm({ project, route, sending, onSend }: Props) {
 
   return (
     <form onSubmit={submit} noValidate className="space-y-5">
-      <div className="flex items-center gap-2 rounded-md border bg-background p-2">
+      <div className="flex items-center gap-2 rounded-xl border bg-soft p-2">
         <MethodBadge method={route.method} />
-        <code className="min-w-0 break-all font-mono text-sm">{url}</code>
+        <span className="min-w-0 break-all font-mono text-sm">{url}</span>
       </div>
 
       {params.length > 0 && (

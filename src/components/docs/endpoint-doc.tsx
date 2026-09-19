@@ -2,21 +2,19 @@ import { Play } from "lucide-react";
 import Link from "next/link";
 import { CodeBlock } from "@/components/domain/code-block";
 import { MethodBadge } from "@/components/domain/method-badge";
+import { UrlSegments } from "@/components/domain/url-segments";
 import { Button } from "@/components/ui/button";
 import type { DocEndpoint } from "@/lib/docs";
 import { routeParams } from "@/lib/paths";
 
-export function EndpointDoc({ endpoint, base, tryHref }: { endpoint: DocEndpoint; base: string; tryHref: string }) {
+export function EndpointDoc({ endpoint, slug, tryHref }: { endpoint: DocEndpoint; slug: string; tryHref: string }) {
   const { route, request, response } = endpoint;
   const params = routeParams(route.path);
   return (
-    <div className="space-y-4 rounded-[10px] border bg-surface-2 p-5">
+    <div className="space-y-4 rounded-2xl border bg-card p-5 shadow-card">
       <div className="flex flex-wrap items-center gap-3">
         <MethodBadge method={route.method} showLabel />
-        <code className="min-w-0 break-all font-mono text-sm">
-          {base}
-          {route.path}
-        </code>
+        <UrlSegments slug={slug} tail={route.path} />
         <Button variant="outline" size="sm" className="ml-auto" asChild>
           <Link href={tryHref}>
             <Play className="size-4" /> Try it

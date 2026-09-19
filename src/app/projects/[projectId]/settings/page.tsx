@@ -4,9 +4,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/domain/page-header";
+import { TwoStepButton } from "@/components/domain/two-step-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,7 +25,6 @@ export default function SettingsPage() {
   const [description, setDescription] = useState(project.description);
   const [slug, setSlug] = useState(project.slug);
   const [errors, setErrors] = useState<{ name?: string; slug?: string }>({});
-  const [confirmOpen, setConfirmOpen] = useState(false);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -44,7 +43,6 @@ export default function SettingsPage() {
   }
 
   async function remove() {
-    setConfirmOpen(false);
     router.push("/projects");
     try {
       const snapshot = await deleteProject(project.id);
@@ -68,7 +66,7 @@ export default function SettingsPage() {
   return (
     <div className="max-w-2xl space-y-8">
       <PageHeader title="Settings" description="Rename your API or change its address." />
-      <form onSubmit={save} className="space-y-5 rounded-[10px] border bg-surface p-5">
+      <form onSubmit={save} className="space-y-5 rounded-2xl border bg-surface p-5 shadow-card">
         <div className="space-y-2">
           <Label htmlFor="settings-name">API name</Label>
           <Input id="settings-name" value={name} aria-invalid={!!errors.name} onChange={(e) => setName(e.target.value)} />
@@ -91,34 +89,15 @@ export default function SettingsPage() {
         </div>
       </form>
 
-      <Card className="border-destructive/40">
+      <Card className="rounded-2xl border-pastel-rose-ink/30 shadow-card">
         <CardHeader>
           <CardTitle className="text-destructive">Delete this API</CardTitle>
           <CardDescription>Removes its models, routes and docs. You can undo right after.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button variant="destructive" onClick={() => setConfirmOpen(true)}>
-            Delete API
-          </Button>
+          <TwoStepButton label="Delete API" confirmLabel="Sure? Delete" onConfirm={() => void remove()} />
         </CardContent>
       </Card>
-
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete {project.name}?</DialogTitle>
-            <DialogDescription>Its models, routes and docs will be removed.</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={remove}>
-              Delete API
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

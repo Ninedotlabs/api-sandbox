@@ -42,10 +42,10 @@ export function ModelFieldTable({ model, models, onSave }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="overflow-x-auto rounded-[10px] border">
+      <div className="overflow-x-auto rounded-2xl border bg-card">
         <Table>
           <TableHeader>
-            <TableRow className="bg-surface">
+            <TableRow className="bg-soft">
               <TableHead className="w-8">
                 <span className="sr-only">Reorder</span>
               </TableHead>
@@ -80,7 +80,7 @@ export function ModelFieldTable({ model, models, onSave }: Props) {
                 }}
               />
             ))}
-            <TableRow>
+            <TableRow className="border-t border-dashed border-sketch">
               <TableCell colSpan={7}>
                 <Button variant="ghost" size="sm" onClick={() => setFields((fs) => [...fs, newField()])}>
                   <Plus className="size-4" /> Add field

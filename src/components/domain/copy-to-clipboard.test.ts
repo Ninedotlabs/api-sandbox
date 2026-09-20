@@ -9,7 +9,7 @@ afterEach(() => {
 
 it("writes to the clipboard and reports success only when a message is given", async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);
-  Object.assign(navigator, { clipboard: { writeText } });
+  Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
 
   await copyToClipboard("hello");
   expect(writeText).toHaveBeenCalledWith("hello");
@@ -20,7 +20,10 @@ it("writes to the clipboard and reports success only when a message is given", a
 });
 
 it("falls back to an error toast when the clipboard write is denied or unavailable", async () => {
-  Object.assign(navigator, { clipboard: { writeText: vi.fn().mockRejectedValue(new Error("denied")) } });
+  Object.defineProperty(navigator, "clipboard", {
+    value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+    configurable: true,
+  });
   await copyToClipboard("hello");
   expect(toast.error).toHaveBeenCalledWith("Could not copy to the clipboard.");
 });

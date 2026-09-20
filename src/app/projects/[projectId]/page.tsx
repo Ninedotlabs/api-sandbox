@@ -106,6 +106,7 @@ function Editor({ mode, onModeChange }: { mode: WorkspaceMode; onModeChange: (mo
         onNewResource: addResource,
         onNewEndpoint: () => void newEndpoint(),
         onGenerateWithAI: () => onModeChange("ai"),
+        onEditWithAI: () => onModeChange("ai-edit"),
       })}
       asChild
     >

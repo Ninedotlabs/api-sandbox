@@ -186,18 +186,20 @@ describe("consoleItems", () => {
 });
 
 describe("backgroundItems", () => {
-  it("offers the workspace pane items, with Edit with AI disabled for now", () => {
-    const handlers = { onNewResource: vi.fn(), onNewEndpoint: vi.fn(), onGenerateWithAI: vi.fn() };
+  it("offers the workspace pane items, including an enabled Edit with AI", () => {
+    const handlers = { onNewResource: vi.fn(), onNewEndpoint: vi.fn(), onGenerateWithAI: vi.fn(), onEditWithAI: vi.fn() };
     const items = backgroundItems({ kind: "workspace", ...handlers });
     expect(items.map((i) => i.id)).toEqual(["new-resource", "new-endpoint", "generate-with-ai", "edit-with-ai"]);
     expect(items.find((i) => i.id === "generate-with-ai")!.separatorBefore).toBe(true);
-    expect(items.find((i) => i.id === "edit-with-ai")!.disabled).toBe(true);
+    expect(items.find((i) => i.id === "edit-with-ai")!.disabled).toBeFalsy();
     items.find((i) => i.id === "new-resource")!.onSelect();
     expect(handlers.onNewResource).toHaveBeenCalledTimes(1);
     items.find((i) => i.id === "new-endpoint")!.onSelect();
     expect(handlers.onNewEndpoint).toHaveBeenCalledTimes(1);
     items.find((i) => i.id === "generate-with-ai")!.onSelect();
     expect(handlers.onGenerateWithAI).toHaveBeenCalledTimes(1);
+    items.find((i) => i.id === "edit-with-ai")!.onSelect();
+    expect(handlers.onEditWithAI).toHaveBeenCalledTimes(1);
   });
 
   it("offers just New project on the projects page background", () => {

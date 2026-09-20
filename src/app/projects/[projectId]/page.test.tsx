@@ -45,7 +45,7 @@ describe("the background context menu over the lifecycle guide", () => {
     fireEvent(guide, createEvent.contextMenu(guide, { bubbles: true, cancelable: true }));
   }
 
-  it("offers New resource, New endpoint, Generate with AI and a disabled Edit with AI", () => {
+  it("offers New resource, New endpoint, Generate with AI and Edit with AI", () => {
     renderUi(
       <WorkspaceProvider project={project}>
         <WorkspacePage />
@@ -56,7 +56,7 @@ describe("the background context menu over the lifecycle guide", () => {
     expect(screen.getByRole("menuitem", { name: "New endpoint" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Generate with AI" })).toBeInTheDocument();
     const editWithAi = screen.getByRole("menuitem", { name: "Edit with AI" });
-    expect(editWithAi).toHaveAttribute("aria-disabled", "true");
+    expect(editWithAi).not.toHaveAttribute("aria-disabled", "true");
   });
 
   it("switches to the new-resource panel from New resource", async () => {
@@ -81,6 +81,18 @@ describe("the background context menu over the lifecycle guide", () => {
     openMenu();
     await user.click(screen.getByRole("menuitem", { name: "Generate with AI" }));
     expect(screen.getByRole("heading", { name: "Describe the API you need" })).toBeInTheDocument();
+  });
+
+  it("switches to the AI edit panel from Edit with AI", async () => {
+    const user = userEvent.setup();
+    renderUi(
+      <WorkspaceProvider project={project}>
+        <WorkspacePage />
+      </WorkspaceProvider>,
+    );
+    openMenu();
+    await user.click(screen.getByRole("menuitem", { name: "Edit with AI" }));
+    expect(screen.getByRole("heading", { name: "What should change?" })).toBeInTheDocument();
   });
 
   it("creates and selects a new endpoint from New endpoint", async () => {

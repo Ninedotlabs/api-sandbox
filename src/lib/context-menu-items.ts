@@ -150,6 +150,7 @@ export type BackgroundItemsInput =
       onNewResource: () => void;
       onNewEndpoint: () => void;
       onGenerateWithAI: () => void;
+      onEditWithAI: () => void;
     }
   | { kind: "projects"; onNewProject: () => void };
 
@@ -162,12 +163,6 @@ export function backgroundItems(input: BackgroundItemsInput): ContextMenuItemSpe
     { id: "new-resource", label: "New resource", onSelect: input.onNewResource },
     { id: "new-endpoint", label: "New endpoint", onSelect: input.onNewEndpoint },
     { id: "generate-with-ai", label: "Generate with AI", separatorBefore: true, onSelect: input.onGenerateWithAI },
-    {
-      id: "edit-with-ai",
-      label: "Edit with AI",
-      disabled: true,
-      disabledReason: "Not available yet.",
-      onSelect: () => {},
-    },
+    { id: "edit-with-ai", label: "Edit with AI", onSelect: input.onEditWithAI },
   ];
 }

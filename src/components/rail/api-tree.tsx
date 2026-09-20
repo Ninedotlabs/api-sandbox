@@ -19,20 +19,38 @@ import { TreeNode } from "./tree-node";
 
 const ORIGIN = "localhost:3000";
 
-type TreeItem =
-  | { kind: "resource"; key: string; model: Model | null; title: string; count: number }
-  | { kind: "endpoint"; key: string; route: Route; parentKey: string };
+/** `posInSet`/`setSize` count siblings at the item's own level, not rows in the flat list. */
+type TreeItem = { key: string; posInSet: number; setSize: number } & (
+  | { kind: "resource"; model: Model | null; title: string; count: number }
+  | { kind: "endpoint"; route: Route; parentKey: string }
+);
 
 function flatten(project: Project, collapsed: ReadonlySet<string>): TreeItem[] {
+  const groups = groupRoutes(project);
   const items: TreeItem[] = [];
-  for (const group of groupRoutes(project)) {
+  groups.forEach((group, groupIndex) => {
     const title = group.model ? group.model.name : "Other endpoints";
-    items.push({ kind: "resource", key: group.key, model: group.model, title, count: group.routes.length });
-    if (collapsed.has(group.key)) continue;
-    for (const route of group.routes) {
-      items.push({ kind: "endpoint", key: `route-${route.id}`, route, parentKey: group.key });
-    }
-  }
+    items.push({
+      kind: "resource",
+      key: group.key,
+      model: group.model,
+      title,
+      count: group.routes.length,
+      posInSet: groupIndex + 1,
+      setSize: groups.length,
+    });
+    if (collapsed.has(group.key)) return;
+    group.routes.forEach((route, routeIndex) => {
+      items.push({
+        kind: "endpoint",
+        key: `route-${route.id}`,
+        route,
+        parentKey: group.key,
+        posInSet: routeIndex + 1,
+        setSize: group.routes.length,
+      });
+    });
+  });
   return items;
 }
 
@@ -60,7 +78,7 @@ interface Props {
 }
 
 export function ApiTree({ creating, onCreatingChange }: Props = {}) {
-  const { project, selection, select } = useWorkspace();
+  const { project, selection, select, setRailOpen } = useWorkspace();
   const addRoutes = useProjectStore((s) => s.addRoutes);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [activeKey, setActiveKey] = useState<string | null>(null);
@@ -106,7 +124,12 @@ export function ApiTree({ creating, onCreatingChange }: Props = {}) {
     setActiveKey(item.key);
     if (item.kind === "endpoint") select({ kind: "endpoint", id: item.route.id });
     else if (item.model) select({ kind: "resource", id: item.model.id });
-    else toggle(item.key, collapsed.has(item.key));
+    else {
+      toggle(item.key, collapsed.has(item.key));
+      return;
+    }
+    // On mobile the rail is a drawer over the editor: picking something means going to it.
+    setRailOpen(false);
   }
 
   function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
@@ -135,6 +158,9 @@ export function ApiTree({ creating, onCreatingChange }: Props = {}) {
         break;
       case "Enter":
       case " ":
+      // The tree carries no destructive control, so Delete only reveals the node in the
+      // editor, whose header holds the two-step delete button that does the confirming.
+      case "Delete":
         selectItem(item);
         break;
       default:
@@ -147,6 +173,7 @@ export function ApiTree({ creating, onCreatingChange }: Props = {}) {
     setShowNewRow(false);
     setActiveKey(`model-${model.id}`);
     select({ kind: "resource", id: model.id });
+    setRailOpen(false);
   }
 
   async function addEndpoint() {
@@ -169,6 +196,7 @@ export function ApiTree({ creating, onCreatingChange }: Props = {}) {
     }
     setActiveKey(`route-${route.id}`);
     select({ kind: "endpoint", id: route.id });
+    setRailOpen(false);
   }
 
   return (
@@ -184,8 +212,8 @@ export function ApiTree({ creating, onCreatingChange }: Props = {}) {
           const selected = item.key === selectedKey;
           const active = index === activeIndex;
           const common = {
-            posInSet: index + 1,
-            setSize: items.length,
+            posInSet: item.posInSet,
+            setSize: item.setSize,
             selected,
             active,
             ref: (node: HTMLDivElement | null) => {

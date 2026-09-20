@@ -2,6 +2,7 @@
 
 import { ListTree, Search, SquareTerminal } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Wordmark } from "@/components/brand/wordmark";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,9 @@ function DrawerToggles() {
 
 export function TopBar({ project }: { project?: Project }) {
   const setCommandOpen = useUiStore((s) => s.setCommandOpen);
+  const pathname = usePathname();
+  // The rail and console only exist on the workspace route, so the toggles would be dead elsewhere.
+  const onWorkspace = !!project && pathname === `/projects/${project.id}`;
 
   return (
     <header className="flex h-12 items-center gap-2 border-b border-line bg-rail px-3">
@@ -71,7 +75,7 @@ export function TopBar({ project }: { project?: Project }) {
             >
               Reference
             </Link>
-            <DrawerToggles />
+            {onWorkspace && <DrawerToggles />}
             <ProjectMenu project={project} />
           </>
         )}

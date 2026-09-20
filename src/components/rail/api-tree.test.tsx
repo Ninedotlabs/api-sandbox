@@ -23,8 +23,14 @@ function storeProject(): Project {
 }
 
 function Probe() {
-  const { selection } = useWorkspace();
-  return <p>sel:{selection ? `${selection.kind}:${selection.id}` : "none"}</p>;
+  const { selection, railOpen, setRailOpen } = useWorkspace();
+  return (
+    <>
+      <p>sel:{selection ? `${selection.kind}:${selection.id}` : "none"}</p>
+      <p>rail:{railOpen ? "open" : "closed"}</p>
+      <button onClick={() => setRailOpen(true)}>open rail</button>
+    </>
+  );
 }
 
 function renderTree(project = storeProject()) {
@@ -95,4 +101,31 @@ it("offers an inline row for a new resource", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent("A model with this name already exists.");
   await user.keyboard("{Escape}");
   expect(screen.queryByLabelText("Resource name")).not.toBeInTheDocument();
+});
+
+it("closes the mobile rail drawer once an endpoint is selected", async () => {
+  renderTree();
+  const user = userEvent.setup();
+  await user.click(screen.getByText("open rail"));
+  expect(screen.getByText("rail:open")).toBeInTheDocument();
+  await user.click(screen.getByRole("treeitem", { name: "GET /products" }));
+  expect(screen.getByText("rail:closed")).toBeInTheDocument();
+});
+
+it("closes the mobile rail drawer when a resource is selected", async () => {
+  renderTree();
+  const user = userEvent.setup();
+  await user.click(screen.getByText("open rail"));
+  await user.click(screen.getByRole("treeitem", { name: "Product" }));
+  expect(screen.getByText("rail:closed")).toBeInTheDocument();
+});
+
+it("numbers each row against its own siblings", () => {
+  renderTree();
+  const product = screen.getByRole("treeitem", { name: "Product" });
+  expect(product).toHaveAttribute("aria-posinset", "1");
+  expect(product).toHaveAttribute("aria-setsize", "3");
+  const first = screen.getByRole("treeitem", { name: "GET /products" });
+  expect(first).toHaveAttribute("aria-posinset", "1");
+  expect(first).toHaveAttribute("aria-setsize", "5");
 });

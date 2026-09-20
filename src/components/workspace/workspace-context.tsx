@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { Project, TestRequest } from "@/lib/types";
 
@@ -39,6 +39,7 @@ function selectionKey(selection: Selection): string {
 
 export function WorkspaceProvider({ project, children }: { project: Project; children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const params = useSearchParams();
   const fromUrl = readSelection(params);
   const urlKey = selectionKey(fromUrl);
@@ -48,7 +49,9 @@ export function WorkspaceProvider({ project, children }: { project: Project; chi
   const [state, setState] = useState({ seenUrlKey: urlKey, selection: fromUrl });
   if (state.seenUrlKey !== urlKey) setState({ seenUrlKey: urlKey, selection: fromUrl });
 
-  const [loaded, setLoaded] = useState<{ routeId: string; draft: ConsoleDraft | null } | null>(null);
+  // An explicit loadInConsole wins over the selection, but only until the selection moves again:
+  // the stamp records which selection it was loaded against, so the console follows the tree after.
+  const [loaded, setLoaded] = useState<{ routeId: string; draft: ConsoleDraft | null; stamp: string } | null>(null);
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [railOpen, setRailOpen] = useState(false);
 
@@ -60,30 +63,36 @@ export function WorkspaceProvider({ project, children }: { project: Project; chi
       next.delete("endpoint");
       if (selection) next.set(selection.kind, selection.id);
       const query = next.toString();
-      router.replace(query ? `?${query}` : "?", { scroll: false });
+      router.replace(query ? `?${query}` : pathname, { scroll: false });
     },
-    [params, router],
+    [params, pathname, router],
   );
 
-  const loadInConsole = useCallback((routeId: string, draft?: ConsoleDraft) => {
-    setLoaded({ routeId, draft: draft ?? null });
-  }, []);
-
   const { selection } = state;
+  const selectedKey = selectionKey(selection);
+
+  const loadInConsole = useCallback(
+    (routeId: string, draft?: ConsoleDraft) => {
+      setLoaded({ routeId, draft: draft ?? null, stamp: selectedKey });
+    },
+    [selectedKey],
+  );
+
+  const active = loaded?.stamp === selectedKey ? loaded : null;
   const value = useMemo<WorkspaceValue>(
     () => ({
       project,
       selection,
       select,
-      consoleRouteId: loaded?.routeId ?? (selection?.kind === "endpoint" ? selection.id : null),
-      consoleDraft: loaded?.draft ?? null,
+      consoleRouteId: active?.routeId ?? (selection?.kind === "endpoint" ? selection.id : null),
+      consoleDraft: active?.draft ?? null,
       loadInConsole,
       consoleOpen,
       setConsoleOpen,
       railOpen,
       setRailOpen,
     }),
-    [project, selection, select, loaded, loadInConsole, consoleOpen, railOpen],
+    [project, selection, select, active, loadInConsole, consoleOpen, railOpen],
   );
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

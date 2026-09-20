@@ -307,9 +307,9 @@ export function ApiTree({ onModeChange }: Props = {}) {
                   onOpen: () => selectItem(item),
                   onCopyPath: (path) => void copyToClipboard(path),
                   onGenerateCrud: (missing) => void generateCrud(missing),
-                  // Deferred a tick: see the identical note on ProjectRow's Rename handler —
-                  // closing the menu returns focus here, which would blur the rename input the
-                  // instant it gets it and cancel the rename before anything could be typed.
+                  // Workaround for a Radix focus-return race, not a fix for it — see the fuller
+                  // note on ProjectRow's identical Rename handler, including the deterministic
+                  // alternative (`onCloseAutoFocus` + an effect) that was not attempted here.
                   onRename: () => setTimeout(() => setRenamingKey(item.key), 0),
                   onDelete: () => void removeModel(model),
                 })}

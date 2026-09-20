@@ -1,4 +1,5 @@
 import { executeRoute, type DataRecord, type Dataset } from "@/lib/mock-engine";
+import { applyResponseShape, runResponseQuery } from "@/lib/response-shape";
 import { matchRoute } from "@/lib/routes";
 import { pgProjectService, RESERVED_SLUGS } from "@/lib/services/pg/project-service";
 import { pgRecordService } from "@/lib/services/pg/record-service";
@@ -11,12 +12,12 @@ const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-function ok(status: number, body: unknown): Response {
-  return Response.json(body, { status, headers: CORS_HEADERS });
+function ok(status: number, body: unknown, extraHeaders: Record<string, string> = {}): Response {
+  return Response.json(body, { status, headers: { ...CORS_HEADERS, ...extraHeaders } });
 }
 
-function noContent(): Response {
-  return new Response(null, { status: 204, headers: CORS_HEADERS });
+function noContent(extraHeaders: Record<string, string> = {}): Response {
+  return new Response(null, { status: 204, headers: { ...CORS_HEADERS, ...extraHeaders } });
 }
 
 const MUTATING_ACTIONS = new Set(["create", "update", "delete"]);
@@ -68,6 +69,18 @@ async function handle(req: Request, context: RouteContext): Promise<Response> {
     const query = Object.fromEntries(new URL(req.url).searchParams.entries());
     const result = executeRoute(project, route, { params, query, body }, dataset);
 
+    // A custom endpoint's `response.query` names its own model (independent of the route's
+    // own `modelId`, which is typically null for a custom route) - resolve it here, before
+    // shaping, so `{{records}}`/`{{count}}` in a template reflect real, current data.
+    let queriedRecords: DataRecord[] | undefined;
+    const responseQuery = route.action === "custom" ? route.response?.query : undefined;
+    if (responseQuery) {
+      const queriedModel = project.models.find((m) => m.id === responseQuery.modelId);
+      queriedRecords = queriedModel
+        ? runResponseQuery(queriedModel, (await pgRecordService.sampleData(project.id, queriedModel.id)) as DataRecord[], responseQuery)
+        : [];
+    }
+
     if (model && result.status < 400 && MUTATING_ACTIONS.has(route.action)) {
       const records = dataset[model.id] ?? [];
       if (route.action === "create") {
@@ -90,8 +103,9 @@ async function handle(req: Request, context: RouteContext): Promise<Response> {
       }
     }
 
-    if (result.status === 204) return noContent();
-    return ok(result.status, result.body);
+    const shaped = applyResponseShape(route, result, { params, query, body, records: queriedRecords });
+    if (shaped.status === 204) return noContent(shaped.headers);
+    return ok(shaped.status, shaped.body, shaped.headers);
   } catch {
     // Never echo the real error: a raw driver error can carry connection details, and an
     // uncaught throw here would skip `ok`/`noContent` entirely, answering without CORS

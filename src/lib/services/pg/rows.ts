@@ -28,6 +28,7 @@ export interface RouteRow {
   description: string;
   filters: string[];
   position: number;
+  response?: Route["response"] | null;
 }
 
 export interface FieldRowWithModel extends FieldRow {
@@ -64,5 +65,6 @@ export function routeFromRow(row: RouteRow): Route {
     action: row.action as Route["action"],
     description: row.description,
     filters: row.filters,
+    ...(row.response != null ? { response: row.response } : {}),
   };
 }

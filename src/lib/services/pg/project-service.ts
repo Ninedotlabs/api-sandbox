@@ -47,7 +47,7 @@ async function assembleProject(runner: Queryable, row: ProjectRow): Promise<Proj
   const models: Model[] = modelRows.map((m) => ({ id: m.id, name: m.name, fields: fieldsByModel.get(m.id) ?? [] }));
 
   const { rows: routeRows } = await runner.query<RouteRow>(
-    "select id, model_id, method, path, action, description, filters, position from routes where project_id = $1 order by position, id",
+    "select id, model_id, method, path, action, description, filters, position, response from routes where project_id = $1 order by position, id",
     [row.id],
   );
   const routes: Route[] = routeRows.map(routeFromRow);

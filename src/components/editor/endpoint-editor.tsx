@@ -98,7 +98,7 @@ export function EndpointEditor({ route }: { route: Route }) {
           <RequestTab project={project} route={route} onSave={save} />
         </TabsContent>
         <TabsContent value="response" className="p-6">
-          <ResponseTab project={project} route={route} />
+          <ResponseTab project={project} route={route} onSave={save} />
         </TabsContent>
         <TabsContent value="use-it" className="p-6">
           <UseItTab project={project} route={route} />

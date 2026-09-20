@@ -232,6 +232,118 @@ describe.skipIf(!hasDb)("mock API over real HTTP", () => {
     expect(body.error).not.toContain("internal-host");
   });
 
+  it("shapes a templated list response, substituting {{records}} with the real typed array", async () => {
+    const { project } = await seededProject();
+    try {
+      await pgRouteService.update(project.id, {
+        ...project.routes.find((r) => r.id === "rte_list")!,
+        response: { mode: "template", template: { success: true, items: "{{records}}", total: "{{count}}", note: "Found {{count}} tasks" } },
+      });
+      const res = await GET(req(`http://t/api/${project.slug}/tasks`), ctx(project.slug, ["tasks"]));
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(Array.isArray(body.items)).toBe(true);
+      expect(body.items).toHaveLength(2);
+      expect(body.total).toBe(2);
+      expect(body.note).toBe("Found 2 tasks");
+    } finally {
+      await pgProjectService.remove(project.id);
+    }
+  });
+
+  it("answers a static custom endpoint verbatim, with its own status", async () => {
+    const project = await pgProjectService.create({ name: `Static Custom Api ${Date.now()}`, description: "", templateId: null });
+    try {
+      await pgRouteService.createMany(project.id, [
+        {
+          id: "rte_static",
+          method: "GET",
+          path: "/health",
+          modelId: null,
+          action: "custom",
+          description: "",
+          filters: [],
+          response: { mode: "static", status: 202, body: { ok: true, service: "mock" } },
+        },
+      ]);
+      const reloaded = (await pgProjectService.get(project.id))!;
+      const res = await GET(req(`http://t/api/${reloaded.slug}/health`), ctx(reloaded.slug, ["health"]));
+      expect(res.status).toBe(202);
+      expect(await res.json()).toEqual({ ok: true, service: "mock" });
+    } finally {
+      await pgProjectService.remove(project.id);
+    }
+  });
+
+  it("answers a custom endpoint with no response defined with a truthful 501, not the old placeholder", async () => {
+    const project = await pgProjectService.create({ name: `Unset Custom Api ${Date.now()}`, description: "", templateId: null });
+    try {
+      await pgRouteService.createMany(project.id, [
+        { id: "rte_unset", method: "GET", path: "/whatever", modelId: null, action: "custom", description: "", filters: [] },
+      ]);
+      const reloaded = (await pgProjectService.get(project.id))!;
+      const res = await GET(req(`http://t/api/${reloaded.slug}/whatever`), ctx(reloaded.slug, ["whatever"]));
+      expect(res.status).toBe(501);
+      const body = await res.json();
+      expect(typeof body.error).toBe("string");
+      expect(body.error.toLowerCase()).not.toContain("link it to a model");
+    } finally {
+      await pgProjectService.remove(project.id);
+    }
+  });
+
+  it("answers a custom endpoint whose response.query reads real records from a different model", async () => {
+    const project = await pgProjectService.create({ name: `Queried Custom Api ${Date.now()}`, description: "", templateId: null });
+    try {
+      const book = await pgModelService.create(project.id, "Book");
+      await pgRouteService.createMany(project.id, [
+        {
+          id: "rte_best",
+          method: "GET",
+          path: "/books/best-selling",
+          modelId: null,
+          action: "custom",
+          description: "",
+          filters: [],
+          response: {
+            mode: "template",
+            template: { items: "{{records}}" },
+            query: { modelId: book.id, sort: { field: "rating", dir: "desc" }, limit: 1 },
+          },
+        },
+      ]);
+      await pgRecordService.seedRecords(project.id, book.id, [
+        { id: "1", title: "Dune", rating: 5 },
+        { id: "2", title: "Emma", rating: 3 },
+      ]);
+      const reloaded = (await pgProjectService.get(project.id))!;
+      const res = await GET(req(`http://t/api/${reloaded.slug}/books/best-selling`), ctx(reloaded.slug, ["books", "best-selling"]));
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.items).toHaveLength(1);
+      expect(body.items[0].title).toBe("Dune");
+    } finally {
+      await pgProjectService.remove(project.id);
+    }
+  });
+
+  it("delivers a custom status and a custom header to a real HTTP client", async () => {
+    const { project } = await seededProject();
+    try {
+      await pgRouteService.update(project.id, {
+        ...project.routes.find((r) => r.id === "rte_list")!,
+        response: { mode: "auto", status: 503, headers: { "X-RateLimit-Remaining": "0" } },
+      });
+      const res = await GET(req(`http://t/api/${project.slug}/tasks`), ctx(project.slug, ["tasks"]));
+      expect(res.status).toBe(503);
+      expect(res.headers.get("X-RateLimit-Remaining")).toBe("0");
+      expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    } finally {
+      await pgProjectService.remove(project.id);
+    }
+  });
+
   it("does not silently drop a record from a concurrent create (I2)", async () => {
     const { project, taskModelId } = await seededProject();
     try {

@@ -73,9 +73,9 @@ describe("POST /api/v1/projects/:id/routes", () => {
     expect(res.status).toBe(409);
   });
 
-  it("forwards an unrecognised field, so a future response definition isn't dropped", async () => {
+  it("forwards a route's `response` definition to the service untouched", async () => {
     const createMany = vi.spyOn(pgRouteService, "createMany").mockResolvedValue([route]);
-    const withResponse = { ...route, response: { status: 200, body: { ok: true } } };
+    const withResponse = { ...route, response: { mode: "static" as const, status: 200, body: { ok: true } } };
     await post("prj_1", { routes: [withResponse] });
     expect(createMany).toHaveBeenCalledWith("prj_1", [withResponse]);
   });

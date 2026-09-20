@@ -1,5 +1,5 @@
 import { buildCrudRoutes } from "@/lib/crud";
-import { consoleService } from "@/lib/services";
+import { consoleService, routeService } from "@/lib/services";
 import { setMockLatency } from "@/lib/services/mock/latency";
 import { useProjectStore } from "./project-store";
 
@@ -128,4 +128,37 @@ it("applies an AI plan: models with fields, five routes each, seeded records", a
   ]);
   expect(result).toEqual({ modelIds: project.models.map((m) => m.id), routeCount: 10 });
   expect(await consoleService.sampleData(p.id, book.id)).toEqual([{ title: "Dune", author: "1", id: "1" }]);
+});
+
+it("resumes an AI plan after a failed step, without duplicating models", async () => {
+  const p = await useProjectStore.getState().createProject({ name: "Library", description: "", templateId: null });
+  const plan = {
+    resources: [
+      {
+        name: "Author",
+        description: "",
+        fields: [{ name: "name", type: "text" as const, required: true, unique: false }],
+        records: [{ name: "Ann" }],
+      },
+      {
+        name: "Book",
+        description: "",
+        fields: [{ name: "title", type: "text" as const, required: true, unique: false }],
+        records: [{ title: "Dune" }],
+      },
+    ],
+  };
+  const failOnce = vi.spyOn(routeService, "createMany").mockRejectedValueOnce(new Error("Network dropped."));
+  await expect(useProjectStore.getState().applyPlan(p.id, plan)).rejects.toThrow("Network dropped.");
+  // The refresh runs even on failure, so what did land is visible.
+  const partial = useProjectStore.getState().projects.find((x) => x.id === p.id)!;
+  expect(partial.models.map((m) => m.name)).toEqual(["Author", "Book"]);
+  expect(partial.routes).toEqual([]);
+
+  failOnce.mockRestore();
+  const result = await useProjectStore.getState().applyPlan(p.id, plan);
+  const project = useProjectStore.getState().projects.find((x) => x.id === p.id)!;
+  expect(project.models.map((m) => m.name)).toEqual(["Author", "Book"]);
+  expect(project.routes).toHaveLength(10);
+  expect(result).toEqual({ modelIds: project.models.map((m) => m.id), routeCount: 10 });
 });

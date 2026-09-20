@@ -114,40 +114,53 @@ export const useProjectStore = create<ProjectState>()((set, get) => {
       await refresh(projectId);
     },
     async applyPlan(projectId, plan) {
-      // Two passes: every resource exists before fields are saved, so a link field can
-      // resolve its target's real id even when it points at a later resource.
-      const ids = new Map<string, string>();
-      const modelIds: string[] = [];
-      let routeCount = 0;
-      for (const resource of plan.resources) {
-        const created = await modelService.create(projectId, resource.name);
-        ids.set(resource.name, created.id);
-        modelIds.push(created.id);
+      // Resumable on purpose: a failed step leaves whatever was already created in place,
+      // and running the same plan again picks up where it stopped. Every step is therefore
+      // written to be idempotent — a resource with the plan's name is reused rather than
+      // created, `buildCrudRoutes` skips endpoints that already exist, and `seedRecords`
+      // replaces a model's records. The `finally` refresh means a partial run is still
+      // visible in the tree, so the user can see what landed.
+      try {
+        // Two passes: every resource exists before fields are saved, so a link field can
+        // resolve its target's real id even when it points at a later resource.
+        const before = await projectService.get(projectId);
+        const ids = new Map<string, string>();
+        const modelIds: string[] = [];
+        let routeCount = 0;
+        for (const resource of plan.resources) {
+          const existing = before?.models.find((m) => m.name.toLowerCase() === resource.name.toLowerCase());
+          const model = existing ?? (await modelService.create(projectId, resource.name));
+          ids.set(resource.name, model.id);
+          modelIds.push(model.id);
+        }
+        for (const resource of plan.resources) {
+          const id = ids.get(resource.name)!;
+          const model: Model = {
+            id,
+            name: resource.name,
+            fields: resource.fields.map((f) => ({
+              id: createId("fld"),
+              name: f.name,
+              type: f.type,
+              required: f.required,
+              unique: f.unique,
+              ...(f.options ? { options: f.options } : {}),
+              ...(f.linkTo ? { linkTo: ids.get(f.linkTo) } : {}),
+            })),
+          };
+          await modelService.update(projectId, model);
+          const current = await projectService.get(projectId);
+          const routes = buildCrudRoutes(model, ALL_CRUD, current?.routes ?? []);
+          await routeService.createMany(projectId, routes);
+          // Count what the resource ends up with, not just what this attempt created, so a
+          // resumed run still reports the whole plan.
+          routeCount += ALL_CRUD.length;
+          await consoleService.seedRecords(projectId, id, resource.records);
+        }
+        return { modelIds, routeCount };
+      } finally {
+        await refresh(projectId);
       }
-      for (const resource of plan.resources) {
-        const id = ids.get(resource.name)!;
-        const model: Model = {
-          id,
-          name: resource.name,
-          fields: resource.fields.map((f) => ({
-            id: createId("fld"),
-            name: f.name,
-            type: f.type,
-            required: f.required,
-            unique: f.unique,
-            ...(f.options ? { options: f.options } : {}),
-            ...(f.linkTo ? { linkTo: ids.get(f.linkTo) } : {}),
-          })),
-        };
-        await modelService.update(projectId, model);
-        const current = await projectService.get(projectId);
-        const routes = buildCrudRoutes(model, ALL_CRUD, current?.routes ?? []);
-        await routeService.createMany(projectId, routes);
-        routeCount += routes.length;
-        await consoleService.seedRecords(projectId, id, resource.records);
-      }
-      await refresh(projectId);
-      return { modelIds, routeCount };
     },
   };
 });

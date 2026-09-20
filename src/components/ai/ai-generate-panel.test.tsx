@@ -7,6 +7,8 @@ import { AiGeneratePanel } from "./ai-generate-panel";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
+afterEach(() => vi.restoreAllMocks());
+
 const project: Project = {
   id: "p1",
   name: "Shop",
@@ -64,4 +66,48 @@ it("shows the server error with a Retry button", async () => {
   await user.click(screen.getByRole("button", { name: "Generate" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("AI is not configured");
   expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+});
+
+it("keeps the preview when applying fails, and Retry re-runs apply", async () => {
+  const user = userEvent.setup();
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ plan, warnings: [] }), { status: 200 }));
+  const applyPlan = vi
+    .fn()
+    .mockRejectedValueOnce(new Error("Storage is full."))
+    .mockResolvedValue({ modelIds: ["m9"], routeCount: 5 });
+  useProjectStore.setState({ applyPlan } as never);
+  const onApplied = vi.fn();
+  renderUi(<AiGeneratePanel project={project} onApplied={onApplied} onCancel={vi.fn()} />);
+  await user.type(screen.getByLabelText("Describe the API you need"), "A bookstore");
+  await user.click(screen.getByRole("button", { name: "Generate" }));
+  await user.click(await screen.findByRole("button", { name: "Create 1 resource, 5 endpoints" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Storage is full.");
+  // The plan is still on screen, so nothing has to be generated again.
+  expect(screen.getByText("Book")).toBeInTheDocument();
+  expect(onApplied).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Retry" }));
+  await waitFor(() => expect(onApplied).toHaveBeenCalledWith("m9"));
+  expect(applyPlan).toHaveBeenCalledTimes(2);
+});
+
+it("aborts an in-flight generate when the panel is unmounted", async () => {
+  const user = userEvent.setup();
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  let aborted = false;
+  vi.spyOn(globalThis, "fetch").mockImplementation(
+    (_input, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          aborted = true;
+          reject(Object.assign(new Error("The operation was aborted."), { name: "AbortError" }));
+        });
+      }),
+  );
+  const { unmount } = renderUi(<AiGeneratePanel project={project} onApplied={vi.fn()} onCancel={vi.fn()} />);
+  await user.type(screen.getByLabelText("Describe the API you need"), "A bookstore");
+  await user.click(screen.getByRole("button", { name: "Generate" }));
+  unmount();
+  await waitFor(() => expect(aborted).toBe(true));
+  await Promise.resolve();
+  expect(consoleError).not.toHaveBeenCalled();
 });

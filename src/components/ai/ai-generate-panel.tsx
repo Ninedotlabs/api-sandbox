@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Kicker } from "@/components/domain/kicker";
 import { Button } from "@/components/ui/button";
@@ -36,21 +36,37 @@ export function AiGeneratePanel({ project, onApplied, onCancel }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ plan: ApiPlan; warnings: string[] } | null>(null);
   const busy = stage === "generating" || stage === "applying";
+  // The request outlives the panel if it is closed mid-flight: abort it, and never touch
+  // state afterwards.
+  const abort = useRef<AbortController | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      abort.current?.abort();
+    };
+  }, []);
 
   async function generate() {
     if (busy || !description.trim()) return;
     setStage("generating");
     setError(null);
+    abort.current?.abort();
+    const controller = new AbortController();
+    abort.current = controller;
     try {
       const response = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           description: description.trim(),
           existingResourceNames: project.models.map((m) => m.name),
         }),
       });
       const payload: unknown = await response.json().catch(() => null);
+      if (!mounted.current || controller.signal.aborted) return;
       const data = (payload ?? {}) as { plan?: ApiPlan; warnings?: string[]; error?: string };
       if (!response.ok || !data.plan) {
         setError(data.error ?? "The AI request failed. Try again.");
@@ -59,7 +75,9 @@ export function AiGeneratePanel({ project, onApplied, onCancel }: Props) {
       }
       setResult({ plan: data.plan, warnings: data.warnings ?? [] });
       setStage("preview");
-    } catch {
+    } catch (e) {
+      // An abort is the panel closing or a newer request starting, not a failure.
+      if (!mounted.current || controller.signal.aborted || (e instanceof Error && e.name === "AbortError")) return;
       setError("Could not reach the AI service. Check your connection and try again.");
       setStage("error");
     }
@@ -71,9 +89,11 @@ export function AiGeneratePanel({ project, onApplied, onCancel }: Props) {
     setError(null);
     try {
       const { modelIds, routeCount } = await applyPlan(project.id, result.plan);
+      if (!mounted.current) return;
       toast.success(`Generated ${countLabel(modelIds.length, "resource")} and ${countLabel(routeCount, "endpoint")}`);
       onApplied(modelIds[0]);
     } catch (e) {
+      if (!mounted.current) return;
       // Anything already created stays; the plan stays on screen so Apply can be retried.
       setError(e instanceof Error ? e.message : "Could not create the resources.");
       setStage("preview");

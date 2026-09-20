@@ -1,7 +1,6 @@
 "use client";
 
-import { Bot, Boxes, CircleCheck, Globe2, Menu, Sparkles } from "lucide-react";
-import Image from "next/image";
+import { Bot, Boxes, CircleCheck, Globe2, Menu, Terminal } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -60,17 +59,12 @@ function SidebarContent() {
         <NavItems />
       </nav>
       <div className="mt-auto p-3">
-        <div className="overflow-hidden rounded-xl border border-line bg-slate text-slate-ink shadow-pop">
-          <div className="relative h-28 overflow-hidden bg-slate-2">
-            <Image src="/api-workflow-3d.png" alt="3D API, database and MCP workflow" fill sizes="220px" className="object-cover object-center" />
+        <div className="space-y-2 rounded-xl border border-line bg-panel p-3">
+          <div className="flex items-center gap-2 text-xs font-semibold text-ink">
+            <Terminal className="size-3.5 text-accent" aria-hidden />
+            Build in the browser or MCP
           </div>
-          <div className="space-y-2 p-3">
-            <div className="flex items-center gap-2 text-xs font-semibold">
-              <Sparkles className="size-3.5 text-method-put-on-slate" aria-hidden />
-              One workspace, two ways to build
-            </div>
-            <p className="text-xs leading-relaxed text-slate-muted">Design in the browser or ask your MCP client. Both update the same live mock API.</p>
-          </div>
+          <p className="text-xs leading-relaxed text-ink-3">Both update the same live mock API.</p>
         </div>
       </div>
     </>

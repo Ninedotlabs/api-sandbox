@@ -47,12 +47,15 @@ describe("handle", () => {
     expect(await res.json()).toEqual({ error: "Another API already uses this address." });
   });
 
-  it("maps any other Error to a 400 carrying its own message", async () => {
+  it("maps an unrecognised Error to a generic 500, never echoing its message", async () => {
     const res = await handle(async () => {
-      throw new Error("Give your API a name.");
+      throw new Error("connection to server at \"10.0.0.5\", port 5432 failed: password authentication failed for user \"app\"");
     });
-    expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Give your API a name." });
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body).toEqual({ error: "Something went wrong. Please try again." });
+    expect(JSON.stringify(body)).not.toContain("10.0.0.5");
+    expect(JSON.stringify(body)).not.toContain("password authentication failed");
   });
 
   it("maps a non-Error throw to a generic 500, never echoing the raw value", async () => {

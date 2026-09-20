@@ -5,13 +5,16 @@
  * 200/201 success, 400 validation, 404 unknown id, 409 conflict, 500 unexpected.
  *
  * The `pg` (and `mock`) services don't carry typed `NotFoundError`/`ConflictError` classes -
- * every expected failure surfaces as a plain `Error` with a plain-language message that's
- * already been scrubbed of any raw SQL or connection detail (`friendlyDbError` guarantees
- * that for driver-level failures; every other throw in the services is a message this
- * codebase wrote itself). `handle` below recognises the finite, known set of "not found" and
- * "conflict" messages the services actually throw today and maps them to 404/409. Any other
- * `Error` is treated as a 400 - a business-rule message meant to be shown to the user (e.g.
- * "Give your API a name.") - and anything that isn't even an `Error` becomes a generic 500,
+ * every expected failure surfaces as a plain `Error`. `handle` below recognises the finite,
+ * known set of "not found" and "conflict" messages the services actually throw today and maps
+ * them to 404/409. This is deliberately default-safe rather than default-permissive: any
+ * `Error` whose message isn't on one of those two allow-lists becomes a generic 500, never
+ * its own message. That matters because `friendlyDbError` (see `src/lib/db/errors.ts`) falls
+ * back to returning an unrecognised driver error unchanged when its pg code isn't one it
+ * knows - a connection failure, an auth failure, a SQL syntax error - and that raw `Error`
+ * must never reach a client verbatim. Route-level input validation (zod schemas in the route
+ * handlers themselves) is unaffected - those call `fail(400, ...)` directly and never go
+ * through this fallback. Anything that isn't even an `Error` also becomes a generic 500,
  * since we can't vouch for a value we didn't throw ourselves.
  */
 import type { ZodError } from "zod";
@@ -44,10 +47,10 @@ const GENERIC_500 = "Something went wrong. Please try again.";
 
 /**
  * Runs `fn`, catching anything it throws. A known not-found/conflict message maps to
- * 404/409; any other `Error` becomes a 400 carrying its own (already plain-language)
- * message; anything that isn't an `Error` at all - a thrown string, a driver object that
- * slipped past `friendlyDbError`, whatever - becomes a generic 500 rather than being
- * forwarded to the client.
+ * 404/409. Everything else - any other `Error` (including one carrying raw driver text that
+ * slipped past `friendlyDbError`), a thrown string, or any other thrown value - becomes a
+ * generic 500 rather than being forwarded to the client. Default-safe, not
+ * default-permissive: an allow-list decides what's shown, not a deny-list.
  */
 export async function handle(fn: () => Promise<Response>): Promise<Response> {
   try {
@@ -56,7 +59,6 @@ export async function handle(fn: () => Promise<Response>): Promise<Response> {
     if (error instanceof Error) {
       if (NOT_FOUND_MESSAGES.has(error.message)) return fail(404, error.message);
       if (CONFLICT_MESSAGES.has(error.message)) return fail(409, error.message);
-      return fail(400, error.message);
     }
     return fail(500, GENERIC_500);
   }

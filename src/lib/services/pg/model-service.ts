@@ -6,7 +6,8 @@ import { createId } from "@/lib/ids";
 import type { Field, Model } from "@/lib/types";
 import { validateFields, validateModelName } from "@/lib/validation";
 import type { ModelService, RemovedModel, RemovedRoute } from "../types";
-import { fieldFromRow, type FieldRow, type ModelRow, type RouteRow } from "./rows";
+import { insertRoute } from "./route-service";
+import { fieldFromRow, routeFromRow, type FieldRow, type ModelRow, type RouteRow } from "./rows";
 
 async function fetchModelsForValidation(client: PoolClient, projectId: string): Promise<Model[]> {
   const { rows } = await client.query<ModelRow>("select id, name, position from models where project_id = $1", [
@@ -113,25 +114,20 @@ export const pgModelService: ModelService = {
         const fields = await fetchFields(client, modelId);
 
         const routeRows = await client.query<RouteRow>(
-          "select id, model_id, method, path, action, description, filters, position from routes where project_id = $1 and model_id = $2 order by position, id",
+          "select id, model_id, method, path, action, description, filters, position, response from routes where project_id = $1 and model_id = $2 order by position, id",
           [projectId, modelId],
         );
         const allRoutesOrdered = await client.query<{ id: string }>(
           "select id from routes where project_id = $1 order by position, id",
           [projectId],
         );
+        // Goes through the same `routeFromRow` mapper `route-service.ts` uses, rather than
+        // hand-building the `Route` field by field - a hand-written list is exactly how a
+        // future column (like `response`) gets silently dropped from this path again.
         const removedRoutes: RemovedRoute[] = routeRows.rows.map((r) => {
           const orderedIndex = allRoutesOrdered.rows.findIndex((row) => row.id === r.id);
           return {
-            route: {
-              id: r.id,
-              method: r.method as RemovedRoute["route"]["method"],
-              path: r.path,
-              modelId: r.model_id,
-              action: r.action as RemovedRoute["route"]["action"],
-              description: r.description,
-              filters: r.filters,
-            },
+            route: routeFromRow(r),
             beforeId: allRoutesOrdered.rows[orderedIndex + 1]?.id ?? null,
           };
         });
@@ -205,12 +201,9 @@ export const pgModelService: ModelService = {
           for (const shift of plan.shifts) {
             await client.query("update routes set position = $1 where id = $2", [shift.position, shift.id]);
           }
-          const r = removedRoute.route;
-          await client.query(
-            `insert into routes (id, project_id, model_id, method, path, action, description, filters, position)
-             values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)`,
-            [r.id, projectId, r.modelId, r.method, r.path, r.action, r.description, JSON.stringify(r.filters), plan.position],
-          );
+          // Shared with `route-service.ts` (see its export comment) so this path can't drift
+          // from the columns a route actually carries.
+          await insertRoute(client, projectId, removedRoute.route, plan.position);
         }
 
         for (const link of links) {

@@ -9,17 +9,32 @@ import { routeFromRow, type RouteRow } from "./rows";
 
 async function fetchOrderedRoutes(client: PoolClient, projectId: string): Promise<RouteRow[]> {
   const { rows } = await client.query<RouteRow>(
-    "select id, model_id, method, path, action, description, filters, position from routes where project_id = $1 order by position, id",
+    "select id, model_id, method, path, action, description, filters, position, response from routes where project_id = $1 order by position, id",
     [projectId],
   );
   return rows;
 }
 
-async function insertRoute(client: PoolClient, projectId: string, route: Route, position: number): Promise<void> {
+/** Exported so `model-service.ts` can insert a captured route (on undo of a model delete)
+ * through the same statement `createMany`/`restore` use here, rather than hand-writing a
+ * second column list that silently drifts from this one - which is exactly how `response`
+ * went missing from that path once already. */
+export async function insertRoute(client: PoolClient, projectId: string, route: Route, position: number): Promise<void> {
   await client.query(
-    `insert into routes (id, project_id, model_id, method, path, action, description, filters, position)
-     values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)`,
-    [route.id, projectId, route.modelId, route.method, route.path, route.action, route.description, JSON.stringify(route.filters), position],
+    `insert into routes (id, project_id, model_id, method, path, action, description, filters, position, response)
+     values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10::jsonb)`,
+    [
+      route.id,
+      projectId,
+      route.modelId,
+      route.method,
+      route.path,
+      route.action,
+      route.description,
+      JSON.stringify(route.filters),
+      position,
+      route.response ? JSON.stringify(route.response) : null,
+    ],
   );
 }
 
@@ -53,9 +68,19 @@ export const pgRouteService: RouteService = {
         const err = validateRoute(route, existing);
         if (err) throw new Error(err);
         await client.query(
-          `update routes set model_id = $1, method = $2, path = $3, action = $4, description = $5, filters = $6::jsonb
-           where id = $7 and project_id = $8`,
-          [route.modelId, route.method, route.path, route.action, route.description, JSON.stringify(route.filters), route.id, projectId],
+          `update routes set model_id = $1, method = $2, path = $3, action = $4, description = $5, filters = $6::jsonb, response = $7::jsonb
+           where id = $8 and project_id = $9`,
+          [
+            route.modelId,
+            route.method,
+            route.path,
+            route.action,
+            route.description,
+            JSON.stringify(route.filters),
+            route.response ? JSON.stringify(route.response) : null,
+            route.id,
+            projectId,
+          ],
         );
         return route;
       });

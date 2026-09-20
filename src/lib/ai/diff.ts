@@ -8,7 +8,14 @@ export interface FieldChange { name: string; kind: "added" | "changed"; before?:
 export interface InboundLink { modelName: string; fieldName: string; recordCount: number }
 export interface ResourceDiff { name: string; isNew: boolean; fields: FieldChange[]; recordCount: number; inboundLinks: InboundLink[] }
 export interface EndpointDiff { method: HttpMethod; path: string; description: string }
-export interface EditDiff { newResources: ResourceDiff[]; changedResources: ResourceDiff[]; newEndpoints: EndpointDiff[] }
+/** A field removal's consequence: how many of the resource's records currently hold a value for it. */
+export interface FieldRemovalDiff { resource: string; field: string; recordCount: number }
+/** A resource removal's consequences: its own records and endpoints, plus every other
+ * resource's link field that points at it (which will be cleared, not deleted). */
+export interface ResourceRemovalDiff { name: string; recordCount: number; endpointCount: number; inboundLinks: InboundLink[] }
+export interface EndpointRemovalDiff { method: HttpMethod; path: string }
+export interface RemovalsDiff { resources: ResourceRemovalDiff[]; fields: FieldRemovalDiff[]; endpoints: EndpointRemovalDiff[] }
+export interface EditDiff { newResources: ResourceDiff[]; changedResources: ResourceDiff[]; newEndpoints: EndpointDiff[]; removals: RemovalsDiff }
 
 function toPlanField(f: Field, project: Project): PlanField {
   const linkTo = f.linkTo ? project.models.find((m) => m.id === f.linkTo)?.name : undefined;
@@ -41,13 +48,27 @@ export function fieldChangeDetails(before: PlanField, after: PlanField): string[
 
 const asStandIn = (name: string): Model => ({ id: name, name, fields: [] });
 
+function hasValue(v: unknown): boolean {
+  return v !== null && v !== undefined && v !== "";
+}
+
 /**
  * `recordCounts` is each model's known record count, keyed by name (best-effort: the panel
  * supplies what it already fetched to build the AI request, capped the same way). It's only
- * used to disclose inbound links that are about to dangle; omitting it just suppresses that
- * disclosure, it never affects anything else in the diff.
+ * used to disclose inbound links that are about to dangle and a removed resource's own record
+ * count; omitting it just suppresses those disclosures, it never affects anything else in the
+ * diff.
+ *
+ * `recordsByName` is each model's actual sample records, keyed by name, used only to disclose
+ * how many of a resource's records hold a value for a field about to be removed — a count
+ * `recordCounts` alone can't answer. Omitting it just reports 0 for that disclosure.
  */
-export function computeEditDiff(project: Project, plan: EditPlan, recordCounts: Record<string, number> = {}): EditDiff {
+export function computeEditDiff(
+  project: Project,
+  plan: EditPlan,
+  recordCounts: Record<string, number> = {},
+  recordsByName: Record<string, Record<string, unknown>[]> = {},
+): EditDiff {
   const newResources: ResourceDiff[] = [];
   const changedResources: ResourceDiff[] = [];
   const newEndpoints: EndpointDiff[] = [];
@@ -113,5 +134,33 @@ export function computeEditDiff(project: Project, plan: EditPlan, recordCounts: 
     }
   }
 
-  return { newResources, changedResources, newEndpoints };
+  // Removals: consequences, not just names — this preview is the user's only consent step.
+  // Anything that resolves to nothing real (already gone, or never existed) is dropped
+  // rather than shown as a no-op; `parseEditPlan` already validates against the project, so
+  // this is defensive, not the primary guard.
+  const removalFields: FieldRemovalDiff[] = [];
+  for (const r of plan.removals?.fields ?? []) {
+    const model = project.models.find((m) => m.name === r.resource);
+    const field = model?.fields.find((f) => f.name.toLowerCase() === r.field.toLowerCase());
+    if (!model || !field) continue;
+    const recordCount = (recordsByName[model.name] ?? []).filter((rec) => hasValue(rec[field.name])).length;
+    removalFields.push({ resource: model.name, field: field.name, recordCount });
+  }
+
+  const removalResources: ResourceRemovalDiff[] = [];
+  for (const name of plan.removals?.resources ?? []) {
+    const model = project.models.find((m) => m.name === name);
+    if (!model) continue;
+    const recordCount = recordCounts[model.name] ?? recordsByName[model.name]?.length ?? 0;
+    const endpointCount = project.routes.filter((r) => r.modelId === model.id).length;
+    removalResources.push({ name: model.name, recordCount, endpointCount, inboundLinks: inboundLinksFor(model) });
+  }
+
+  const removalEndpoints: EndpointRemovalDiff[] = [];
+  for (const e of plan.removals?.endpoints ?? []) {
+    if (!project.routes.some((r) => r.method === e.method && r.path === e.path)) continue;
+    removalEndpoints.push({ method: e.method, path: e.path });
+  }
+
+  return { newResources, changedResources, newEndpoints, removals: { resources: removalResources, fields: removalFields, endpoints: removalEndpoints } };
 }

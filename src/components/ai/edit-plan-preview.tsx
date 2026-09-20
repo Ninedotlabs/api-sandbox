@@ -3,7 +3,7 @@
 import { Kicker } from "@/components/domain/kicker";
 import { MethodLabel } from "@/components/domain/method-label";
 import { TypeBadge } from "@/components/domain/type-badge";
-import { fieldChangeDetails, type EditDiff, type ResourceDiff } from "@/lib/ai/diff";
+import { fieldChangeDetails, type EditDiff, type RemovalsDiff, type ResourceDiff } from "@/lib/ai/diff";
 import { countLabel } from "@/lib/format";
 
 function ResourceBlock({ resource }: { resource: ResourceDiff }) {
@@ -51,9 +51,47 @@ function ResourceBlock({ resource }: { resource: ResourceDiff }) {
   );
 }
 
-/** The three-section diff, shown before anything is applied. */
+/** Removals get their own section, last, in the danger colour — this is the user's consent
+ * step, so it states consequences (real counts), never just names. */
+function RemovalsSection({ removals }: { removals: RemovalsDiff }) {
+  const total = removals.resources.length + removals.fields.length + removals.endpoints.length;
+  if (total === 0) return null;
+  return (
+    <div className="space-y-2">
+      <Kicker className="text-danger">Removals</Kicker>
+      <div className="space-y-2">
+        {removals.resources.map((r) => (
+          <div key={r.name} className="rounded-lg border border-danger/40 bg-danger/5 p-3">
+            <p className="text-[13px] font-medium text-danger">
+              {r.name} — deletes {countLabel(r.recordCount, "record")} and {countLabel(r.endpointCount, "endpoint")}
+            </p>
+            {r.inboundLinks.map((link) => (
+              <p key={`${link.modelName}.${link.fieldName}`} className="mt-1 text-[13px] text-danger">
+                {link.modelName}.{link.fieldName} will be cleared
+              </p>
+            ))}
+          </div>
+        ))}
+        {removals.fields.map((f) => (
+          <p key={`${f.resource}.${f.field}`} className="rounded-lg border border-danger/40 bg-danger/5 p-3 text-[13px] text-danger">
+            {f.resource}.{f.field} — {countLabel(f.recordCount, "record")} will lose this value
+          </p>
+        ))}
+        {removals.endpoints.map((e) => (
+          <div key={`${e.method} ${e.path}`} className="flex flex-wrap items-center gap-2 rounded-lg border border-danger/40 bg-danger/5 p-3">
+            <MethodLabel method={e.method} />
+            <span className="font-mono text-[13px] text-danger">{e.path}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** The four-section diff, shown before anything is applied. */
 export function EditPlanPreview({ diff, warnings }: { diff: EditDiff; warnings: string[] }) {
-  const nothing = diff.newResources.length === 0 && diff.changedResources.length === 0 && diff.newEndpoints.length === 0;
+  const removalCount = diff.removals.resources.length + diff.removals.fields.length + diff.removals.endpoints.length;
+  const nothing = diff.newResources.length === 0 && diff.changedResources.length === 0 && diff.newEndpoints.length === 0 && removalCount === 0;
   return (
     <div className="space-y-4">
       {warnings.length > 0 && (
@@ -97,6 +135,7 @@ export function EditPlanPreview({ diff, warnings }: { diff: EditDiff; warnings: 
           </ul>
         </div>
       )}
+      <RemovalsSection removals={diff.removals} />
     </div>
   );
 }

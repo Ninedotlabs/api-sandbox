@@ -132,6 +132,71 @@ it("I5: a changed resource whose records are replaced reports inbound links from
   expect(diff.changedResources[0].inboundLinks).toEqual([{ modelName: "Order", fieldName: "book", recordCount: 3 }]);
 });
 
+// Removals: the diff must state consequences (real counts), not just names, and a removal
+// that resolves to nothing real must not appear at all.
+describe("removals", () => {
+  it("reports how many of a resource's records hold a value for a field being removed", () => {
+    const p: Project = {
+      ...project,
+      models: [{ id: "m1", name: "User", fields: [{ id: "f1", name: "name", type: "text", required: true, unique: false }, { id: "f2", name: "email", type: "text", required: false, unique: false }] }],
+    };
+    const plan: EditPlan = { resources: [], customEndpoints: [], removals: { resources: [], fields: [{ resource: "User", field: "email" }], endpoints: [] } };
+    const records = { User: [{ id: "1", name: "Ann", email: "ann@x.com" }, { id: "2", name: "Bo", email: "" }, { id: "3", name: "Cy", email: null }] };
+    const diff = computeEditDiff(p, plan, {}, records);
+    expect(diff.removals.fields).toEqual([{ resource: "User", field: "email", recordCount: 1 }]);
+  });
+
+  it("a field removal for a resource with no known records reports a zero count rather than being dropped", () => {
+    const p: Project = {
+      ...project,
+      models: [{ id: "m1", name: "User", fields: [{ id: "f1", name: "name", type: "text", required: true, unique: false }, { id: "f2", name: "email", type: "text", required: false, unique: false }] }],
+    };
+    const plan: EditPlan = { resources: [], customEndpoints: [], removals: { resources: [], fields: [{ resource: "User", field: "email" }], endpoints: [] } };
+    const diff = computeEditDiff(p, plan);
+    expect(diff.removals.fields).toEqual([{ resource: "User", field: "email", recordCount: 0 }]);
+  });
+
+  it("reports a resource removal's record count, endpoint count and inbound links", () => {
+    const p: Project = {
+      ...project,
+      models: [
+        { id: "m1", name: "Session", fields: [{ id: "f1", name: "token", type: "text", required: true, unique: false }] },
+        { id: "m2", name: "Question", fields: [{ id: "f2", name: "session", type: "link", required: false, unique: false, linkTo: "m1" }] },
+      ],
+      routes: [
+        { id: "r1", method: "GET", path: "/sessions", modelId: "m1", action: "list", description: "", filters: [] },
+        { id: "r2", method: "GET", path: "/sessions/:id", modelId: "m1", action: "get", description: "", filters: [] },
+      ],
+    };
+    const plan: EditPlan = { resources: [], customEndpoints: [], removals: { resources: ["Session"], fields: [], endpoints: [] } };
+    const diff = computeEditDiff(p, plan, { Session: 4, Question: 5 });
+    expect(diff.removals.resources).toEqual([{ name: "Session", recordCount: 4, endpointCount: 2, inboundLinks: [{ modelName: "Question", fieldName: "session", recordCount: 5 }] }]);
+  });
+
+  it("reports an endpoint removal", () => {
+    const plan: EditPlan = { resources: [], customEndpoints: [], removals: { resources: [], fields: [], endpoints: [{ method: "DELETE", path: "/users/:id" }] } };
+    const p: Project = { ...project, routes: [...project.routes, { id: "r9", method: "DELETE", path: "/users/:id", modelId: null, action: "custom", description: "", filters: [] }] };
+    const diff = computeEditDiff(p, plan);
+    expect(diff.removals.endpoints).toEqual([{ method: "DELETE", path: "/users/:id" }]);
+  });
+
+  it("drops a removal that resolves to nothing real, instead of showing a no-op", () => {
+    const plan: EditPlan = {
+      resources: [],
+      customEndpoints: [],
+      removals: { resources: ["Ghost"], fields: [{ resource: "Ghost", field: "name" }, { resource: "Book", field: "ghost" }], endpoints: [{ method: "DELETE", path: "/ghosts" }] },
+    };
+    const diff = computeEditDiff(project, plan);
+    expect(diff.removals).toEqual({ resources: [], fields: [], endpoints: [] });
+  });
+
+  it("an absent removals key on the plan produces no removals at all", () => {
+    const plan: EditPlan = { resources: [], customEndpoints: [] };
+    const diff = computeEditDiff(project, plan);
+    expect(diff.removals).toEqual({ resources: [], fields: [], endpoints: [] });
+  });
+});
+
 it("I5: no inbound-link disclosure when the resource's records aren't being replaced, or when no counts are supplied", () => {
   const p: Project = {
     ...project,

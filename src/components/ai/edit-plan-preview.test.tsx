@@ -26,6 +26,7 @@ it("C1: renders every differing attribute of a changed field, not just its type"
       },
     ],
     newEndpoints: [],
+    removals: { resources: [], fields: [], endpoints: [] },
   };
   renderUi(<EditPlanPreview diff={diff} warnings={[]} />);
   expect(screen.getByText("was choice (Pending, Shipped)")).toBeInTheDocument();
@@ -47,6 +48,7 @@ it("C1: renders a required-only change", () => {
       },
     ],
     newEndpoints: [],
+    removals: { resources: [], fields: [], endpoints: [] },
   };
   renderUi(<EditPlanPreview diff={diff} warnings={[]} />);
   expect(screen.getByText("no longer required")).toBeInTheDocument();
@@ -65,6 +67,7 @@ it("C1: renders a unique-only change", () => {
       },
     ],
     newEndpoints: [],
+    removals: { resources: [], fields: [], endpoints: [] },
   };
   renderUi(<EditPlanPreview diff={diff} warnings={[]} />);
   expect(screen.getByText("now unique")).toBeInTheDocument();
@@ -83,6 +86,7 @@ it("C1: renders a linkTo-only change", () => {
       },
     ],
     newEndpoints: [],
+    removals: { resources: [], fields: [], endpoints: [] },
   };
   renderUi(<EditPlanPreview diff={diff} warnings={[]} />);
   expect(screen.getByText("was linked to Book")).toBeInTheDocument();
@@ -95,6 +99,7 @@ it("still renders 'new' for an added field", () => {
       { name: "Book", isNew: false, fields: [{ name: "genre", kind: "added", after: { name: "genre", type: "text", required: false, unique: false } }], recordCount: 0, inboundLinks: [] },
     ],
     newEndpoints: [],
+    removals: { resources: [], fields: [], endpoints: [] },
   };
   renderUi(<EditPlanPreview diff={diff} warnings={[]} />);
   expect(screen.getByText("new")).toBeInTheDocument();
@@ -102,6 +107,70 @@ it("still renders 'new' for an added field", () => {
 
 // I5: replacing a resource's records dangles any other resource's inbound link to it; the
 // preview must disclose that instead of leaving it a silent, Undo-only recovery.
+describe("removals", () => {
+  it("renders a field removal's consequence with a real count, in the danger colour, last", () => {
+    const diff: EditDiff = {
+      newResources: [],
+      changedResources: [],
+      newEndpoints: [],
+      removals: { resources: [], fields: [{ resource: "User", field: "email", recordCount: 12 }], endpoints: [] },
+    };
+    renderUi(<EditPlanPreview diff={diff} warnings={[]} />);
+    const line = screen.getByText("User.email — 12 records will lose this value");
+    expect(line).toHaveClass("text-danger");
+  });
+
+  it("renders a resource removal's record count, endpoint count and each inbound link that will be cleared", () => {
+    const diff: EditDiff = {
+      newResources: [],
+      changedResources: [],
+      newEndpoints: [],
+      removals: {
+        resources: [{ name: "Session", recordCount: 4, endpointCount: 5, inboundLinks: [{ modelName: "Question", fieldName: "session", recordCount: 3 }] }],
+        fields: [],
+        endpoints: [],
+      },
+    };
+    renderUi(<EditPlanPreview diff={diff} warnings={[]} />);
+    expect(screen.getByText("Session — deletes 4 records and 5 endpoints")).toBeInTheDocument();
+    expect(screen.getByText("Question.session will be cleared")).toBeInTheDocument();
+  });
+
+  it("renders an endpoint removal's method and path", () => {
+    const diff: EditDiff = {
+      newResources: [],
+      changedResources: [],
+      newEndpoints: [],
+      removals: { resources: [], fields: [], endpoints: [{ method: "DELETE", path: "/users/:id" }] },
+    };
+    renderUi(<EditPlanPreview diff={diff} warnings={[]} />);
+    expect(screen.getByText("DELETE")).toBeInTheDocument();
+    expect(screen.getByText("/users/:id")).toBeInTheDocument();
+  });
+
+  it("shows no removals section, and no 'nothing to change' message, when there is nothing to remove but something to add", () => {
+    const diff: EditDiff = {
+      newResources: [{ name: "Author", isNew: true, fields: [], recordCount: 0, inboundLinks: [] }],
+      changedResources: [],
+      newEndpoints: [],
+      removals: { resources: [], fields: [], endpoints: [] },
+    };
+    renderUi(<EditPlanPreview diff={diff} warnings={[]} />);
+    expect(screen.queryByText("Removals")).not.toBeInTheDocument();
+  });
+
+  it("a plan with only removals is not reported as 'nothing to change'", () => {
+    const diff: EditDiff = {
+      newResources: [],
+      changedResources: [],
+      newEndpoints: [],
+      removals: { resources: [], fields: [{ resource: "User", field: "email", recordCount: 0 }], endpoints: [] },
+    };
+    renderUi(<EditPlanPreview diff={diff} warnings={[]} />);
+    expect(screen.queryByText(/Nothing to change/)).not.toBeInTheDocument();
+  });
+});
+
 it("I5: discloses that another resource's records will lose their link when this resource's records are replaced", () => {
   const diff: EditDiff = {
     newResources: [],
@@ -109,6 +178,7 @@ it("I5: discloses that another resource's records will lose their link when this
       { name: "Book", isNew: false, fields: [], recordCount: 2, inboundLinks: [{ modelName: "Order", fieldName: "book", recordCount: 3 }] },
     ],
     newEndpoints: [],
+    removals: { resources: [], fields: [], endpoints: [] },
   };
   renderUi(<EditPlanPreview diff={diff} warnings={[]} />);
   // "Up to" because the count is the linking model's total record count, not a precise count

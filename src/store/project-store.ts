@@ -17,10 +17,29 @@ import type { Field, Model, Project, Route } from "@/lib/types";
 const ALL_CRUD: CrudAction[] = ["list", "get", "create", "update", "delete"];
 
 /** A model's records as they stood right before an edit plan replaced them, so an Undo
- * toast can seed them back with `restoreRecords`. */
+ * toast can seed them back with `undoEdit`. */
 export interface RecordSnapshot {
   modelId: string;
   records: Record<string, unknown>[];
+}
+
+/** A removed field plus the resource's records at the moment it was removed, so `undoEdit`
+ * can restore the values, not just the column. One entry per removed field, even when
+ * several fields were removed from the same resource in the same plan — each carries the
+ * same records, snapshotted once before any of that resource's fields were touched. */
+export interface RemovedFieldSnapshot {
+  modelId: string;
+  field: Field;
+  records: Record<string, unknown>[];
+}
+
+/** Everything `undoEdit` needs to put an applied edit plan's destructive effects back:
+ * replaced record sets, removed resources, removed endpoints and removed fields. */
+export interface EditUndo {
+  replacedRecords: RecordSnapshot[];
+  removedModels: RemovedModel[];
+  removedRoutes: RemovedRoute[];
+  removedFields: RemovedFieldSnapshot[];
 }
 
 /** `overrides` win by name (case-insensitive): an existing field keeps its id and gets the
@@ -71,10 +90,10 @@ interface ProjectState {
     newResourceCount: number;
     changedResourceCount: number;
     endpointCount: number;
-    replacedRecords: RecordSnapshot[];
+    undo: EditUndo;
   }>;
-  /** Put back record snapshots captured by `applyEditPlan` (used by Undo). */
-  restoreRecords(projectId: string, snapshots: RecordSnapshot[]): Promise<void>;
+  /** Put back everything `applyEditPlan` returned in `undo`, in reverse order (used by Undo). */
+  undoEdit(projectId: string, undo: EditUndo): Promise<void>;
 }
 
 export const useProjectStore = create<ProjectState>()((set) => {
@@ -266,15 +285,78 @@ export const useProjectStore = create<ProjectState>()((set) => {
           await routeService.createMany(projectId, customRoutes);
           endpointCount += customRoutes.length;
         }
-        return { modelIds, newResourceCount: created, changedResourceCount: plan.resources.length - created, endpointCount, replacedRecords };
+
+        // Removals — always after every addition/change above, so a plan that both adds and
+        // removes on the same resource never leaves it momentarily empty. Within removals:
+        // fields, then resources, then endpoints — a field removal needs its resource to
+        // still exist, and a resource removal already takes its own routes with it, so
+        // endpoint removals go last and simply skip anything already gone.
+        const removedFields: RemovedFieldSnapshot[] = [];
+        const removedModels: RemovedModel[] = [];
+        const removedRoutes: RemovedRoute[] = [];
+
+        const fieldRemovalsByResource = new Map<string, string[]>();
+        for (const f of plan.removals?.fields ?? []) {
+          fieldRemovalsByResource.set(f.resource, [...(fieldRemovalsByResource.get(f.resource) ?? []), f.field]);
+        }
+        for (const [resourceName, fieldNames] of fieldRemovalsByResource) {
+          const current = (await projectService.get(projectId))?.models.find((m) => m.name === resourceName);
+          if (!current) continue;
+          const toRemove = new Set(fieldNames.map((n) => n.toLowerCase()));
+          const removedThisModel = current.fields.filter((f) => toRemove.has(f.name.toLowerCase()));
+          if (!removedThisModel.length) continue;
+          // Snapshotted once, before this resource's fields are touched, so every field
+          // removed from it in this same plan shares the exact same "before" records.
+          const records = await consoleService.sampleData(projectId, current.id);
+          for (const field of removedThisModel) removedFields.push({ modelId: current.id, field, records });
+          await modelService.update(projectId, { ...current, fields: current.fields.filter((f) => !toRemove.has(f.name.toLowerCase())) });
+        }
+
+        for (const name of plan.removals?.resources ?? []) {
+          const current = (await projectService.get(projectId))?.models.find((m) => m.name === name);
+          if (!current) continue;
+          removedModels.push(await modelService.remove(projectId, current.id));
+        }
+
+        for (const e of plan.removals?.endpoints ?? []) {
+          const current = (await projectService.get(projectId))?.routes.find((r) => r.method === e.method && r.path === e.path);
+          if (!current) continue;
+          removedRoutes.push(await routeService.remove(projectId, current.id));
+        }
+
+        const undo: EditUndo = { replacedRecords, removedModels, removedRoutes, removedFields };
+        return { modelIds, newResourceCount: created, changedResourceCount: plan.resources.length - created, endpointCount, undo };
       } finally {
         await refresh(projectId);
       }
     },
-    async restoreRecords(projectId, snapshots) {
-      for (const { modelId, records } of snapshots) {
+    async undoEdit(projectId, undo) {
+      // Reverse of application order: removals were applied last (endpoints, then resources,
+      // then fields), and the additions/changes phase — which is what replacedRecords comes
+      // from — ran before any of that, so it's undone last of all.
+      for (const removed of undo.removedRoutes) {
+        await routeService.restore(projectId, removed);
+      }
+      for (const removed of undo.removedModels) {
+        await modelService.restore(projectId, removed);
+      }
+      const fieldsByModel = new Map<string, RemovedFieldSnapshot[]>();
+      for (const entry of undo.removedFields) {
+        fieldsByModel.set(entry.modelId, [...(fieldsByModel.get(entry.modelId) ?? []), entry]);
+      }
+      for (const [modelId, entries] of fieldsByModel) {
+        const current = (await projectService.get(projectId))?.models.find((m) => m.id === modelId);
+        if (!current) continue; // the resource itself is gone (e.g. deleted separately since)
+        const missing = entries.filter((e) => !current.fields.some((f) => f.id === e.field.id));
+        if (missing.length) {
+          await modelService.update(projectId, { ...current, fields: [...current.fields, ...missing.map((e) => e.field)] });
+        }
+        await consoleService.seedRecords(projectId, modelId, entries[0].records);
+      }
+      for (const { modelId, records } of undo.replacedRecords) {
         await consoleService.seedRecords(projectId, modelId, records);
       }
+      await refresh(projectId);
     },
   };
 });

@@ -46,10 +46,14 @@ it("previews the diff and applies, with no Undo when nothing was replaced", asyn
   const fetchSpy = vi
     .spyOn(globalThis, "fetch")
     .mockResolvedValue(new Response(JSON.stringify({ plan, warnings: [] }), { status: 200 }));
-  const applyEditPlan = vi
-    .fn()
-    .mockResolvedValue({ modelIds: ["m9"], newResourceCount: 1, changedResourceCount: 0, endpointCount: 5, replacedRecords: [] });
-  useProjectStore.setState({ applyEditPlan, restoreRecords: vi.fn() } as never);
+  const applyEditPlan = vi.fn().mockResolvedValue({
+    modelIds: ["m9"],
+    newResourceCount: 1,
+    changedResourceCount: 0,
+    endpointCount: 5,
+    undo: { replacedRecords: [], removedModels: [], removedRoutes: [], removedFields: [] },
+  });
+  useProjectStore.setState({ applyEditPlan, undoEdit: vi.fn() } as never);
   const onApplied = vi.fn();
   renderUi(<AiEditPanel project={project} onApplied={onApplied} onCancel={vi.fn()} />);
   await user.type(screen.getByLabelText("Describe what should change"), "Add reviews");
@@ -61,7 +65,7 @@ it("previews the diff and applies, with no Undo when nothing was replaced", asyn
     instruction: "Add reviews",
     existing: [{ name: "Book", fields: [{ name: "title", type: "text", required: true, unique: false }] }],
   });
-  await user.click(screen.getByRole("button", { name: "Create 1 resource and 5 endpoints" }));
+  await user.click(screen.getByRole("button", { name: "Apply 1 resource and 5 endpoints" }));
   await waitFor(() => expect(applyEditPlan).toHaveBeenCalledWith("p1", plan));
   expect(onApplied).toHaveBeenCalledWith("m9");
   expect(toast.success).toHaveBeenCalledWith(expect.stringContaining("Updated"));
@@ -106,20 +110,18 @@ it("sends real record ids for existing resources, capped at 20", async () => {
   expect(body.existing[0].recordIds).toEqual(Array.from({ length: 20 }, (_, i) => String(i + 1)));
 });
 
-it("offers Undo, wired to restoreRecords, when applying replaced an existing resource's records", async () => {
+it("offers Undo, wired to undoEdit, when applying replaced an existing resource's records", async () => {
   const user = userEvent.setup();
   vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ plan, warnings: [] }), { status: 200 }));
-  const replacedRecords = [{ modelId: "m1", records: [{ id: "1", title: "Old Book" }] }];
-  const applyEditPlan = vi
-    .fn()
-    .mockResolvedValue({ modelIds: ["m1"], newResourceCount: 0, changedResourceCount: 1, endpointCount: 0, replacedRecords });
-  const restoreRecords = vi.fn().mockResolvedValue(undefined);
-  useProjectStore.setState({ applyEditPlan, restoreRecords } as never);
+  const undo = { replacedRecords: [{ modelId: "m1", records: [{ id: "1", title: "Old Book" }] }], removedModels: [], removedRoutes: [], removedFields: [] };
+  const applyEditPlan = vi.fn().mockResolvedValue({ modelIds: ["m1"], newResourceCount: 0, changedResourceCount: 1, endpointCount: 0, undo });
+  const undoEdit = vi.fn().mockResolvedValue(undefined);
+  useProjectStore.setState({ applyEditPlan, undoEdit } as never);
   renderUi(<AiEditPanel project={project} onApplied={vi.fn()} onCancel={vi.fn()} />);
   await user.type(screen.getByLabelText("Describe what should change"), "Add reviews");
   await user.click(screen.getByRole("button", { name: "Preview changes" }));
   await screen.findByText("Review");
-  await user.click(screen.getByRole("button", { name: "Create 1 resource and 5 endpoints" }));
+  await user.click(screen.getByRole("button", { name: "Apply 1 resource and 5 endpoints" }));
   await waitFor(() => expect(applyEditPlan).toHaveBeenCalled());
   expect(toast.success).toHaveBeenCalledWith(
     expect.any(String),
@@ -127,7 +129,26 @@ it("offers Undo, wired to restoreRecords, when applying replaced an existing res
   );
   const [, options] = (toast.success as ReturnType<typeof vi.fn>).mock.calls[0];
   options.action.onClick();
-  expect(restoreRecords).toHaveBeenCalledWith("p1", replacedRecords);
+  expect(undoEdit).toHaveBeenCalledWith("p1", undo);
+});
+
+it("offers Undo when applying removed something, even with nothing replaced", async () => {
+  const user = userEvent.setup();
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ plan, warnings: [] }), { status: 200 }));
+  const undo = { replacedRecords: [], removedModels: [{ model: { id: "m2", name: "Old", fields: [] }, beforeId: null, routes: [], links: [], records: [] }], removedRoutes: [], removedFields: [] };
+  const applyEditPlan = vi.fn().mockResolvedValue({ modelIds: ["m1"], newResourceCount: 0, changedResourceCount: 1, endpointCount: 0, undo });
+  const undoEdit = vi.fn().mockResolvedValue(undefined);
+  useProjectStore.setState({ applyEditPlan, undoEdit } as never);
+  renderUi(<AiEditPanel project={project} onApplied={vi.fn()} onCancel={vi.fn()} />);
+  await user.type(screen.getByLabelText("Describe what should change"), "Add reviews");
+  await user.click(screen.getByRole("button", { name: "Preview changes" }));
+  await screen.findByText("Review");
+  await user.click(screen.getByRole("button", { name: "Apply 1 resource and 5 endpoints" }));
+  await waitFor(() => expect(applyEditPlan).toHaveBeenCalled());
+  expect(toast.success).toHaveBeenCalledWith(
+    expect.any(String),
+    expect.objectContaining({ action: expect.objectContaining({ label: "Undo" }) }),
+  );
 });
 
 it("labels the button 'Update the API' and disables it when there is nothing to change", async () => {
@@ -197,7 +218,7 @@ it("I4: does not produce an unhandled rejection when the initial background samp
 });
 
 // M7: with zero new resources but new endpoints, the label must read from the non-zero
-// counts only ("Create 5 endpoints", not "Create 0 resources and 5 endpoints").
+// counts only ("Apply 5 endpoints", not "Apply 0 resources and 5 endpoints").
 it("M7: labels the apply button from non-zero counts only when there are endpoints but no new resources", async () => {
   const user = userEvent.setup();
   // Book already has every standard CRUD route, so the only new endpoints this plan
@@ -223,7 +244,37 @@ it("M7: labels the apply button from non-zero counts only when there are endpoin
   renderUi(<AiEditPanel project={fullCrudProject} onApplied={vi.fn()} onCancel={vi.fn()} />);
   await user.type(screen.getByLabelText("Describe what should change"), "Add endpoints");
   await user.click(screen.getByRole("button", { name: "Preview changes" }));
-  expect(await screen.findByRole("button", { name: "Create 2 endpoints" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Apply 2 endpoints" })).toBeInTheDocument();
+});
+
+// Removals: the apply button names them explicitly, and the preview renders their real
+// consequence counts using the panel's own already-fetched sample data.
+it("names a removal in the apply button and renders its consequence with a real record count", async () => {
+  const user = userEvent.setup();
+  // Every standard CRUD route already exists, so this plan produces no new endpoints —
+  // isolating the label to just the field change and the field removal.
+  const fullCrudProject: Project = {
+    ...project,
+    routes: [
+      { id: "r1", method: "GET", path: "/books", modelId: "m1", action: "list", description: "", filters: [] },
+      { id: "r2", method: "GET", path: "/books/:id", modelId: "m1", action: "get", description: "", filters: [] },
+      { id: "r3", method: "POST", path: "/books", modelId: "m1", action: "create", description: "", filters: [] },
+      { id: "r4", method: "PUT", path: "/books/:id", modelId: "m1", action: "update", description: "", filters: [] },
+      { id: "r5", method: "DELETE", path: "/books/:id", modelId: "m1", action: "delete", description: "", filters: [] },
+    ],
+  };
+  const changeAndRemovePlan = {
+    resources: [{ name: "Book", description: "", fields: [{ name: "subtitle", type: "text", required: false, unique: false }], records: [] }],
+    customEndpoints: [],
+    removals: { resources: [], fields: [{ resource: "Book", field: "title" }], endpoints: [] },
+  };
+  vi.spyOn(consoleService, "sampleData").mockResolvedValue([{ id: "1", title: "Dune" }, { id: "2", title: "Emma" }]);
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ plan: changeAndRemovePlan, warnings: [] }), { status: 200 }));
+  renderUi(<AiEditPanel project={fullCrudProject} onApplied={vi.fn()} onCancel={vi.fn()} />);
+  await user.type(screen.getByLabelText("Describe what should change"), "Add subtitle, remove title");
+  await user.click(screen.getByRole("button", { name: "Preview changes" }));
+  expect(await screen.findByText("Book.title — 2 records will lose this value")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Apply 1 change and 1 removal" })).toBeInTheDocument();
 });
 
 // I5: replacing a resource's records dangles any other resource's inbound link to it. The

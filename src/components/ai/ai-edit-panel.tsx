@@ -38,15 +38,20 @@ const MAX_RECORD_IDS = 20;
 const MAX_RESOURCES = 20;
 const MAX_FIELDS = 20;
 
-interface SampleInfo { ids: string[]; count: number }
+interface SampleInfo { ids: string[]; count: number; records: Record<string, unknown>[] }
 
 export function AiEditPanel({ project, onApplied, onCancel }: Props) {
   const applyEditPlan = useProjectStore((s) => s.applyEditPlan);
-  const restoreRecords = useProjectStore((s) => s.restoreRecords);
+  const undoEdit = useProjectStore((s) => s.undoEdit);
   const [instruction, setInstruction] = useState("");
   const [stage, setStage] = useState<Stage>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ plan: EditPlan; warnings: string[]; recordCounts: Record<string, number> } | null>(null);
+  const [result, setResult] = useState<{
+    plan: EditPlan;
+    warnings: string[];
+    recordCounts: Record<string, number>;
+    recordsByName: Record<string, Record<string, unknown>[]>;
+  } | null>(null);
   const busy = stage === "generating" || stage === "applying";
   const abort = useRef<AbortController | null>(null);
   const mounted = useRef(true);
@@ -63,7 +68,7 @@ export function AiEditPanel({ project, onApplied, onCancel }: Props) {
         project.models.map(async (model) => {
           const records = await consoleService.sampleData(project.id, model.id);
           const ids = records.slice(0, MAX_RECORD_IDS).map((r) => String((r as { id?: unknown }).id));
-          return [model.name, { ids, count: records.length }] as const;
+          return [model.name, { ids, count: records.length, records }] as const;
         }),
       )
         .then((pairs) => new Map(pairs))
@@ -112,7 +117,11 @@ export function AiEditPanel({ project, onApplied, onCancel }: Props) {
     if (!mounted.current || controller.signal.aborted) return;
     try {
       const recordCounts: Record<string, number> = {};
-      for (const [name, info] of idsByName) recordCounts[name] = info.count;
+      const recordsByName: Record<string, Record<string, unknown>[]> = {};
+      for (const [name, info] of idsByName) {
+        recordCounts[name] = info.count;
+        recordsByName[name] = info.records;
+      }
       const models = project.models.slice(0, MAX_RESOURCES);
       const existing: ExistingResourceSummary[] = models.map((m) => {
         const info = idsByName.get(m.name);
@@ -143,7 +152,7 @@ export function AiEditPanel({ project, onApplied, onCancel }: Props) {
         setStage("error");
         return;
       }
-      setResult({ plan: data.plan, warnings: data.warnings ?? [], recordCounts });
+      setResult({ plan: data.plan, warnings: data.warnings ?? [], recordCounts, recordsByName });
       setStage("preview");
     } catch (e) {
       if (!mounted.current || controller.signal.aborted || (e instanceof Error && e.name === "AbortError")) return;
@@ -157,22 +166,17 @@ export function AiEditPanel({ project, onApplied, onCancel }: Props) {
     setStage("applying");
     setError(null);
     try {
-      const { modelIds, newResourceCount, changedResourceCount, endpointCount, replacedRecords } = await applyEditPlan(
-        project.id,
-        result.plan,
-      );
+      const { modelIds, newResourceCount, changedResourceCount, endpointCount, undo } = await applyEditPlan(project.id, result.plan);
       if (!mounted.current) return;
       const summary = `Updated ${countLabel(newResourceCount + changedResourceCount, "resource")}, ${countLabel(endpointCount, "new endpoint")}`;
-      if (replacedRecords.length > 0) {
-        // Replacing an existing resource's sample records is destructive, so give the
-        // user a way back — matching the Undo pattern used for deletes elsewhere.
+      const destructive = undo.replacedRecords.length > 0 || undo.removedModels.length > 0 || undo.removedRoutes.length > 0 || undo.removedFields.length > 0;
+      if (destructive) {
+        // Replacing sample records or removing something is destructive, so give the user a
+        // way back — matching the Undo pattern used for deletes elsewhere in this app.
         toast.success(summary, {
           action: {
             label: "Undo",
-            onClick: () =>
-              void restoreRecords(project.id, replacedRecords).catch((e) =>
-                toast.error(e instanceof Error ? e.message : "Could not undo."),
-              ),
+            onClick: () => void undoEdit(project.id, undo).catch((e) => toast.error(e instanceof Error ? e.message : "Could not undo.")),
           },
         });
       } else {
@@ -187,17 +191,26 @@ export function AiEditPanel({ project, onApplied, onCancel }: Props) {
     }
   }
 
-  const diff: EditDiff | null = result ? computeEditDiff(project, result.plan, result.recordCounts) : null;
+  const diff: EditDiff | null = result ? computeEditDiff(project, result.plan, result.recordCounts, result.recordsByName) : null;
   const newCount = diff?.newResources.length ?? 0;
+  // Only resources with a visible field diff or replaced records count as "a change" — a
+  // resource re-listed with nothing actually different (e.g. just to attach a new custom
+  // endpoint to it) has nothing of its own to name in the label.
+  const changedCount = diff?.changedResources.filter((r) => r.fields.length > 0 || r.recordCount > 0).length ?? 0;
   const endpointCount = diff?.newEndpoints.length ?? 0;
-  const nothingToApply = diff ? diff.newResources.length === 0 && diff.changedResources.length === 0 && diff.newEndpoints.length === 0 : true;
-  // Built from the non-zero counts only (M7) — with zero new resources, the label must read
-  // "Create 5 endpoints", not "Create 0 resources and 5 endpoints".
+  const removalCount = diff ? diff.removals.resources.length + diff.removals.fields.length + diff.removals.endpoints.length : 0;
+  const nothingToApply = diff ? newCount === 0 && changedCount === 0 && endpointCount === 0 && removalCount === 0 : true;
+  // Built from the non-zero parts only (M7) — with zero new resources, the label must read
+  // "Apply 5 endpoints", not "Apply 0 resources and 5 endpoints". A removal names itself
+  // explicitly, e.g. "Apply 1 change and 1 removal", so it's never silently folded into an
+  // "Update the API" fallback the way a plan with nothing at all is.
   const applyLabelParts = [
     ...(newCount > 0 ? [countLabel(newCount, "resource")] : []),
+    ...(changedCount > 0 ? [countLabel(changedCount, "change")] : []),
     ...(endpointCount > 0 ? [countLabel(endpointCount, "endpoint")] : []),
+    ...(removalCount > 0 ? [countLabel(removalCount, "removal")] : []),
   ];
-  const applyLabel = applyLabelParts.length > 0 ? `Create ${applyLabelParts.join(" and ")}` : "Update the API";
+  const applyLabel = applyLabelParts.length > 0 ? `Apply ${applyLabelParts.join(" and ")}` : "Update the API";
 
   return (
     <section
@@ -211,8 +224,8 @@ export function AiEditPanel({ project, onApplied, onCancel }: Props) {
         <Kicker>Edit with AI</Kicker>
         <h2 className="mt-1 text-xl font-semibold">What should change?</h2>
         <p className="mt-1 text-sm text-ink-2">
-          Describe an addition or a change. You get a preview of every new or changed resource, field and endpoint before
-          anything is applied — nothing existing is ever removed.
+          Describe an addition, a change or a removal. You get a preview of every new, changed and removed resource, field
+          and endpoint before anything is applied.
         </p>
       </div>
 

@@ -210,7 +210,7 @@ it("edit: adds a new resource and changes an existing one, preserving untouched 
   expect(bookAfter.fields.find((f) => f.name === "title")!.id).toBe("f-title"); // untouched field kept its id
   expect(bookAfter.fields.map((f) => f.name)).toEqual(["title", "genre"]);
   expect(after.models.map((m) => m.name)).toEqual(["Book", "Author"]);
-  expect(result).toEqual({ modelIds: [bookAfter.id, after.models[1].id], newResourceCount: 1, changedResourceCount: 1, endpointCount: 10, replacedRecords: [] });
+  expect(result).toEqual({ modelIds: [bookAfter.id, after.models[1].id], newResourceCount: 1, changedResourceCount: 1, endpointCount: 10, undo: { replacedRecords: [], removedModels: [], removedRoutes: [], removedFields: [] } });
   expect(after.routes.filter((r) => r.modelId === bookAfter.id)).toHaveLength(5);
 });
 
@@ -243,11 +243,11 @@ it("edit: replacing an existing resource's records snapshots what was lost, for 
     { title: "X", id: "1" },
     { title: "Y", id: "2" },
   ]);
-  expect(result.replacedRecords).toEqual([
+  expect(result.undo.replacedRecords).toEqual([
     { modelId: book.id, records: [{ title: "A", id: "1" }, { title: "B", id: "2" }, { title: "C", id: "3" }] },
   ]);
 
-  await useProjectStore.getState().restoreRecords(project.id, result.replacedRecords);
+  await useProjectStore.getState().undoEdit(project.id, result.undo);
   expect(await consoleService.sampleData(project.id, book.id)).toEqual([
     { title: "A", id: "1" },
     { title: "B", id: "2" },
@@ -273,7 +273,7 @@ it("edit: a records-empty plan (schema-only edit) never touches or snapshots exi
   const records = await consoleService.sampleData(project.id, book.id);
   expect(records).toHaveLength(1);
   expect(records[0]).toMatchObject({ id: "1", title: "A" });
-  expect(result.replacedRecords).toEqual([]);
+  expect(result.undo.replacedRecords).toEqual([]);
 });
 
 it("edit: a brand-new resource's seeded records are not snapshotted (nothing existed to lose)", async () => {
@@ -283,7 +283,7 @@ it("edit: a brand-new resource's seeded records are not snapshotted (nothing exi
     customEndpoints: [],
   };
   const result = await useProjectStore.getState().applyEditPlan(project.id, plan);
-  expect(result.replacedRecords).toEqual([]);
+  expect(result.undo.replacedRecords).toEqual([]);
 });
 
 // I2: applyEditPlan must dedupe customEndpoints defensively (same method+path within the
@@ -349,6 +349,155 @@ it("preview/apply equivalence: computeEditDiff's endpoint count and field change
   }
   // The duplicate custom endpoint must not have thrown mid-apply, and must not double-create.
   expect(after.routes.filter((r) => r.path === "/books/bestsellers")).toHaveLength(1);
+});
+
+describe("edit: removals", () => {
+  async function seededShop() {
+    const project = await useProjectStore.getState().createProject({ name: `Shop ${Math.random()}`, description: "", templateId: null });
+    const book = await useProjectStore.getState().createModel(project.id, "Book");
+    await useProjectStore.getState().saveModel(project.id, {
+      ...book,
+      fields: [
+        { id: "f-title", name: "title", type: "text", required: true, unique: false },
+        { id: "f-genre", name: "genre", type: "text", required: false, unique: false },
+      ],
+    });
+    await consoleService.seedRecords(project.id, book.id, [
+      { title: "Dune", genre: "Sci-fi" },
+      { title: "Emma", genre: "" },
+    ]);
+    await useProjectStore.getState().addRoutes(project.id, buildCrudRoutes({ ...book, fields: [] }, ["list", "get"], []));
+    const after = useProjectStore.getState().projects.find((p) => p.id === project.id)!;
+    return { project: after, book: after.models.find((m) => m.name === "Book")! };
+  }
+
+  it("removes a field, snapshotting the resource's records so Undo can restore the values, not just the column", async () => {
+    const { project, book } = await seededShop();
+    const plan: EditPlan = { resources: [], customEndpoints: [], removals: { resources: [], fields: [{ resource: "Book", field: "genre" }], endpoints: [] } };
+    const result = await useProjectStore.getState().applyEditPlan(project.id, plan);
+    const after = useProjectStore.getState().projects.find((p) => p.id === project.id)!;
+    const bookAfter = after.models.find((m) => m.id === book.id)!;
+    expect(bookAfter.fields.map((f) => f.name)).toEqual(["title"]);
+    expect(result.undo.removedFields).toEqual([{ modelId: book.id, field: { id: "f-genre", name: "genre", type: "text", required: false, unique: false }, records: [{ id: "1", title: "Dune", genre: "Sci-fi" }, { id: "2", title: "Emma", genre: "" }] }]);
+
+    await useProjectStore.getState().undoEdit(project.id, result.undo);
+    const restored = useProjectStore.getState().projects.find((p) => p.id === project.id)!;
+    const bookRestored = restored.models.find((m) => m.id === book.id)!;
+    expect(bookRestored.fields.map((f) => f.name)).toEqual(["title", "genre"]);
+    expect(await consoleService.sampleData(project.id, book.id)).toEqual([
+      { id: "1", title: "Dune", genre: "Sci-fi" },
+      { id: "2", title: "Emma", genre: "" },
+    ]);
+  });
+
+  it("removes a resource, and Undo brings the resource, its routes and its records back", async () => {
+    const { project, book } = await seededShop();
+    const plan: EditPlan = { resources: [], customEndpoints: [], removals: { resources: ["Book"], fields: [], endpoints: [] } };
+    const result = await useProjectStore.getState().applyEditPlan(project.id, plan);
+    const after = useProjectStore.getState().projects.find((p) => p.id === project.id)!;
+    expect(after.models.some((m) => m.id === book.id)).toBe(false);
+    expect(after.routes.some((r) => r.modelId === book.id)).toBe(false);
+    expect(result.undo.removedModels).toHaveLength(1);
+
+    await useProjectStore.getState().undoEdit(project.id, result.undo);
+    const restored = useProjectStore.getState().projects.find((p) => p.id === project.id)!;
+    expect(restored.models.some((m) => m.id === book.id)).toBe(true);
+    expect(restored.routes.filter((r) => r.modelId === book.id)).toHaveLength(2);
+    expect(await consoleService.sampleData(project.id, book.id)).toEqual([
+      { id: "1", title: "Dune", genre: "Sci-fi" },
+      { id: "2", title: "Emma", genre: "" },
+    ]);
+  });
+
+  it("removes an endpoint, and Undo puts it back", async () => {
+    const { project, book } = await seededShop();
+    const target = project.routes.find((r) => r.modelId === book.id && r.action === "get")!;
+    const plan: EditPlan = { resources: [], customEndpoints: [], removals: { resources: [], fields: [], endpoints: [{ method: target.method, path: target.path }] } };
+    const result = await useProjectStore.getState().applyEditPlan(project.id, plan);
+    const after = useProjectStore.getState().projects.find((p) => p.id === project.id)!;
+    expect(after.routes.some((r) => r.id === target.id)).toBe(false);
+    expect(result.undo.removedRoutes).toEqual([{ route: target, beforeId: null }]);
+
+    await useProjectStore.getState().undoEdit(project.id, result.undo);
+    const restored = useProjectStore.getState().projects.find((p) => p.id === project.id)!;
+    expect(restored.routes.some((r) => r.id === target.id)).toBe(true);
+  });
+
+  it("performs additions and changes before removals, so a plan replacing one field with another never leaves the resource empty", async () => {
+    const { project, book } = await seededShop();
+    const plan: EditPlan = {
+      resources: [{ name: "Book", description: "", fields: [{ name: "subtitle", type: "text", required: false, unique: false }], records: [] }],
+      customEndpoints: [],
+      removals: { resources: [], fields: [{ resource: "Book", field: "genre" }], endpoints: [] },
+    };
+    const result = await useProjectStore.getState().applyEditPlan(project.id, plan);
+    const after = useProjectStore.getState().projects.find((p) => p.id === project.id)!;
+    const bookAfter = after.models.find((m) => m.id === book.id)!;
+    expect(bookAfter.fields.map((f) => f.name)).toEqual(["title", "subtitle"]);
+    expect(result.undo.removedFields).toHaveLength(1);
+  });
+
+  it("a plan with both an addition and a removal applies both", async () => {
+    const { project, book } = await seededShop();
+    const plan: EditPlan = {
+      resources: [{ name: "Author", description: "", fields: [{ name: "name", type: "text", required: true, unique: false }], records: [{ name: "Ann" }] }],
+      customEndpoints: [],
+      removals: { resources: [], fields: [{ resource: "Book", field: "genre" }], endpoints: [] },
+    };
+    const result = await useProjectStore.getState().applyEditPlan(project.id, plan);
+    const after = useProjectStore.getState().projects.find((p) => p.id === project.id)!;
+    expect(after.models.some((m) => m.name === "Author")).toBe(true);
+    const bookAfter = after.models.find((m) => m.id === book.id)!;
+    expect(bookAfter.fields.map((f) => f.name)).toEqual(["title"]);
+    expect(result.newResourceCount).toBe(1);
+    expect(result.undo.removedFields).toHaveLength(1);
+  });
+});
+
+// The failure mode this feature must not have: the preview said one thing and apply did
+// another. What computeEditDiff lists must be exactly what applyEditPlan performs, removals
+// included.
+it("preview/apply equivalence: removals — what the diff lists is exactly what apply performs", async () => {
+  const project = await useProjectStore.getState().createProject({ name: "Shop", description: "", templateId: null });
+  const book = await useProjectStore.getState().createModel(project.id, "Book");
+  await useProjectStore.getState().saveModel(project.id, {
+    ...book,
+    fields: [
+      { id: "f-title", name: "title", type: "text", required: true, unique: false },
+      { id: "f-genre", name: "genre", type: "text", required: false, unique: false },
+    ],
+  });
+  await consoleService.seedRecords(project.id, book.id, [{ title: "Dune", genre: "Sci-fi" }]);
+  await useProjectStore.getState().addRoutes(project.id, buildCrudRoutes({ ...book, fields: [] }, ["list", "get"], []));
+  const order = await useProjectStore.getState().createModel(project.id, "Order");
+  await useProjectStore.getState().saveModel(project.id, {
+    ...order,
+    fields: [{ id: "f-book", name: "book", type: "link", required: true, unique: false, linkTo: book.id }],
+  });
+  await consoleService.seedRecords(project.id, order.id, [{ book: "1" }]);
+
+  const before = useProjectStore.getState().projects.find((p) => p.id === project.id)!;
+  const target = before.routes.find((r) => r.modelId === book.id && r.action === "get")!;
+  const plan: EditPlan = {
+    resources: [{ name: "Author", description: "", fields: [{ name: "name", type: "text", required: true, unique: false }], records: [] }],
+    customEndpoints: [],
+    removals: { resources: ["Order"], fields: [{ resource: "Book", field: "genre" }], endpoints: [{ method: target.method, path: target.path }] },
+  };
+  const diff = computeEditDiff(before, plan, { Order: 1 }, { Book: [{ title: "Dune", genre: "Sci-fi" }] });
+  expect(diff.removals.resources).toEqual([{ name: "Order", recordCount: 1, endpointCount: 0, inboundLinks: [] }]);
+  expect(diff.removals.fields).toEqual([{ resource: "Book", field: "genre", recordCount: 1 }]);
+  expect(diff.removals.endpoints).toEqual([{ method: target.method, path: target.path }]);
+
+  const result = await useProjectStore.getState().applyEditPlan(project.id, plan);
+  const after = useProjectStore.getState().projects.find((p) => p.id === project.id)!;
+
+  // Exactly what the diff said would be removed, and nothing else.
+  expect(after.models.some((m) => m.name === "Order")).toBe(false);
+  expect(after.models.find((m) => m.id === book.id)!.fields.map((f) => f.name)).toEqual(["title"]);
+  expect(after.routes.some((r) => r.id === target.id)).toBe(false);
+  expect(result.undo.removedModels).toHaveLength(diff.removals.resources.length);
+  expect(result.undo.removedFields).toHaveLength(diff.removals.fields.length);
+  expect(result.undo.removedRoutes).toHaveLength(diff.removals.endpoints.length);
 });
 
 // C1 / record-rewrite: changing a choice field's options invalidates any existing record

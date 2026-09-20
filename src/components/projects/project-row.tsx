@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -19,9 +20,9 @@ interface Props {
   allProjects: Project[];
 }
 
-/** A click anywhere on the row except an inline-edit control opens the project. */
+/** A click on an inline-edit control starts a rename instead of following the row's link. */
 function isEditControl(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && !!target.closest("input, button");
+  return target instanceof HTMLElement && !!target.closest("input, [data-inline-edit-trigger]");
 }
 
 export function ProjectRow({ project, allProjects }: Props) {
@@ -73,11 +74,16 @@ export function ProjectRow({ project, allProjects }: Props) {
     onOpenInNewTab: () => window.open(`/projects/${project.id}`, "_blank", "noopener"),
     onOpenReference: () => router.push(`/projects/${project.id}/reference`),
     onCopyBaseUrl: (url) => void copyToClipboard(url, "Base URL copied"),
-    // Deferred a tick: closing the context menu returns focus to this row, which — the same
-    // tick the rename input mounts and grabs it — would immediately blur it again; InlineEdit
-    // treats an unchanged blur as "done" and would cancel the rename before the user typed
-    // anything. Waiting for that focus-return to land first avoids the race (the same fix Radix
-    // itself recommends for opening a dialog from a menu item's onSelect).
+    // Workaround, not a fix, for a Radix focus-return race: after a menu item's `onSelect`,
+    // Radix returns focus to the trigger (this row) on the next macrotask. If the rename input
+    // mounted and grabbed focus synchronously, that focus-return would immediately blur it, and
+    // InlineEdit treats an unchanged blur as "done" — cancelling the rename before the user
+    // typed anything. Deferring with `setTimeout(fn, 0)` lets the focus-return land first, so it
+    // no longer lands on the input at all. Verified working in a live browser; not covered by a
+    // test, since jsdom doesn't reproduce Radix's async focus-return.
+    // The deterministic alternative, not yet attempted here: give `ContextMenuContent` an
+    // `onCloseAutoFocus={(e) => e.preventDefault()}` to stop Radix from returning focus at all,
+    // paired with an effect that moves focus to the rename input once `editing` flips true.
     onRename: () => setTimeout(() => setRenaming(true), 0),
     onDuplicate: () => void duplicate(),
     onDelete: () => void remove(),
@@ -85,14 +91,13 @@ export function ProjectRow({ project, allProjects }: Props) {
 
   return (
     <ContextMenuTarget items={items} asChild>
-      <div
-        role="link"
-        tabIndex={0}
+      <Link
+        href={`/projects/${project.id}`}
         onClick={(e) => {
-          if (!isEditControl(e.target)) open();
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !isEditControl(e.target)) open();
+          // Let the click through to Next's own navigation, except when it starts a rename —
+          // a real `<a href>` is what makes native middle-click / Cmd-Click "open in a new tab"
+          // work again, so this only needs to opt the rename control out, not reimplement Enter.
+          if (isEditControl(e.target)) e.preventDefault();
         }}
         className="grid cursor-pointer grid-cols-[1fr_auto] items-center gap-x-6 gap-y-1 px-4 py-3 transition-colors duration-150 hover:bg-panel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:grid-cols-[1fr_auto_auto_auto]"
       >
@@ -113,7 +118,7 @@ export function ProjectRow({ project, allProjects }: Props) {
           {countLabel(project.models.length, "resource")} · {countLabel(project.routes.length, "endpoint")}
         </span>
         <span className="text-xs text-ink-3">Edited {timeAgo(project.updatedAt)}</span>
-      </div>
+      </Link>
     </ContextMenuTarget>
   );
 }

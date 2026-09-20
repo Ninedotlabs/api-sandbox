@@ -61,10 +61,15 @@ export function InlineEdit({ value, ariaLabel, onSave, validate, className, edit
   }
 
   if (!editing) {
+    // Deliberately not a button: some callers (e.g. a project row) nest this inside a real
+    // `<a href>` so native middle-click / Cmd-Click "open in a new tab" keeps working, and a
+    // button nested inside an anchor is invalid HTML (and previously caused a click on the name
+    // to both rename and navigate). A plain, non-focusable element is safe to nest there; mouse
+    // click still starts the rename, and keyboard users reach it via the row's context menu.
     return (
-      <button type="button" aria-label={`${ariaLabel}: ${value}`} className={cn("rounded-sm text-left hover:bg-panel-strong/60 focus-visible:ring-2 focus-visible:ring-accent", className)} onClick={() => { setDraft(value); setError(null); setEditing(true); }}>
+      <span data-inline-edit-trigger="" className={cn("cursor-pointer rounded-sm text-left hover:bg-panel-strong/60", className)} onClick={() => { setDraft(value); setError(null); setEditing(true); }}>
         {value}
-      </button>
+      </span>
     );
   }
   return (

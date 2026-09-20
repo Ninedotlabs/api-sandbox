@@ -51,7 +51,7 @@ it("keeps the header rename when the Request tab is saved afterwards", async () 
   useProjectStore.setState({ saveRoute } as never);
   const { rerender } = renderUi(tree(route));
 
-  await user.click(screen.getByRole("button", { name: "Endpoint description: Old name" }));
+  await user.click(screen.getByText("Old name"));
   const description = screen.getByLabelText("Endpoint description");
   await user.clear(description);
   await user.type(description, "New name{Enter}");

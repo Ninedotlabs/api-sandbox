@@ -69,6 +69,7 @@ export function parsePlan(raw: unknown, existingNames: string[]): { plan: ApiPla
   const renames = new Map<string, string>();
 
   // 1. Resource names
+  if (parsed.data.resources.length > 6) warnings.push("Trimmed to 6 resources.");
   const resources = parsed.data.resources.slice(0, 6).flatMap((r): Wire["resources"] => {
     const cleaned = r.name.trim().replace(/[^A-Za-z0-9 ]/g, "");
     if (validateModelName(cleaned, [])) { warnings.push(`Skipped a resource with an unusable name (${JSON.stringify(r.name)}).`); return []; }
@@ -85,6 +86,7 @@ export function parsePlan(raw: unknown, existingNames: string[]): { plan: ApiPla
   const plan: ApiPlan = { resources: [] };
   for (const r of resources) {
     const fields: PlanField[] = [];
+    if (r.fields.length > 12) warnings.push(`${r.name}: trimmed to 12 fields.`);
     for (const f of r.fields.slice(0, 12)) {
       const fname = f.name.trim();
       if (fname.toLowerCase() === "id") { warnings.push(`${r.name}: dropped the id field; ids are added automatically.`); continue; }
@@ -106,28 +108,80 @@ export function parsePlan(raw: unknown, existingNames: string[]): { plan: ApiPla
     plan.resources.push({ name: r.name, description: r.description.trim(), fields, records: [] });
   }
 
-  // 3. Records, validated with the mock engine against a dataset built from the plan itself
+  // 3. Records, validated with the mock engine against a dataset built from the plan itself.
+  // Two passes, because link values are 1-based indices into a resource that may be
+  // validated later (or may itself drop records, shifting who ends up at which index):
+  //   A. Validate and assign ids per resource, without link fields (so a *required* link
+  //      never fails validation, and so we don't need the target's ids yet). Record, per
+  //      resource, a map from each surviving record's original 1-based index to its
+  //      assigned id.
+  //   B. Once every resource has that map, resolve each link's raw index against the
+  //      *target* resource's map. An index with no match becomes null, with one warning
+  //      per resource+field summarizing how many records were affected.
   const models: Model[] = plan.resources.map((r, i) => ({
     id: `plan-${i}`, name: r.name,
     fields: r.fields.map((f, j) => ({ id: `plan-${i}-${j}`, name: f.name, type: f.type, required: f.required, unique: f.unique, options: f.options, linkTo: f.linkTo ? `plan-${plan.resources.findIndex((x) => x.name === f.linkTo)}` : undefined })),
   }));
   const dataset: Dataset = Object.fromEntries(models.map((m) => [m.id, []]));
+
+  interface PendingRecord { body: Record<string, unknown>; linkRaw: { field: string; raw: string }[] }
+  const pendingByResource: PendingRecord[][] = plan.resources.map(() => []);
+  const originalToIdByResource: Map<number, string>[] = plan.resources.map(() => new Map());
+
+  // Pass A
   resources.forEach((r, i) => {
     const model = models[i];
+    // Link fields are validated in pass B against ids that may not exist yet; treat them
+    // as optional here so a *required* link doesn't fail every record.
+    const validationModel: Model = { ...model, fields: model.fields.map((f) => (f.type === "link" ? { ...f, required: false } : f)) };
     const byName = new Map(plan.resources[i].fields.map((f) => [f.name, f]));
+    if (r.records.length > 12) warnings.push(`${r.name}: trimmed to 12 sample records.`);
     let dropped = 0;
-    for (const rec of r.records.slice(0, 12)) {
+    r.records.slice(0, 12).forEach((rec, idx) => {
+      const originalIndex = idx + 1;
       const body: Record<string, unknown> = {};
-      for (const e of rec.entries) { const f = byName.get(e.field); if (f) body[f.name] = coerce(f, e.value); }
-      // Links point at records that may come later; validate them after all records exist.
-      const linkFree = { ...body }; for (const f of model.fields) if (f.type === "link") delete linkFree[f.name];
-      const errors = validateBody(model, linkFree, "create", dataset);
-      if (errors.length) { dropped++; continue; }
+      const linkRaw: { field: string; raw: string }[] = [];
+      for (const e of rec.entries) {
+        const f = byName.get(e.field);
+        if (!f) continue;
+        if (f.type === "link") { linkRaw.push({ field: f.name, raw: e.value }); continue; }
+        body[f.name] = coerce(f, e.value);
+      }
+      const errors = validateBody(validationModel, body, "create", dataset);
+      if (errors.length) { dropped++; return; }
       const id = String(dataset[model.id].length + 1);
       dataset[model.id].push({ ...body, id });
-      plan.resources[i].records.push(body);
-    }
+      pendingByResource[i].push({ body, linkRaw });
+      originalToIdByResource[i].set(originalIndex, id);
+    });
     if (dropped) warnings.push(`${r.name}: dropped ${dropped} sample record${dropped === 1 ? "" : "s"} that did not match the schema.`);
   });
+
+  // Pass B
+  resources.forEach((r, i) => {
+    const fieldsByName = new Map(plan.resources[i].fields.map((f) => [f.name, f]));
+    const unresolvedCounts = new Map<string, number>();
+    for (const pending of pendingByResource[i]) {
+      for (const { field, raw } of pending.linkRaw) {
+        const f = fieldsByName.get(field);
+        if (!f || f.type !== "link" || !f.linkTo) continue;
+        const targetIndex = plan.resources.findIndex((x) => x.name === f.linkTo);
+        const parsedIndex = Number(raw.trim());
+        const resolved =
+          targetIndex >= 0 && Number.isInteger(parsedIndex) && parsedIndex > 0
+            ? originalToIdByResource[targetIndex].get(parsedIndex)
+            : undefined;
+        pending.body[field] = resolved ?? null;
+        if (resolved === undefined) unresolvedCounts.set(field, (unresolvedCounts.get(field) ?? 0) + 1);
+      }
+    }
+    for (const [field, count] of unresolvedCounts) {
+      warnings.push(
+        `${r.name}: ${count} sample record${count === 1 ? "" : "s"} had an unknown ${field} link and ${count === 1 ? "was" : "were"} left empty.`,
+      );
+    }
+    plan.resources[i].records = pendingByResource[i].map((p) => p.body);
+  });
+
   return { plan, warnings };
 }

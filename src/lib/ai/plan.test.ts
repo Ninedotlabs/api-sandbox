@@ -58,3 +58,72 @@ it("produces a closed strict JSON schema", () => {
   expect(schema.required).toEqual(["resources"]);
   expect(JSON.stringify(schema)).not.toContain('"$schema"');
 });
+
+it("keeps records with a required link field and resolves the link to an id", () => {
+  const raw = {
+    resources: [
+      { name: "Author", description: "", fields: [{ name: "name", type: "text", required: true, unique: false, options: null, linkTo: null }], records: [{ entries: [{ field: "name", value: "Frank Herbert" }] }] },
+      {
+        name: "Book", description: "",
+        fields: [
+          { name: "title", type: "text", required: true, unique: false, options: null, linkTo: null },
+          { name: "author", type: "link", required: true, unique: false, options: null, linkTo: "Author" },
+        ],
+        records: [{ entries: [{ field: "title", value: "Dune" }, { field: "author", value: "1" }] }],
+      },
+    ],
+  };
+  const { plan, warnings } = parsePlan(raw, []);
+  const book = plan.resources.find((r) => r.name === "Book")!;
+  expect(book.records).toEqual([{ title: "Dune", author: "1" }]);
+  expect(warnings).toEqual([]);
+});
+
+it("resolves link values against the target's original position even after earlier records are dropped", () => {
+  const raw = {
+    resources: [
+      {
+        name: "Author", description: "",
+        fields: [{ name: "name", type: "text", required: true, unique: false, options: null, linkTo: null }],
+        records: [
+          { entries: [] },
+          { entries: [{ field: "name", value: "Frank Herbert" }] },
+        ],
+      },
+      {
+        name: "Book", description: "",
+        fields: [
+          { name: "title", type: "text", required: true, unique: false, options: null, linkTo: null },
+          { name: "author", type: "link", required: true, unique: false, options: null, linkTo: "Author" },
+        ],
+        records: [{ entries: [{ field: "title", value: "Dune" }, { field: "author", value: "2" }] }],
+      },
+    ],
+  };
+  const { plan, warnings } = parsePlan(raw, []);
+  const author = plan.resources.find((r) => r.name === "Author")!;
+  const book = plan.resources.find((r) => r.name === "Book")!;
+  expect(author.records).toEqual([{ name: "Frank Herbert" }]);
+  expect(book.records).toEqual([{ title: "Dune", author: "1" }]);
+  expect(warnings).toContain("Author: dropped 1 sample record that did not match the schema.");
+});
+
+it("sets an unresolved link to null and warns once per field", () => {
+  const raw = {
+    resources: [
+      { name: "Author", description: "", fields: [{ name: "name", type: "text", required: true, unique: false, options: null, linkTo: null }], records: [{ entries: [{ field: "name", value: "Frank Herbert" }] }] },
+      {
+        name: "Book", description: "",
+        fields: [
+          { name: "title", type: "text", required: true, unique: false, options: null, linkTo: null },
+          { name: "author", type: "link", required: false, unique: false, options: null, linkTo: "Author" },
+        ],
+        records: [{ entries: [{ field: "title", value: "Dune" }, { field: "author", value: "9" }] }],
+      },
+    ],
+  };
+  const { plan, warnings } = parsePlan(raw, []);
+  const book = plan.resources.find((r) => r.name === "Book")!;
+  expect(book.records).toEqual([{ title: "Dune", author: null }]);
+  expect(warnings).toContain("Book: 1 sample record had an unknown author link and was left empty.");
+});

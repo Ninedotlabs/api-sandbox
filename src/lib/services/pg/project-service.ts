@@ -64,10 +64,11 @@ async function assembleProject(runner: Queryable, row: ProjectRow): Promise<Proj
   };
 }
 
-async function loadProject(runner: Queryable, id: string): Promise<Project | null> {
+async function loadProject(runner: Queryable, id: string, ownerId?: string): Promise<Project | null> {
   const { rows } = await runner.query<ProjectRow>(
-    "select id, name, slug, description, created_at, updated_at from projects where id = $1",
-    [id],
+    `select id, name, slug, description, created_at, updated_at from projects
+     where id = $1${ownerId ? " and owner_id = $2" : ""}`,
+    ownerId ? [id, ownerId] : [id],
   );
   if (rows.length === 0) return null;
   return assembleProject(runner, rows[0]);
@@ -134,9 +135,11 @@ async function insertRoutes(client: PoolClient, projectId: string, routes: Route
 }
 
 export const pgProjectService: ProjectService = {
-  async list() {
+  async list(ownerId) {
     const { rows } = await query<ProjectRow>(
-      "select id, name, slug, description, created_at, updated_at from projects order by updated_at desc, id desc",
+      `select id, name, slug, description, created_at, updated_at from projects
+       ${ownerId ? "where owner_id = $1" : ""} order by updated_at desc, id desc`,
+      ownerId ? [ownerId] : [],
     );
     const pool = getPool();
     const projects: Project[] = [];
@@ -144,11 +147,11 @@ export const pgProjectService: ProjectService = {
     return projects;
   },
 
-  async get(id) {
-    return loadProject(getPool(), id);
+  async get(id, ownerId) {
+    return loadProject(getPool(), id, ownerId);
   },
 
-  async create({ name, description, templateId }) {
+  async create({ name, description, templateId }, ownerId) {
     const trimmedName = name.trim();
     if (!trimmedName) throw new Error("Give your API a name.");
     const trimmedDescription = description.trim();
@@ -164,8 +167,8 @@ export const pgProjectService: ProjectService = {
         // `update` - which also uses the database's `now()` - can never look
         // earlier than a row that was just created.
         const inserted = await client.query<{ created_at: Date; updated_at: Date }>(
-          "insert into projects (id, name, slug, description) values ($1, $2, $3, $4) returning created_at, updated_at",
-          [id, trimmedName, slug, trimmedDescription],
+          "insert into projects (id, owner_id, name, slug, description) values ($1, $2, $3, $4, $5) returning created_at, updated_at",
+          [id, ownerId ?? null, trimmedName, slug, trimmedDescription],
         );
 
         const models = templateId ? buildTemplateModels(templateId) : [];
@@ -256,12 +259,12 @@ export const pgProjectService: ProjectService = {
     }
   },
 
-  async restore({ project, records }) {
+  async restore({ project, records }, ownerId) {
     try {
       await withTransaction(async (client) => {
         await client.query(
-          "insert into projects (id, name, slug, description, created_at, updated_at) values ($1, $2, $3, $4, $5, $6)",
-          [project.id, project.name, project.slug, project.description, project.createdAt, project.updatedAt],
+          "insert into projects (id, owner_id, name, slug, description, created_at, updated_at) values ($1, $2, $3, $4, $5, $6, $7)",
+          [project.id, ownerId ?? null, project.name, project.slug, project.description, project.createdAt, project.updatedAt],
         );
         await insertModelsAndFields(client, project.id, project.models);
         await insertRoutes(client, project.id, project.routes);
@@ -281,10 +284,10 @@ export const pgProjectService: ProjectService = {
     }
   },
 
-  async duplicate(id) {
+  async duplicate(id, ownerId) {
     try {
       return await withTransaction(async (client) => {
-        const source = await loadProject(client, id);
+        const source = await loadProject(client, id, ownerId);
         if (!source) throw new Error("This API no longer exists.");
 
         const baseName = `${source.name} copy`;
@@ -320,8 +323,8 @@ export const pgProjectService: ProjectService = {
 
         const newProjectId = createId("prj");
         const inserted = await client.query<{ created_at: Date; updated_at: Date }>(
-          "insert into projects (id, name, slug, description) values ($1, $2, $3, $4) returning created_at, updated_at",
-          [newProjectId, name, slug, source.description],
+          "insert into projects (id, owner_id, name, slug, description) values ($1, $2, $3, $4, $5) returning created_at, updated_at",
+          [newProjectId, ownerId ?? null, name, slug, source.description],
         );
         await insertModelsAndFields(client, newProjectId, newModels);
         await insertRoutes(client, newProjectId, newRoutes);

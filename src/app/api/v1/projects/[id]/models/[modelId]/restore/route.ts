@@ -1,4 +1,4 @@
-import { requireAccess } from "@/lib/api/auth";
+import { requireProjectAccess } from "@/lib/api/auth";
 import { fail, firstIssue, handle, ok, readJson } from "@/lib/api/respond";
 import { removedModelSchema } from "@/lib/api/schemas";
 import { pgModelService } from "@/lib/services/pg/model-service";
@@ -11,9 +11,9 @@ interface Context {
 
 export async function POST(req: Request, context: Context): Promise<Response> {
   return handle(async () => {
-    const denied = requireAccess(req);
-    if (denied) return denied;
     const { id, modelId } = await context.params;
+    const access = await requireProjectAccess(req, id);
+    if (access instanceof Response) return access;
 
     const parsed = removedModelSchema.safeParse(await readJson(req));
     if (!parsed.success) return fail(400, firstIssue(parsed.error));

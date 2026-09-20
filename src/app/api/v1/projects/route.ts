@@ -17,26 +17,27 @@ const createSchema = z.object({
 
 export async function GET(req: Request): Promise<Response> {
   return handle(async () => {
-    const denied = requireAccess(req);
-    if (denied) return denied;
-    const projects = await pgProjectService.list();
+    const access = await requireAccess(req);
+    if (access instanceof Response) return access;
+    const projects = access.userId ? await pgProjectService.list(access.userId) : await pgProjectService.list();
     return ok(projects);
   });
 }
 
 export async function POST(req: Request): Promise<Response> {
   return handle(async () => {
-    const denied = requireAccess(req);
-    if (denied) return denied;
+    const access = await requireAccess(req);
+    if (access instanceof Response) return access;
 
     const parsed = createSchema.safeParse(await readJson(req));
     if (!parsed.success) return fail(400, firstIssue(parsed.error));
 
-    const project = await pgProjectService.create({
+    const input = {
       name: parsed.data.name,
       description: parsed.data.description ?? "",
       templateId: parsed.data.templateId ?? null,
-    });
+    };
+    const project = access.userId ? await pgProjectService.create(input, access.userId) : await pgProjectService.create(input);
     return ok(project, 201);
   });
 }

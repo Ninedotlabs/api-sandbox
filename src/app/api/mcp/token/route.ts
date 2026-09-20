@@ -1,30 +1,34 @@
-/**
- * Serves the real `UNIVERSAL_API_TOKEN` value to a same-origin fetch from the `/mcp` docs
- * page's copy button (see `src/components/mcp/copy-token-button.tsx`) - deliberately, on
- * click, and nowhere else. The page itself only ever renders the masked form
- * (`src/lib/mcp-token.ts`), so the full token never sits in page source for a viewer without
- * access; this route exists precisely so the copy action can fetch the real value without
- * the server component that renders the page ever passing it to client-side markup.
- *
- * Gated the same way as every `/api/v1` route (`requireAccess`, see `src/lib/api/auth.ts`):
- * this is a new, separate route from the MCP transport at `src/app/api/mcp/route.ts` and
- * does not change it. It carries no extra privilege of its own - anyone who can reach this
- * same-origin page can already read and write everything the token can, since sign-in is
- * deferred; masking on the page protects against accidental exposure (view source, a shared
- * screenshot, a search-engine crawl), not against a person who already has the app open.
- */
-import { requireAccess } from "@/lib/api/auth";
-import { fail, handle, ok } from "@/lib/api/respond";
+import { z } from "zod";
+import { auth } from "@/auth";
+import { fail, firstIssue, handle, ok, readJson } from "@/lib/api/respond";
+import { createApiToken, listApiTokens } from "@/lib/auth/api-token";
 
 export const runtime = "nodejs";
 
-export async function GET(req: Request): Promise<Response> {
-  return handle(async () => {
-    const denied = requireAccess(req);
-    if (denied) return denied;
+const createSchema = z.object({
+  name: z.string().trim().min(1, "Give this token a name.").max(40, "Keep the name under 40 characters."),
+});
 
-    const token = process.env.UNIVERSAL_API_TOKEN;
-    if (!token) return fail(404, "No token is configured for this deployment.");
-    return ok({ token });
+async function currentUserId(): Promise<string | null> {
+  const session = await auth();
+  return session?.user?.id ?? null;
+}
+
+export async function GET(): Promise<Response> {
+  return handle(async () => {
+    const userId = await currentUserId();
+    if (!userId) return fail(401, "Sign in to manage MCP tokens.");
+    return ok(await listApiTokens(userId));
+  });
+}
+
+export async function POST(req: Request): Promise<Response> {
+  return handle(async () => {
+    const userId = await currentUserId();
+    if (!userId) return fail(401, "Sign in to manage MCP tokens.");
+
+    const parsed = createSchema.safeParse(await readJson(req));
+    if (!parsed.success) return fail(400, firstIssue(parsed.error));
+    return ok(await createApiToken(userId, parsed.data.name), 201);
   });
 }

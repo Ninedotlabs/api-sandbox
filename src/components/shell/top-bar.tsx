@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Wordmark } from "@/components/brand/wordmark";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import type { Project } from "@/lib/types";
 import { useUiStore } from "@/store/ui-store";
 import { ProjectMenu } from "./project-menu";
@@ -82,6 +83,7 @@ export function TopBar({ project }: { project?: Project }) {
         <Link href="/mcp" className="rounded-md px-2 py-1 text-sm text-ink-2 transition-colors duration-150 hover:bg-panel hover:text-ink">
           MCP
         </Link>
+        <ThemeToggle />
         <UserAvatar />
       </div>
     </header>

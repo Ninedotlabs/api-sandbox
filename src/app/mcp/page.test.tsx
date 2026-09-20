@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { TOOLS } from "@/mcp/tools";
 
 vi.mock("next/headers", () => ({
@@ -11,12 +11,12 @@ vi.mock("next/headers", () => ({
     ]),
 }));
 
-const ORIGINAL_TOKEN = process.env.UNIVERSAL_API_TOKEN;
-
 afterEach(() => {
-  if (ORIGINAL_TOKEN === undefined) delete process.env.UNIVERSAL_API_TOKEN;
-  else process.env.UNIVERSAL_API_TOKEN = ORIGINAL_TOKEN;
   vi.restoreAllMocks();
+});
+
+beforeEach(() => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data: [] }), { status: 200 }));
 });
 
 async function renderPage() {
@@ -25,21 +25,18 @@ async function renderPage() {
 }
 
 it("renders exactly one tool-table row per entry in TOOLS", async () => {
-  process.env.UNIVERSAL_API_TOKEN = "ua_realsecret1234";
   await renderPage();
   const rows = screen.getAllByRole("row");
   expect(rows.length).toBe(TOOLS.length + 1);
 });
 
-it("never renders the real token in full", async () => {
-  process.env.UNIVERSAL_API_TOKEN = "ua_realsecret1234";
+it("renders personal token management without a deployment-wide secret", async () => {
   await renderPage();
-  expect(document.body.innerHTML).not.toContain("ua_realsecret1234");
-  expect(screen.getByText("ua_••••••••1234")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /generate token/i })).toBeInTheDocument();
+  expect(screen.getByText(/your active tokens/i)).toBeInTheDocument();
 });
 
 it("renders the connect snippets for both the local and deployed tabs", async () => {
-  process.env.UNIVERSAL_API_TOKEN = "ua_realsecret1234";
   const user = userEvent.setup();
   await renderPage();
 
@@ -49,8 +46,8 @@ it("renders the connect snippets for both the local and deployed tabs", async ()
   expect(screen.getByText(/claude mcp add --transport http universal-api https:\/\/app\.example\.com\/api\/mcp/)).toBeInTheDocument();
 });
 
-it("states plainly that anyone holding the token can read and modify every project", async () => {
-  process.env.UNIVERSAL_API_TOKEN = "ua_realsecret1234";
+it("states plainly that tokens are account-scoped and revocable", async () => {
   await renderPage();
-  expect(screen.getByText(/anyone holding (the|this) token can read and modify every project/i)).toBeInTheDocument();
+  expect(screen.getByText(/each token belongs only to your account/i)).toBeInTheDocument();
+  expect(screen.getByText(/revoke it here at any time/i)).toBeInTheDocument();
 });

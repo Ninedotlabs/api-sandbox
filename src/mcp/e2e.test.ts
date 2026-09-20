@@ -68,12 +68,18 @@ describe.skipIf(!hasDb || !TOKEN || !hasServer)("MCP end-to-end", () => {
   });
 
   it(
-    "creates a project, builds and seeds a resource, shapes an endpoint's response, calls it through call_mock_endpoint, then deletes the project",
+    // The exact journey a person actually asks for: "Create a mock API for widgets. Give it
+    // a title and a price, add a couple of sample rows, create the standard endpoints, and
+    // make the list endpoint return {ok, data: {widgets, count}, note}. Then show me it
+    // working." Every id used below (modelId, routeId, slug) comes from a previous tool's
+    // result, never invented, and the CRUD routes come from generate_crud_endpoints - no
+    // hand-built route objects.
+    "walks the widgets-API request end to end: create, seed, generate standard endpoints, shape the list response, call it, then clean up",
     async () => {
       const createProject = findTool("create_project");
       const createResource = findTool("create_resource");
       const updateResource = findTool("update_resource");
-      const createEndpoints = findTool("create_endpoints");
+      const generateCrudEndpoints = findTool("generate_crud_endpoints");
       const replaceRecords = findTool("replace_records");
       const setEndpointResponse = findTool("set_endpoint_response");
       const callMockEndpoint = findTool("call_mock_endpoint");
@@ -83,18 +89,17 @@ describe.skipIf(!hasDb || !TOKEN || !hasServer)("MCP end-to-end", () => {
       const project = (await createProject.handler({ name: `MCP E2E ${Date.now()}` }, client)) as Project;
       cleanup.push(project.id);
 
-      const model = (await createResource.handler({ projectId: project.id, name: "Product" }, client)) as Model;
+      const model = (await createResource.handler({ projectId: project.id, name: "Widget" }, client)) as Model;
 
       // No `id` on either field, `required`/`unique` omitted entirely - exactly the shape a
-      // plain-English "add a title and price field to Widget" request produces, and exactly
-      // what `update_resource`'s schema used to reject with "fields[].id is required" before
-      // this fix (see AGENTS.md-adjacent task notes / commit history for the failure this
-      // reproduces).
+      // plain-English "give it a title and a price" request produces, and exactly what
+      // `update_resource`'s schema used to reject with "fields[].id is required" before that
+      // fix (see commit history for the failure this reproduces).
       const parsedUpdateArgs = updateResource.schema.parse({
         projectId: project.id,
         modelId: model.id,
-        name: "Product",
-        fields: [{ name: "name", type: "text", required: true }, { name: "price", type: "number" }],
+        name: "Widget",
+        fields: [{ name: "title", type: "text", required: true }, { name: "price", type: "number" }],
       });
       const updatedModel = (await updateResource.handler(parsedUpdateArgs, client)) as Model;
       expect(updatedModel.fields).toHaveLength(2);
@@ -104,36 +109,33 @@ describe.skipIf(!hasDb || !TOKEN || !hasServer)("MCP end-to-end", () => {
       expect(updatedModel.fields.find((f) => f.name === "price")?.required).toBe(false);
       expect(updatedModel.fields.find((f) => f.name === "price")?.unique).toBe(false);
 
-      const createdRoutes = (await createEndpoints.handler(
-        {
-          projectId: project.id,
-          routes: [
-            { method: "GET", path: "/products", modelId: model.id, action: "list", description: "", filters: [] },
-            { method: "GET", path: "/products/:id", modelId: model.id, action: "get", description: "", filters: [] },
-            { method: "POST", path: "/products", modelId: model.id, action: "create", description: "", filters: [] },
-            { method: "PATCH", path: "/products/:id", modelId: model.id, action: "update", description: "", filters: [] },
-            { method: "DELETE", path: "/products/:id", modelId: model.id, action: "delete", description: "", filters: [] },
-          ],
-        },
-        client,
-      )) as Array<{ id: string; action: string; path: string }>;
-      const listRoute = createdRoutes.find((r) => r.action === "list" && r.path === "/products")!;
-      expect(listRoute).toBeDefined();
-
       await replaceRecords.handler(
         {
           projectId: project.id,
           modelId: model.id,
           records: [
-            { id: "1", name: "Widget", price: 10 },
-            { id: "2", name: "Gadget", price: 20 },
+            { id: "1", title: "Widget", price: 10 },
+            { id: "2", title: "Gadget", price: 20 },
           ],
         },
         client,
       );
 
-      // Reshape the list endpoint into a custom envelope with a status and header the
-      // engine's own "auto" behaviour would never produce, so the assertions below can
+      // "Create the standard endpoints" - one call, no hand-built route objects, no invented
+      // paths or ids. This is the wall the workflow used to hit: create_endpoints demanded a
+      // full array of route objects a model has no way to construct correctly.
+      const createdRoutes = (await generateCrudEndpoints.handler({ projectId: project.id, modelId: model.id }, client)) as Array<{
+        id: string;
+        action: string;
+        path: string;
+      }>;
+      expect(createdRoutes).toHaveLength(5);
+      expect(createdRoutes.map((r) => r.action).sort()).toEqual(["create", "delete", "get", "list", "update"]);
+      const listRoute = createdRoutes.find((r) => r.action === "list" && r.path === "/widgets")!;
+      expect(listRoute).toBeDefined();
+
+      // Reshape the list endpoint into the envelope the user asked for - a status and header
+      // the engine's own "auto" behaviour would never produce, so the assertions below can
       // only pass if the shape actually took effect.
       await setEndpointResponse.handler(
         {
@@ -142,27 +144,29 @@ describe.skipIf(!hasDb || !TOKEN || !hasServer)("MCP end-to-end", () => {
           mode: "template",
           status: 206,
           headers: { "X-Shaped-Response": "e2e" },
-          template: { success: true, result: { items: "{{records}}", total: "{{count}}" } },
+          template: { ok: true, data: { widgets: "{{records}}", count: "{{count}}" }, note: "served by the mock API" },
         },
         client,
       );
 
+      // "Then show me it working" - call the real mock endpoint the way a real client would.
       const response = (await callMockEndpoint.handler(
-        { slug: project.slug, method: "GET", path: "/products" },
+        { slug: project.slug, method: "GET", path: "/widgets" },
         client,
       )) as RawEndpointResponse;
 
       expect(response.status).toBe(206);
       expect(response.headers["x-shaped-response"]).toBe("e2e");
       expect(response.body).toEqual({
-        success: true,
-        result: {
-          items: [
-            { id: "1", name: "Widget", price: 10 },
-            { id: "2", name: "Gadget", price: 20 },
+        ok: true,
+        data: {
+          widgets: [
+            { id: "1", title: "Widget", price: 10 },
+            { id: "2", title: "Gadget", price: 20 },
           ],
-          total: 2,
+          count: 2,
         },
+        note: "served by the mock API",
       });
 
       await deleteProject.handler({ projectId: project.id }, client);

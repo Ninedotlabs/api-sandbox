@@ -4,14 +4,12 @@
  * (`src/mcp/stdio.ts`) - see `src/mcp/tools.test.ts` for the assertion that the two expose an
  * identical tool list.
  *
- * Unlike `/api/v1` (`requireAccess` in `src/lib/api/auth.ts`), there is deliberately NO
- * same-origin exemption here: a browser reaching this endpoint without a token is not a case
- * we want to allow, since an MCP client is never a same-origin page. Every request needs
- * `Authorization: Bearer <UNIVERSAL_API_TOKEN>`, compared with the same constant-time
- * `tokensMatch` helper `/api/v1` uses, so there is exactly one comparison to get right.
+ * There is deliberately no browser-session fallback here: an MCP client is not the dashboard.
+ * Every request presents a personal `ua_…` token. Only its SHA-256 hash is stored, and resolving
+ * it yields the owner whose projects the management API will expose to this request.
  */
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { tokensMatch } from "@/lib/api/auth";
+import { authenticateApiToken } from "@/lib/auth/api-token";
 import { createApiClient } from "@/mcp/client";
 import { createMcpServer } from "@/mcp/server";
 
@@ -19,11 +17,10 @@ export const runtime = "nodejs";
 
 const UNAUTHORIZED_MESSAGE = "This endpoint needs an API token.";
 
-function isAuthorized(req: Request): boolean {
+function bearerToken(req: Request): string | null {
   const authorization = req.headers.get("authorization") ?? "";
   const match = /^Bearer (.+)$/.exec(authorization);
-  const expected = process.env.UNIVERSAL_API_TOKEN;
-  return Boolean(match && expected && tokensMatch(match[1], expected));
+  return match?.[1] ?? null;
 }
 
 function unauthorized(): Response {
@@ -31,11 +28,11 @@ function unauthorized(): Response {
 }
 
 async function handle(req: Request): Promise<Response> {
-  if (!isAuthorized(req)) return unauthorized();
+  const token = bearerToken(req);
+  if (!token || !(await authenticateApiToken(token))) return unauthorized();
 
-  // The token is checked above, so it's guaranteed set here; the MCP tools call back into
-  // this same deployment's own `/api/v1`, using the same token they were just presented with.
-  const token = process.env.UNIVERSAL_API_TOKEN as string;
+  // The MCP tools call this deployment's own scoped management API with the same personal
+  // token. No deployment-wide credential exists or crosses between accounts.
   const baseUrl = new URL(req.url).origin;
   const client = createApiClient(baseUrl, token);
 

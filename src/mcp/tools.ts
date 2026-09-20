@@ -11,13 +11,16 @@
  * `/api/v1`, since its whole purpose is to exercise a mock API the way a real client would.
  */
 import { z } from "zod";
+import { buildCrudRoutes, type CrudAction } from "../lib/crud";
 import { createId } from "../lib/ids";
+import type { Model, Project } from "../lib/types";
 import type { ApiClient } from "./client";
 
 const TEMPLATE_IDS = ["blog", "store", "todo"] as const;
 const FIELD_TYPES = ["text", "number", "boolean", "date", "email", "url", "choice", "link", "json"] as const;
 const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 const ROUTE_ACTIONS = ["list", "get", "create", "update", "delete", "custom"] as const;
+const CRUD_ACTIONS = ["list", "get", "create", "update", "delete"] as const;
 const RESPONSE_MODES = ["auto", "template", "static"] as const;
 const RESPONSE_QUERY_OPS = ["eq", "neq", "gt", "lt", "contains"] as const;
 
@@ -252,6 +255,34 @@ export const TOOLS: McpTool[] = [
       routes: z.array(routeInputSchema, { message: "routes is required" }),
     }),
     handler: async ({ projectId, routes }, client) => client.post(`${projectPath(projectId)}/routes`, { routes }),
+  }),
+
+  defineTool({
+    name: "generate_crud_endpoints",
+    description:
+      "Add the standard set of CRUD endpoints for a resource in one call - the same 'Generate CRUD endpoints' " +
+      "action the app's own editor offers, so you never have to invent paths or route ids by hand. Get modelId " +
+      "from create_resource's result or one of get_project's resources. By default this creates all five " +
+      "standard endpoints (list, get, create, update, delete); pass actions to create only some of them. Any " +
+      "of the five whose method and path already exist on the project is skipped rather than duplicated. For " +
+      "an endpoint that isn't one of these five - a custom path, or one not tied to a resource - use " +
+      "create_endpoints instead.",
+    schema: z.object({
+      projectId: requiredString("projectId is required"),
+      modelId: requiredString("modelId is required").describe(MODEL_ID_HINT),
+      actions: z
+        .array(z.enum(CRUD_ACTIONS, { message: "actions[] is invalid" }))
+        .optional()
+        .describe("Which of the five standard endpoints to create: list, get, create, update, delete. Omit to create all five."),
+    }),
+    handler: async ({ projectId, modelId, actions }, client) => {
+      const project = (await client.get(projectPath(projectId))) as Project;
+      const model = project.models?.find((m) => m.id === modelId) as Model | undefined;
+      if (!model) throw new Error("This resource no longer exists.");
+      const routes = buildCrudRoutes(model, (actions as CrudAction[] | undefined) ?? [...CRUD_ACTIONS], project.routes ?? []);
+      if (routes.length === 0) return [];
+      return client.post(`${projectPath(projectId)}/routes`, { routes });
+    },
   }),
 
   defineTool({

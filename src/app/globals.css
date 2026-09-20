@@ -6,7 +6,9 @@
 
 @source inline("{text-method-,bg-method-}{get,post,put,patch,delete}{,-tint,-on-slate}");
 
-@theme inline {
+/* Keep these as real CSS variables (not `inline` values) so the `.dark` scope can
+   replace them at runtime without rebuilding Tailwind utilities. */
+@theme {
   --font-sans: var(--font-instrument-sans);
   --font-mono: var(--font-jetbrains-mono);
 
@@ -85,6 +87,46 @@
 }
 
 @layer base {
+  :root { color-scheme: light; }
+  .dark {
+    color-scheme: dark;
+    --color-page: #0d1117;
+    --color-rail: #121821;
+    --color-surface: #161d27;
+    --color-panel: #1d2632;
+    --color-panel-strong: #273242;
+    --color-line: #2b3645;
+    --color-line-strong: #3a485a;
+    --color-ink: #f3f4f6;
+    --color-ink-2: #c3cad5;
+    --color-ink-3: #929dac;
+    --color-accent: #818cf8;
+    --color-accent-soft: #25245d;
+    --color-accent-ink: #c7d2fe;
+    --color-success: #4ade80;
+    --color-warning: #fbbf24;
+    --color-danger: #fb7185;
+    --color-method-get: #4ade80;
+    --color-method-get-tint: #153c2a;
+    --color-method-post: #60a5fa;
+    --color-method-post-tint: #172f52;
+    --color-method-put: #fbbf24;
+    --color-method-put-tint: #493814;
+    --color-method-patch: #a78bfa;
+    --color-method-patch-tint: #352460;
+    --color-method-delete: #fb7185;
+    --color-method-delete-tint: #4b1f2a;
+    --color-syntax-key: #a5b4fc;
+    --color-syntax-string: #6ee7b7;
+    --color-syntax-number: #fcd34d;
+    --color-syntax-boolean: #c4b5fd;
+    --color-syntax-muted: #929dac;
+    --color-card: var(--color-surface);
+    --color-popover: #1a2230;
+    --color-primary-foreground: #ffffff;
+    --color-input: var(--color-line);
+    --shadow-pop: 0 12px 32px rgb(0 0 0 / 35%);
+  }
   * { @apply border-border outline-ring/50; }
   body {
     @apply bg-page font-sans text-ink antialiased;

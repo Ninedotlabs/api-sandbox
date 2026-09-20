@@ -1,38 +1,38 @@
 // @vitest-environment node
-import { afterEach, describe, expect, it } from "vitest";
-import { GET } from "./route";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const sameOrigin = { "Sec-Fetch-Site": "same-origin" };
-const ORIGINAL_TOKEN = process.env.UNIVERSAL_API_TOKEN;
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), list: vi.fn(), create: vi.fn() }));
+vi.mock("@/auth", () => ({ auth: mocks.auth }));
+vi.mock("@/lib/auth/api-token", () => ({ listApiTokens: mocks.list, createApiToken: mocks.create }));
 
-function get(headers: Record<string, string> = sameOrigin) {
-  return GET(new Request("http://t/api/mcp/token", { headers }));
-}
+import { GET, POST } from "./route";
 
-afterEach(() => {
-  if (ORIGINAL_TOKEN === undefined) delete process.env.UNIVERSAL_API_TOKEN;
-  else process.env.UNIVERSAL_API_TOKEN = ORIGINAL_TOKEN;
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.auth.mockResolvedValue({ user: { id: "usr_1" } });
 });
 
 describe("GET /api/mcp/token", () => {
-  it("returns 401 without a credential or same-origin header, exactly like /api/v1", async () => {
-    process.env.UNIVERSAL_API_TOKEN = "ua_realtoken1234";
-    const res = await get({});
+  it("returns 401 without an authenticated session", async () => {
+    mocks.auth.mockResolvedValue(null);
+    const res = await GET();
     expect(res.status).toBe(401);
-    expect(await res.json()).toEqual({ error: "This endpoint needs an API token." });
+    expect(await res.json()).toEqual({ error: "Sign in to manage MCP tokens." });
   });
 
-  it("returns the full token to a same-origin request", async () => {
-    process.env.UNIVERSAL_API_TOKEN = "ua_realtoken1234";
-    const res = await get();
+  it("lists only the signed-in user's safe token metadata", async () => {
+    mocks.list.mockResolvedValue([{ id: "tok_1", name: "Claude", createdAt: "2026-01-01", lastUsedAt: null }]);
+    const res = await GET();
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ data: { token: "ua_realtoken1234" } });
+    expect((await res.json()).data[0]).not.toHaveProperty("token");
+    expect(mocks.list).toHaveBeenCalledWith("usr_1");
   });
 
-  it("returns a 404 with a plain message when no token is configured", async () => {
-    delete process.env.UNIVERSAL_API_TOKEN;
-    const res = await get();
-    expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ error: "No token is configured for this deployment." });
+  it("creates a unique token for the signed-in user", async () => {
+    mocks.create.mockResolvedValue({ token: "ua_secret", summary: { id: "tok_1" } });
+    const res = await POST(new Request("http://t/api/mcp/token", { method: "POST", body: JSON.stringify({ name: "Claude" }) }));
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ data: { token: "ua_secret", summary: { id: "tok_1" } } });
+    expect(mocks.create).toHaveBeenCalledWith("usr_1", "Claude");
   });
 });

@@ -1,26 +1,29 @@
-import { render, screen } from "@testing-library/react";
-import { afterEach, expect, it } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, expect, it, vi } from "vitest";
 import { TokenPanel } from "./token-panel";
 
-const ORIGINAL_TOKEN = process.env.UNIVERSAL_API_TOKEN;
-
 afterEach(() => {
-  if (ORIGINAL_TOKEN === undefined) delete process.env.UNIVERSAL_API_TOKEN;
-  else process.env.UNIVERSAL_API_TOKEN = ORIGINAL_TOKEN;
+  vi.restoreAllMocks();
 });
 
-it("renders the token masked, never in full", async () => {
-  process.env.UNIVERSAL_API_TOKEN = "ua_realsecret1234";
-  render(await TokenPanel());
+it("loads safe metadata without rendering a token secret", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data: [{ id: "tok_1", name: "Claude", createdAt: "2026-01-01", lastUsedAt: null }] }), { status: 200 }));
+  render(<TokenPanel />);
 
-  expect(screen.getByText("ua_••••••••1234")).toBeInTheDocument();
-  expect(screen.queryByText("ua_realsecret1234", { exact: false })).not.toBeInTheDocument();
-  expect(document.body.innerHTML).not.toContain("ua_realsecret1234");
+  expect(await screen.findByText("Claude")).toBeInTheDocument();
+  expect(screen.getByText(/tok_1/i)).toBeInTheDocument();
 });
 
-it("says plainly when no token is configured, instead of rendering an empty mask", async () => {
-  delete process.env.UNIVERSAL_API_TOKEN;
-  render(await TokenPanel());
+it("shows a newly generated secret exactly once", async () => {
+  const fetchSpy = vi.spyOn(globalThis, "fetch");
+  fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ data: [] }), { status: 200 }));
+  fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ data: { token: "ua_unique-secret", summary: { id: "tok_1", name: "My MCP client", createdAt: "2026-01-01", lastUsedAt: null } } }), { status: 201 }));
+  render(<TokenPanel />);
 
-  expect(screen.getByText(/no token is configured/i)).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByText(/no tokens yet/i)).toBeInTheDocument());
+  await userEvent.click(screen.getByRole("button", { name: /generate token/i }));
+
+  expect(await screen.findByText("ua_unique-secret")).toBeInTheDocument();
+  expect(screen.getByText(/shown only once/i)).toBeInTheDocument();
 });

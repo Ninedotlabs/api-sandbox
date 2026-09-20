@@ -7,21 +7,21 @@ export interface CreateProjectInput {
 }
 
 export interface ProjectService {
-  list(): Promise<Project[]>;
-  get(id: string): Promise<Project | null>;
-  create(input: CreateProjectInput): Promise<Project>;
+  list(ownerId?: string): Promise<Project[]>;
+  get(id: string, ownerId?: string): Promise<Project | null>;
+  create(input: CreateProjectInput, ownerId?: string): Promise<Project>;
   update(id: string, patch: Partial<Pick<Project, "name" | "description" | "slug">>): Promise<Project>;
   /** Deletes the project and everything under it (models, fields, routes, records — `records.model_id`
    * is `ON DELETE CASCADE`), returning what Undo needs to put it all back. */
   remove(id: string): Promise<RemovedProject>;
   /** Put back a previously deleted project and its records (used by Undo). */
-  restore(removed: RemovedProject): Promise<void>;
+  restore(removed: RemovedProject, ownerId?: string): Promise<void>;
   /**
    * Deep-copies a project: fresh ids for the project, every model, field and route
    * (`field.linkTo`/`route.modelId` remapped to the new ids), named `<name> copy` (`copy 2`,
    * `copy 3`… when taken), with its sample dataset copied and rekeyed to the new model ids.
    */
-  duplicate(id: string): Promise<Project>;
+  duplicate(id: string, ownerId?: string): Promise<Project>;
 }
 
 /** A deleted route plus where it sat, so Undo can put just that route back. */

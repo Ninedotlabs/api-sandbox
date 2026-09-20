@@ -5,9 +5,13 @@ import type { FetchLike } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { ApiClient } from "@/mcp/client";
 import { createMcpServer } from "@/mcp/server";
 import { TOOLS } from "@/mcp/tools";
+
+const mocks = vi.hoisted(() => ({ authenticate: vi.fn() }));
+vi.mock("@/lib/auth/api-token", () => ({ authenticateApiToken: mocks.authenticate }));
+
 import { DELETE, GET, POST } from "./route";
 
-const REAL_TOKEN = "test-token-12345";
+const REAL_TOKEN = "ua_test-token-12345-unique";
 
 function routeFetch(): FetchLike {
   return async (input, init) => {
@@ -35,14 +39,12 @@ function connectClient(token?: string) {
 }
 
 describe("/api/mcp route", () => {
-  const originalToken = process.env.UNIVERSAL_API_TOKEN;
-
   beforeEach(() => {
-    process.env.UNIVERSAL_API_TOKEN = REAL_TOKEN;
+    mocks.authenticate.mockImplementation(async (token: string) => (token === REAL_TOKEN ? "usr_1" : null));
   });
 
   afterEach(() => {
-    process.env.UNIVERSAL_API_TOKEN = originalToken;
+    vi.clearAllMocks();
   });
 
   it("rejects a request with no Authorization header with a 401", async () => {
@@ -96,8 +98,7 @@ describe("/api/mcp route", () => {
     await httpClient.close();
   });
 
-  it("returns a 401 (not a 500) when UNIVERSAL_API_TOKEN isn't configured on the server at all", async () => {
-    delete process.env.UNIVERSAL_API_TOKEN;
+  it("returns a 401 (not a 500) for an unknown personal token", async () => {
     const req = new Request("http://localhost/api/mcp", {
       method: "POST",
       headers: { Authorization: "Bearer anything", "Content-Type": "application/json" },

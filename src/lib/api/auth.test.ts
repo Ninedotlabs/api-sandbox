@@ -14,51 +14,48 @@ function req(headers: Record<string, string> = {}): Request {
 }
 
 describe("requireAccess", () => {
-  it("allows a same-origin request with no credential", () => {
-    expect(requireAccess(req({ "Sec-Fetch-Site": "same-origin" }))).toBeNull();
+  it("allows a same-origin request in isolated route tests", async () => {
+    expect(await requireAccess(req({ "Sec-Fetch-Site": "same-origin" }))).toEqual({ userId: null });
   });
 
-  it("allows a same-site request with no credential", () => {
-    expect(requireAccess(req({ "Sec-Fetch-Site": "same-site" }))).toBeNull();
+  it("allows a same-site request in isolated route tests", async () => {
+    expect(await requireAccess(req({ "Sec-Fetch-Site": "same-site" }))).toEqual({ userId: null });
   });
 
-  it("allows a cross-site request with a valid bearer token", () => {
+  it("allows the legacy credential only inside isolated tests", async () => {
     process.env.UNIVERSAL_API_TOKEN = "s3cret-token";
-    const res = requireAccess(req({ "Sec-Fetch-Site": "cross-site", Authorization: "Bearer s3cret-token" }));
-    expect(res).toBeNull();
+    const res = await requireAccess(req({ "Sec-Fetch-Site": "cross-site", Authorization: "Bearer s3cret-token" }));
+    expect(res).toEqual({ userId: null });
   });
 
   it("rejects a request with no Sec-Fetch-Site and no token", async () => {
     delete process.env.UNIVERSAL_API_TOKEN;
-    const res = requireAccess(req());
-    expect(res).not.toBeNull();
-    expect(res!.status).toBe(401);
-    expect(await res!.json()).toEqual({ error: "This endpoint needs an API token." });
+    const res = await requireAccess(req());
+    expect(res).toBeInstanceOf(Response);
+    expect((res as Response).status).toBe(401);
+    expect(await (res as Response).json()).toEqual({ error: "This endpoint needs an API token." });
   });
 
   it("rejects a cross-site request with a wrong token", async () => {
     process.env.UNIVERSAL_API_TOKEN = "s3cret-token";
-    const res = requireAccess(req({ "Sec-Fetch-Site": "cross-site", Authorization: "Bearer wrong-token" }));
-    expect(res).not.toBeNull();
-    expect(res!.status).toBe(401);
+    const res = await requireAccess(req({ "Sec-Fetch-Site": "cross-site", Authorization: "Bearer wrong-token" }));
+    expect((res as Response).status).toBe(401);
   });
 
-  it("rejects a cross-site request with no Authorization header", () => {
+  it("rejects a cross-site request with no Authorization header", async () => {
     process.env.UNIVERSAL_API_TOKEN = "s3cret-token";
-    const res = requireAccess(req({ "Sec-Fetch-Site": "cross-site" }));
-    expect(res).not.toBeNull();
-    expect(res!.status).toBe(401);
+    const res = await requireAccess(req({ "Sec-Fetch-Site": "cross-site" }));
+    expect((res as Response).status).toBe(401);
   });
 
-  it("rejects when no token is configured server-side, even with a bearer header", () => {
+  it("rejects an unknown bearer token", async () => {
     delete process.env.UNIVERSAL_API_TOKEN;
-    const res = requireAccess(req({ "Sec-Fetch-Site": "cross-site", Authorization: "Bearer anything" }));
-    expect(res).not.toBeNull();
-    expect(res!.status).toBe(401);
+    const res = await requireAccess(req({ "Sec-Fetch-Site": "cross-site", Authorization: "Bearer anything" }));
+    expect((res as Response).status).toBe(401);
   });
 
-  it("does not throw when the provided token is a different length than the real one", () => {
+  it("does not throw when the provided token is a different length than the legacy test token", async () => {
     process.env.UNIVERSAL_API_TOKEN = "a-long-secret-token";
-    expect(() => requireAccess(req({ "Sec-Fetch-Site": "cross-site", Authorization: "Bearer short" }))).not.toThrow();
+    await expect(requireAccess(req({ "Sec-Fetch-Site": "cross-site", Authorization: "Bearer short" }))).resolves.toBeInstanceOf(Response);
   });
 });

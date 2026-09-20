@@ -4,7 +4,7 @@ import { ConnectSection } from "@/components/mcp/connect-section";
 import { TokenPanel } from "@/components/mcp/token-panel";
 import { ToolsTable } from "@/components/mcp/tools-table";
 import { WhatToAsk } from "@/components/mcp/what-to-ask";
-import { TopBar } from "@/components/shell/top-bar";
+import { DashboardShell } from "@/components/shell/dashboard-shell";
 import { resolveOrigin } from "@/lib/mcp-snippets";
 
 export const metadata = {
@@ -17,9 +17,8 @@ export default async function McpPage() {
   const origin = resolveOrigin(headersList.get("host"), headersList.get("x-forwarded-proto"));
 
   return (
-    <div className="min-h-screen">
-      <TopBar />
-      <main className="mx-auto max-w-4xl space-y-12 px-4 py-10 md:px-6">
+    <DashboardShell title="MCP connection" description="Give your AI client the same controls as the dashboard.">
+      <main className="mx-auto max-w-5xl space-y-10 px-4 py-8 md:px-6">
         <div className="space-y-2">
           <Kicker>MCP</Kicker>
           <h1 className="text-2xl font-semibold text-ink">Connect Claude to Universal API</h1>
@@ -37,15 +36,10 @@ export default async function McpPage() {
 
         <section className="space-y-3">
           <h2 className="text-lg font-semibold text-ink">Token</h2>
-          {/* Called directly rather than as `<TokenPanel />`: an async Server Component
-              works either way in a real RSC render, but calling it lets `TokenPanel` be
-              exercised on its own with a plain `render(await TokenPanel())` in its own
-              test, and avoids a nested-async-component render error under the client-only
-              renderer this page's own test uses. */}
-          {await TokenPanel()}
+          <TokenPanel />
           <p className="text-sm text-ink-3">
-            Sign-in is deferred for this product. Anyone holding the token can read and modify every project through it, exactly as
-            they could through this app&apos;s own interface - treat it as a password, not a convenience.
+            Each token belongs only to your account and can access only your projects. Create a separate token for each client, then
+            revoke it here at any time. Treat the one-time value like a password.
           </p>
         </section>
 
@@ -64,6 +58,6 @@ export default async function McpPage() {
           <WhatToAsk />
         </section>
       </main>
-    </div>
+    </DashboardShell>
   );
 }

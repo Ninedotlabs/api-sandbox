@@ -21,7 +21,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: pgAdapter,
   session: { strategy: "database" },
   providers: [Google],
-  pages: { signIn: "/sign-in" },
+  pages: { signIn: "/sign-in", error: "/sign-in" },
+  callbacks: {
+    session({ session, user }) {
+      // Auth.js intentionally exposes only name/email/image by default. The server-side
+      // management API needs the stable adapter id to scope projects and credentials.
+      session.user.id = user.id;
+      return session;
+    },
+  },
   events: {
     async createUser({ user }) {
       if (!user.id) return;

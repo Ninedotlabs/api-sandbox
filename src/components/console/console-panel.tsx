@@ -173,7 +173,7 @@ export function ConsolePanel() {
 
       {route ? (
         <ContextMenuTarget items={menuItems} asChild>
-          <div data-testid="console-request-target" className="rounded-lg border border-line bg-panel p-3">
+          <div role="group" aria-label="Request" className="rounded-lg border border-line bg-panel p-3">
             <RequestForm
               key={`${route.id}:${loaded.seq}`}
               project={project}
@@ -194,7 +194,7 @@ export function ConsolePanel() {
 
       <MockStrip sending={sending} slug={project.slug} />
       <ContextMenuTarget items={menuItems} asChild>
-        <div data-testid="console-response-target">
+        <div role="group" aria-label="Response">
           <ResponsePanel response={loaded.response} loading={sending} />
         </div>
       </ContextMenuTarget>

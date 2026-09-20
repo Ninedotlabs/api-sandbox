@@ -116,7 +116,7 @@ describe("right-click menus", () => {
     await openConsole(await storeProject());
     await pickCreate(user);
 
-    openMenu(screen.getByTestId("console-response-target"));
+    openMenu(screen.getByRole("group", { name: "Response" }));
     expect(screen.getByRole("menuitem", { name: "Copy response" })).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("menuitem", { name: "Copy as cURL" })).not.toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("menuitem", { name: "Clear log" })).toHaveAttribute("aria-disabled", "true");
@@ -124,7 +124,7 @@ describe("right-click menus", () => {
 
   it("disables the whole menu's cURL item until an endpoint is chosen", async () => {
     await openConsole(await storeProject());
-    openMenu(screen.getByTestId("console-response-target"));
+    openMenu(screen.getByRole("group", { name: "Response" }));
     expect(screen.getByRole("menuitem", { name: "Copy as cURL" })).toHaveAttribute("aria-disabled", "true");
   });
 
@@ -139,11 +139,11 @@ describe("right-click menus", () => {
     await user.click(screen.getByRole("button", { name: "Send request" }));
     expect(await screen.findByText(/201 Created/)).toBeInTheDocument();
 
-    openMenu(screen.getByTestId("console-response-target"));
+    openMenu(screen.getByRole("group", { name: "Response" }));
     await user.click(screen.getByRole("menuitem", { name: "Copy response" }));
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('"name": "Lamp"'));
 
-    openMenu(screen.getByTestId("console-request-target"));
+    openMenu(screen.getByRole("group", { name: "Request" }));
     await user.click(screen.getByRole("menuitem", { name: "Copy as cURL" }));
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining("curl"));
   });
@@ -158,14 +158,14 @@ describe("right-click menus", () => {
     expect(await screen.findByText(/201 Created/)).toBeInTheDocument();
     expect(logRows()).toHaveLength(1);
 
-    openMenu(screen.getByTestId("console-response-target"));
+    openMenu(screen.getByRole("group", { name: "Response" }));
     await user.click(screen.getByRole("menuitem", { name: "Clear log" }));
     expect(await screen.findByText("No requests yet.")).toBeInTheDocument();
   });
 
   it("leaves the browser's menu alone on Shift+right-click", async () => {
     await openConsole(await storeProject());
-    const target = screen.getByTestId("console-response-target");
+    const target = screen.getByRole("group", { name: "Response" });
     const event = createEvent.contextMenu(target, { bubbles: true, cancelable: true, shiftKey: true });
     fireEvent(target, event);
     expect(event.defaultPrevented).toBe(false);

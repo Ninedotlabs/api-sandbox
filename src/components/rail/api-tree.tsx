@@ -279,7 +279,7 @@ export function ApiTree({ onModeChange }: Props = {}) {
             const Icon = open ? FolderOpen : Folder;
             const model = item.model;
             const node = (
-              <TreeNode {...common} label={item.title} level={1} expanded={open} onSelect={() => selectItem(item)}>
+              <TreeNode key={item.key} {...common} label={item.title} level={1} expanded={open} onSelect={() => selectItem(item)}>
                 <Icon aria-hidden className="size-3.5 shrink-0 text-ink-3" />
                 {model ? (
                   <InlineEdit
@@ -297,7 +297,8 @@ export function ApiTree({ onModeChange }: Props = {}) {
                 <span className="ml-auto font-mono text-[11px] text-ink-3">{item.count}</span>
               </TreeNode>
             );
-            if (!model) return <div key={item.key}>{node}</div>;
+            // The "Other endpoints" bucket has no model to act on, so it keeps the plain row.
+            if (!model) return node;
             return (
               <ContextMenuTarget
                 key={item.key}

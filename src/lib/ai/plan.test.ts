@@ -243,6 +243,20 @@ it("edit: resolves a custom endpoint's resourceName to the existing resource's c
   expect(plan.customEndpoints[0].resourceName).toBe("Book");
 });
 
+it("edit: resolves a case-mismatched resourceName even when that same resource is also being edited in this plan (M6 residual)", () => {
+  // Reproduces the exact shape a real instruction produces: "Change Book's fields and add an
+  // endpoint that lists best-selling books." Book appears in `resources` (so the
+  // resources-resolution loop deletes its entry out of the mutated lowercase index) AND a
+  // customEndpoint names it in a different case. The lookup used to resolve resourceName must
+  // not be the same one that loop mutates.
+  const raw = {
+    resources: [{ name: "Book", description: "", fields: [{ name: "isbn", type: "text", required: false, unique: false, options: null, linkTo: null }], records: [] }],
+    customEndpoints: [{ method: "GET", path: "/books/bestsellers", resourceName: "book", description: "" }],
+  };
+  const { plan } = parseEditPlan(raw, [existingBook]);
+  expect(plan.customEndpoints[0].resourceName).toBe("Book");
+});
+
 it("edit: an answer with nothing to change is valid, not an error", () => {
   const { plan, warnings } = parseEditPlan({ resources: [], customEndpoints: [] }, [existingBook]);
   expect(plan).toEqual({ resources: [], customEndpoints: [] });

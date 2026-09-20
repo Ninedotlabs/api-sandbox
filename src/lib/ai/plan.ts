@@ -225,6 +225,10 @@ export function parseEditPlan(raw: unknown, existing: ExistingResourceSummary[])
   // Stable by exact name, never mutated — unlike existingByLowerName below, which loses an
   // entry once it's matched to a resource in this edit's plan.
   const existingByName = new Map(existing.map((r) => [r.name, r]));
+  // Also stable: a case-insensitive index over the same never-mutated list, for lookups (like
+  // a custom endpoint's resourceName) that must still resolve a case-mismatched name even
+  // after existingByLowerName below has had that entry deleted out from under it.
+  const existingByNameLowerStable = new Map(existing.map((r) => [r.name.toLowerCase(), r]));
   const existingByLowerName = new Map(existing.map((r) => [r.name.toLowerCase(), r]));
   const taken = new Set(existing.map((r) => r.name.toLowerCase()));
   const linkTargets = new Set(existing.map((r) => r.name));
@@ -382,9 +386,13 @@ export function parseEditPlan(raw: unknown, existing: ExistingResourceSummary[])
     if (seenEndpoints.has(key)) { warnings.push(`Skipped a duplicate custom endpoint (${c.method} ${c.path}).`); continue; }
     seenEndpoints.add(key);
     // Canonical name (the existing resource's own casing, or this plan's resolved name) so a
-    // later case-sensitive lookup by name (applyEditPlan) can find it.
+    // later case-sensitive lookup by name (applyEditPlan) can find it. Resolved against
+    // existingByNameLowerStable, not existingByLowerName: the latter has already had this
+    // resource's entry deleted if it's also being edited in this same plan (resources loop
+    // above), which would otherwise send an ordinary "edit Book and add an endpoint on book"
+    // instruction back to resourceName: null.
     const resourceName = c.resourceName
-      ? (resourceNames.has(c.resourceName) ? c.resourceName : (existingByLowerName.get(c.resourceName.toLowerCase())?.name ?? null))
+      ? (resourceNames.has(c.resourceName) ? c.resourceName : (existingByNameLowerStable.get(c.resourceName.toLowerCase())?.name ?? null))
       : null;
     plan.customEndpoints.push({ method: c.method, path: c.path, resourceName, description: c.description.trim() });
   }

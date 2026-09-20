@@ -3,15 +3,20 @@
 import { Folder, FolderOpen, Plus, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ContextMenuTarget } from "@/components/domain/context-menu-target";
 import { CopyButton } from "@/components/domain/copy-button";
+import { copyToClipboard } from "@/components/domain/copy-to-clipboard";
+import { InlineEdit } from "@/components/domain/inline-edit";
 import { MethodLabel } from "@/components/domain/method-label";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { Button } from "@/components/ui/button";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { endpointItems, resourceItems } from "@/lib/context-menu-items";
 import { createId } from "@/lib/ids";
 import { groupRoutes, uniquePath } from "@/lib/routes";
 import { baseUrl } from "@/lib/slug";
 import type { Model, Project, Route } from "@/lib/types";
+import { validateModelName } from "@/lib/validation";
 import { useProjectStore } from "@/store/project-store";
 import { EndpointPreview } from "./endpoint-preview";
 import { TreeNode } from "./tree-node";
@@ -80,10 +85,17 @@ interface Props {
 }
 
 export function ApiTree({ onModeChange }: Props = {}) {
-  const { project, selection, select, setRailOpen } = useWorkspace();
+  const { project, selection, select, setRailOpen, loadInConsole, setConsoleOpen } = useWorkspace();
   const addRoutes = useProjectStore((s) => s.addRoutes);
+  const saveModel = useProjectStore((s) => s.saveModel);
+  const deleteModel = useProjectStore((s) => s.deleteModel);
+  const restoreModel = useProjectStore((s) => s.restoreModel);
+  const deleteRoute = useProjectStore((s) => s.deleteRoute);
+  const restoreRoute = useProjectStore((s) => s.restoreRoute);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [activeKey, setActiveKey] = useState<string | null>(null);
+  /** The resource row (by tree key) currently showing an inline-rename input, if any. */
+  const [renamingKey, setRenamingKey] = useState<string | null>(null);
   const rows = useRef(new Map<string, HTMLDivElement | null>());
   const pendingFocus = useRef<string | null>(null);
 
@@ -168,6 +180,56 @@ export function ApiTree({ onModeChange }: Props = {}) {
     event.preventDefault();
   }
 
+  async function renameModel(model: Model, name: string) {
+    try {
+      await saveModel(project.id, { ...model, name });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Could not rename the resource.";
+      toast.error(message);
+      throw new Error(message);
+    }
+  }
+
+  async function generateCrud(missing: Route[]) {
+    try {
+      await addRoutes(project.id, missing);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not generate the missing endpoints.");
+    }
+  }
+
+  async function removeModel(model: Model) {
+    try {
+      const removed = await deleteModel(project.id, model.id);
+      if (selection?.kind === "resource" && selection.id === model.id) select(null);
+      toast(`${model.name} deleted`, {
+        action: {
+          label: "Undo",
+          onClick: () =>
+            void restoreModel(project.id, removed).catch((e) => toast.error(e instanceof Error ? e.message : "Could not undo.")),
+        },
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not delete the resource.");
+    }
+  }
+
+  async function removeRoute(route: Route) {
+    try {
+      const removed = await deleteRoute(project.id, route.id);
+      if (selection?.kind === "endpoint" && selection.id === route.id) select(null);
+      toast(`${route.method} ${route.path} deleted`, {
+        action: {
+          label: "Undo",
+          onClick: () =>
+            void restoreRoute(project.id, removed).catch((e) => toast.error(e instanceof Error ? e.message : "Could not undo.")),
+        },
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not delete the endpoint.");
+    }
+  }
+
   async function addEndpoint() {
     const selectedRoute = selection?.kind === "endpoint" ? project.routes.find((r) => r.id === selection.id) : null;
     const modelId = selection?.kind === "resource" ? selection.id : (selectedRoute?.modelId ?? null);
@@ -215,34 +277,74 @@ export function ApiTree({ onModeChange }: Props = {}) {
           if (item.kind === "resource") {
             const open = !collapsed.has(item.key);
             const Icon = open ? FolderOpen : Folder;
-            return (
-              <TreeNode
-                key={item.key}
-                {...common}
-                label={item.title}
-                level={1}
-                expanded={open}
-                onSelect={() => selectItem(item)}
-              >
+            const model = item.model;
+            const node = (
+              <TreeNode {...common} label={item.title} level={1} expanded={open} onSelect={() => selectItem(item)}>
                 <Icon aria-hidden className="size-3.5 shrink-0 text-ink-3" />
-                <span className="truncate font-medium text-ink">{item.title}</span>
+                {model ? (
+                  <InlineEdit
+                    value={item.title}
+                    ariaLabel="Resource name"
+                    editing={renamingKey === item.key}
+                    onEditingChange={(editing) => setRenamingKey(editing ? item.key : null)}
+                    validate={(name) => validateModelName(name, project.models, model.id)}
+                    onSave={(name) => renameModel(model, name)}
+                    className="truncate font-medium text-ink"
+                  />
+                ) : (
+                  <span className="truncate font-medium text-ink">{item.title}</span>
+                )}
                 <span className="ml-auto font-mono text-[11px] text-ink-3">{item.count}</span>
               </TreeNode>
+            );
+            if (!model) return <div key={item.key}>{node}</div>;
+            return (
+              <ContextMenuTarget
+                key={item.key}
+                asChild
+                items={resourceItems(model, project.routes, {
+                  onOpen: () => selectItem(item),
+                  onCopyPath: (path) => void copyToClipboard(path),
+                  onGenerateCrud: (missing) => void generateCrud(missing),
+                  // Deferred a tick: see the identical note on ProjectRow's Rename handler —
+                  // closing the menu returns focus here, which would blur the rename input the
+                  // instant it gets it and cancel the rename before anything could be typed.
+                  onRename: () => setTimeout(() => setRenamingKey(item.key), 0),
+                  onDelete: () => void removeModel(model),
+                })}
+              >
+                {node}
+              </ContextMenuTarget>
             );
           }
           return (
             <HoverCard key={item.key} openDelay={300} closeDelay={100}>
-              <HoverCardTrigger asChild>
-                <TreeNode
-                  {...common}
-                  label={`${item.route.method} ${item.route.path}`}
-                  level={2}
-                  onSelect={() => selectItem(item)}
-                >
-                  <MethodLabel method={item.route.method} className="text-[11px]" />
-                  <Path path={item.route.path} />
-                </TreeNode>
-              </HoverCardTrigger>
+              <ContextMenuTarget
+                asChild
+                items={endpointItems(item.route, project, {
+                  onOpen: () => selectItem(item),
+                  onSendInConsole: () => {
+                    loadInConsole(item.route.id);
+                    setConsoleOpen(true);
+                    setRailOpen(false);
+                  },
+                  onCopyPath: (path) => void copyToClipboard(path),
+                  onCopyCurl: (curl) => void copyToClipboard(curl),
+                  onDelete: () => void removeRoute(item.route),
+                })}
+              >
+                <HoverCardTrigger asChild>
+                  <TreeNode
+                    {...common}
+                    label={`${item.route.method} ${item.route.path}`}
+                    level={2}
+                    onSelect={() => selectItem(item)}
+                  >
+                    <MethodLabel method={item.route.method} className="text-[11px]" />
+                    <Path path={item.route.path} />
+                  </TreeNode>
+                </HoverCardTrigger>
+              </ContextMenuTarget>
               <HoverCardContent side="right" align="start" className="w-96 border border-line bg-surface p-0">
                 <EndpointPreview route={item.route} project={project} />
               </HoverCardContent>

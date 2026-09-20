@@ -61,6 +61,31 @@ describe.skipIf(!hasDb)("pgRecordService", () => {
     }
   });
 
+  it("deletes a single record by id, leaving the rest untouched", async () => {
+    const p = await freshProject("Record Delete Api", "todo");
+    try {
+      const task = p.models[0];
+      await pgRecordService.seedRecords(p.id, task.id, [{ title: "Buy milk" }, { title: "Walk dog" }]);
+      const deleted = await pgRecordService.deleteRecord(p.id, task.id, "1");
+      expect(deleted).toBe(true);
+      const rows = await pgRecordService.sampleData(p.id, task.id);
+      expect(rows.map((r) => r.id)).toEqual(["2"]);
+    } finally {
+      await pgProjectService.remove(p.id);
+    }
+  });
+
+  it("returns false when the record to delete doesn't exist", async () => {
+    const p = await freshProject("Record Delete Missing Api", "todo");
+    try {
+      const task = p.models[0];
+      const deleted = await pgRecordService.deleteRecord(p.id, task.id, "missing");
+      expect(deleted).toBe(false);
+    } finally {
+      await pgProjectService.remove(p.id);
+    }
+  });
+
   it("keeps sample data in line with model edits after a reset", async () => {
     const p = await freshProject("Record Edit Api", "store");
     try {

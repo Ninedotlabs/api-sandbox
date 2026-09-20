@@ -15,10 +15,19 @@ const FIELD_TYPE_VALUES = FIELD_TYPES.map((t) => t.type) as [FieldType, ...Field
 const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 const ROUTE_ACTIONS = ["list", "get", "create", "update", "delete", "custom"] as const;
 
+/**
+ * A non-empty, trimmed string, reporting `message` both when the field is missing/of the
+ * wrong type and when it's present but blank - a caller shouldn't get two different error
+ * strings for "you left this out" and "you left this empty".
+ */
+export function requiredString(message: string) {
+  return z.string({ message }).trim().min(1, message);
+}
+
 export const fieldSchema = z
   .object({
-    id: z.string().min(1, "fields[].id is required"),
-    name: z.string().min(1, "fields[].name is required"),
+    id: requiredString("fields[].id is required"),
+    name: requiredString("fields[].name is required"),
     type: z.enum(FIELD_TYPE_VALUES, { message: "fields[].type is invalid" }),
     required: z.boolean(),
     unique: z.boolean(),
@@ -29,17 +38,17 @@ export const fieldSchema = z
 
 export const modelSchema = z
   .object({
-    id: z.string().min(1, "id is required"),
-    name: z.string().min(1, "name is required"),
+    id: requiredString("id is required"),
+    name: requiredString("name is required"),
     fields: z.array(fieldSchema).default([]),
   })
   .passthrough();
 
 export const routeSchema = z
   .object({
-    id: z.string().min(1, "id is required"),
+    id: requiredString("id is required"),
     method: z.enum(HTTP_METHODS, { message: "method is required" }),
-    path: z.string().min(1, "path is required"),
+    path: requiredString("path is required"),
     modelId: z.string().nullable(),
     action: z.enum(ROUTE_ACTIONS, { message: "action is required" }),
     description: z.string().default(""),
@@ -48,18 +57,18 @@ export const routeSchema = z
   .passthrough();
 
 /** Same as `routeSchema`, but for `POST routes` where a caller may not have minted an id yet. */
-export const newRouteSchema = routeSchema.extend({ id: z.string().min(1, "id is required").optional() });
+export const newRouteSchema = routeSchema.extend({ id: requiredString("id is required").optional() });
 
 export const projectSchema = z
   .object({
-    id: z.string().min(1, "id is required"),
-    name: z.string().min(1, "name is required"),
-    slug: z.string().min(1, "slug is required"),
+    id: requiredString("id is required"),
+    name: requiredString("name is required"),
+    slug: requiredString("slug is required"),
     description: z.string().default(""),
     models: z.array(modelSchema).default([]),
     routes: z.array(routeSchema).default([]),
-    createdAt: z.string().min(1, "createdAt is required"),
-    updatedAt: z.string().min(1, "updatedAt is required"),
+    createdAt: requiredString("createdAt is required"),
+    updatedAt: requiredString("updatedAt is required"),
   })
   .passthrough();
 

@@ -59,6 +59,15 @@ export const pgRecordService: RecordService = {
     }
   },
 
+  async deleteRecord(projectId, modelId, recordId) {
+    try {
+      const result = await query("delete from records where model_id = $1 and id = $2", [modelId, recordId]);
+      return (result.rowCount ?? 0) > 0;
+    } catch (error) {
+      throw friendlyDbError(error, "Could not delete this record.");
+    }
+  },
+
   async reset(projectId) {
     try {
       const project = await pgProjectService.get(projectId);

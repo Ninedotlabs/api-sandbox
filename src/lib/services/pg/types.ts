@@ -15,4 +15,6 @@ export interface RecordService {
   insertRecord(projectId: string, modelId: string, record: Record<string, unknown> & { id: string }): Promise<void>;
   /** Regenerate fresh sample data for every model in the project. */
   reset(projectId: string): Promise<void>;
+  /** Delete a single record. Returns whether a row was actually removed. */
+  deleteRecord(projectId: string, modelId: string, recordId: string): Promise<boolean>;
 }

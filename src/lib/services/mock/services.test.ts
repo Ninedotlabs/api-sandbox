@@ -109,6 +109,76 @@ it("keeps a session log of sent requests, newest first, capped at 50", async () 
   expect(await mockConsoleService.log(p.id)).toEqual([]);
 });
 
+describe("duplicate", () => {
+  it("copies a project with fresh ids, remapping field.linkTo and route.modelId to the new models", async () => {
+    const p = await newStore();
+    const customer = p.models.find((m) => m.name === "Customer")!;
+    const order = p.models.find((m) => m.name === "Order")!;
+    const orderRoutes = buildCrudRoutes(order, ["list", "get"], []);
+    await mockRouteService.createMany(p.id, orderRoutes);
+    const before = (await mockProjectService.get(p.id))!;
+
+    const copy = await mockProjectService.duplicate(p.id);
+
+    expect(copy.id).not.toBe(p.id);
+    expect(copy.name).toBe("My Store copy");
+    expect(copy.slug).toBe("my-store-copy");
+    expect(copy.models.map((m) => m.name)).toEqual(before.models.map((m) => m.name));
+    expect(copy.models.map((m) => m.id)).not.toEqual(before.models.map((m) => m.id));
+
+    const copiedOrder = copy.models.find((m) => m.name === "Order")!;
+    const copiedCustomer = copy.models.find((m) => m.name === "Customer")!;
+    expect(copiedOrder.id).not.toBe(order.id);
+    expect(copiedOrder.fields.find((f) => f.name === "customer")!.linkTo).toBe(copiedCustomer.id);
+    expect(copiedCustomer.id).not.toBe(customer.id);
+
+    expect(copy.routes).toHaveLength(orderRoutes.length);
+    expect(copy.routes.map((r) => r.id)).not.toEqual(orderRoutes.map((r) => r.id));
+    for (const route of copy.routes) expect(route.modelId).toBe(copiedOrder.id);
+
+    // The source project is untouched.
+    const original = (await mockProjectService.get(p.id))!;
+    expect(original.models.map((m) => m.id)).toEqual(before.models.map((m) => m.id));
+    expect(original.routes).toEqual(orderRoutes);
+  });
+
+  it("names successive copies 'copy 2', 'copy 3' once the plain name is taken", async () => {
+    const p = await newStore();
+    const first = await mockProjectService.duplicate(p.id);
+    expect(first.name).toBe("My Store copy");
+    const second = await mockProjectService.duplicate(p.id);
+    expect(second.name).toBe("My Store copy 2");
+    expect(second.slug).toBe("my-store-copy-2");
+    const third = await mockProjectService.duplicate(p.id);
+    expect(third.name).toBe("My Store copy 3");
+    // Duplicating a copy names it from *its own* name, not the original's — "copy of a copy"
+    // is a fresh source name like any other, so it gets its own " copy" suffix.
+    const ofACopy = await mockProjectService.duplicate(first.id);
+    expect(ofACopy.name).toBe("My Store copy copy");
+  });
+
+  it("copies the console dataset, rekeyed from the old model ids to the new ones", async () => {
+    const p = await newStore();
+    const product = p.models[0];
+    const originalRecords = await mockConsoleService.sampleData(p.id, product.id);
+    expect(originalRecords.length).toBeGreaterThan(0);
+
+    const copy = await mockProjectService.duplicate(p.id);
+    const copiedProduct = copy.models.find((m) => m.name === "Product")!;
+    const copiedRecords = await mockConsoleService.sampleData(copy.id, copiedProduct.id);
+    expect(copiedRecords).toEqual(originalRecords);
+
+    // Each project's dataset stays independent afterwards.
+    await mockConsoleService.seedRecords(copy.id, copiedProduct.id, [{ name: "Only in the copy", price: 1 }]);
+    const stillOriginal = await mockConsoleService.sampleData(p.id, product.id);
+    expect(stillOriginal).toEqual(originalRecords);
+  });
+
+  it("fails plainly when the source project no longer exists", async () => {
+    await expect(mockProjectService.duplicate("missing")).rejects.toThrow("This API no longer exists.");
+  });
+});
+
 it("seeds records for a model and serves them", async () => {
   const p = await newStore();
   const product = p.models[0];

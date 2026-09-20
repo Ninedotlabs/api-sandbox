@@ -16,7 +16,7 @@
 - Tokens (exact): page `#F4F4F2`, rail `#ECEDEF`, surface `#FAFAF8`, panel `#EEF0F3`, panel-strong `#E4E7EC`, line `#DDDFE3`, line-strong `#C9CDD4`, ink `#1F2328`, ink-2 `#4B5563`, ink-3 `#676D7B`, accent `#4F46E5`, accent-soft `#E0E7FF`, accent-ink `#3730A3`, slate `#1B1F27`, slate-2 `#242935`, slate-ink `#E6E8EC`, slate-muted `#8B93A1`, success `#15803D`, warning `#B45309`, danger `#B91C1C`.
 - Method colours (text / tint): GET `#15803D`/`#DCFCE7`, POST `#1D4ED8`/`#DBEAFE`, PUT `#B45309`/`#FEF3C7`, PATCH `#6D28D9`/`#EDE9FE`, DELETE `#B91C1C`/`#FEE2E2`. `MethodLabel` is mono 11px semibold, 56px wide, 4px radius.
 - Syntax colours light: key `#3730A3`, string `#0F766E`, number `#B45309`, boolean `#6D28D9`, null/punct `#676D7B`. Slate: key `#A5B4FC`, string `#6EE7B7`, number `#FCD34D`, boolean `#C4B5FD`, null/punct `#8B93A1`.
-- Contrast fix (Task 8): `ink-3`/`syntax-muted` moved from `#6B7280` to `#676D7B` — the original failed 4.5:1 against `--color-page`/`--color-panel` (4.39:1 / 4.23:1); the darker value clears both (4.71:1 / 4.54:1). All other tokens and method-text-on-tint pairs passed as specified.
+- Contrast fix (Task 8): `ink-3`/`syntax-muted` moved from `#6B7280` to `#626875` — the original failed 4.5:1 against `--color-page`/`--color-rail`/`--color-panel` (4.39:1 / 4.27:1 / 4.23:1); the darker value clears all three (5.08:1 / 4.77:1 / 4.90:1). All other tokens and method-text-on-tint pairs passed as specified.
 - Fonts: Instrument Sans (`--font-sans`), JetBrains Mono (`--font-mono`). No script font. Kickers: mono 11px uppercase, tracking 0.08em, `text-ink-3`.
 - Radius 6px controls, 8px panels, 10px popovers, 4px chips. Shadows only on popovers/palette. Focus ring 2px accent, offset 2px.
 - Page background: page colour + dot grid `radial-gradient(var(--color-line) 1px, transparent 1px)` at 24px. Panels flat.
@@ -26,7 +26,7 @@
 - All data access via `@/lib/services`; components never import `services/mock/*` (tests may). Every user-triggered awaited store/service call has try/catch + `toast.error(e instanceof Error ? e.message : "<fallback>.")`.
 - No dialogs for create/edit/delete (⌘K palette and dropdown menus are fine). Deletes: two-step button for resources/endpoints/projects; Undo toasts stay for resources and endpoints.
 - No emoji in UI. Language marks come from `simple-icons` (`siJavascript`, `siPython`); cURL uses a lucide `Terminal` icon.
-- JSX text with `'`/`"` is wrapped in `{"..."}`. `cn` from `@/lib/utils` does **not** merge conflicting Tailwind classes — never rely on a later class overriding an earlier one; use variants (`aria-selected:`, `data-[state=open]:`) or conditionally include exactly one class.
+- JSX text with `'`/`"` is wrapped in `{"..."}`. `cn` from `@/lib/utils` re-exports the `cn` package, which **does** merge conflicting Tailwind classes (tailwind-merge-like), so a later class wins — but prefer variants (`aria-selected:`, `data-[state=open]:`) or conditionally including exactly one class, which reads clearer and does not depend on merge behaviour.
 - Before every commit: `npm test`, `npm run lint`, `npm run build` clean; pristine test output. Commit trailer names the model doing the work.
 
 **Refinements decided while planning:**

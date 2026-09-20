@@ -28,17 +28,12 @@ export function FieldTypePicker({ value, onChange }: Props) {
         setOpen(false);
       }}
       className={cn(
-        "flex items-start gap-3 rounded-md p-2 text-left transition-colors duration-150 hover:bg-panel-strong",
+        "flex flex-col gap-0.5 rounded-md p-2 text-left transition-colors duration-150 hover:bg-panel-strong",
         t.type === value && "bg-accent-soft",
       )}
     >
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-line bg-surface font-mono text-sm">
-        {t.icon}
-      </span>
-      <span>
-        <span className="block text-sm font-medium">{t.label}</span>
-        <span className="block text-xs text-ink-3">{t.description}</span>
-      </span>
+      <span className="text-sm font-medium">{t.label}</span>
+      <span className="text-xs text-ink-3">{t.description}</span>
     </button>
   );
 

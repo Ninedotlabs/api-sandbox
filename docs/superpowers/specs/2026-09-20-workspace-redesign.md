@@ -26,7 +26,7 @@ The product is a mock-API builder. It should read, within seconds, as a serious 
 | `--color-line-strong` | `#C9CDD4` | focused borders, tree guides |
 | `--color-ink` | `#1F2328` | text |
 | `--color-ink-2` | `#4B5563` | secondary text |
-| `--color-ink-3` | `#676D7B` | muted / labels |
+| `--color-ink-3` | `#626875` | muted / labels |
 | `--color-accent` | `#4F46E5` | primary action, selection, packet |
 | `--color-accent-soft` | `#E0E7FF` | selected row tint |
 | `--color-accent-ink` | `#3730A3` | text on accent-soft |
@@ -36,11 +36,11 @@ The product is a mock-API builder. It should read, within seconds, as a serious 
 | `--color-slate-muted` | `#8B93A1` | muted on slate |
 | success / warning / danger | `#15803D` / `#B45309` / `#B91C1C` | status text |
 
-Contrast fix (Task 8): `ink-3` (and `--color-syntax-muted`, same value) moved from `#6B7280` to `#676D7B`. The original failed WCAG 4.5:1 against `--color-page` (4.39:1) and `--color-panel` (4.23:1); the darker value clears both (4.71:1 / 4.54:1). Every other checked pair (the four slate status colours on `#1B1F27`, and each method's text-on-tint) passed as specified.
+Contrast fix (Task 8): `ink-3` (and `--color-syntax-muted`, same value) moved from `#6B7280` to `#626875`. The original failed WCAG 4.5:1 against `--color-page` (4.39:1), `--color-rail` (4.27:1) and `--color-panel` (4.23:1); the darker value clears all three (page 5.08:1 / rail 4.77:1 / panel 4.90:1). Every other checked pair (the four slate status colours on `#1B1F27`, and each method's text-on-tint) passed as specified.
 
 Method colours (text / tint): GET `#15803D`/`#DCFCE7`, POST `#1D4ED8`/`#DBEAFE`, PUT `#B45309`/`#FEF3C7`, PATCH `#6D28D9`/`#EDE9FE`, DELETE `#B91C1C`/`#FEE2E2`. Rendered as `MethodLabel`: mono 11px semibold, fixed width (56px), tint background, 4px radius.
 
-Syntax colours, light panels: key `#3730A3`, string `#0F766E`, number `#B45309`, boolean `#6D28D9`, null `#676D7B`, punctuation `#676D7B`. On slate: key `#A5B4FC`, string `#6EE7B7`, number `#FCD34D`, boolean `#C4B5FD`, null/punct `#8B93A1`.
+Syntax colours, light panels: key `#3730A3`, string `#0F766E`, number `#B45309`, boolean `#6D28D9`, null `#626875`, punctuation `#626875`. On slate: key `#A5B4FC`, string `#6EE7B7`, number `#FCD34D`, boolean `#C4B5FD`, null/punct `#8B93A1`.
 
 Background: `--color-page` with a dot grid (`radial-gradient(var(--color-line) 1px, transparent 1px)`, 24px, opacity via the colour) on the page only; panels are flat.
 

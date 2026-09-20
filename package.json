@@ -2,6 +2,9 @@
   "name": "universal-api",
   "version": "0.1.0",
   "private": true,
+  "bin": {
+    "universal-api-mcp": "./dist/mcp/stdio.js"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -9,10 +12,12 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "ai:check": "node scripts/ai-check.mjs"
+    "ai:check": "node scripts/ai-check.mjs",
+    "build:mcp": "rm -rf dist && tsc -p tsconfig.mcp.json && chmod +x dist/mcp/stdio.js"
   },
   "dependencies": {
     "@faker-js/faker": "^10.6.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "class-variance-authority": "^0.7.1",
     "cmdk": "^1.1.1",
     "cn": "^0.3.0",

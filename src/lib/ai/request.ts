@@ -1,5 +1,5 @@
-import { strictJsonSchema } from "./plan";
-import { buildInstruction } from "./prompt";
+import { editWireSchema, strictJsonSchema, type ExistingResourceSummary } from "./plan";
+import { buildEditInstruction, buildInstruction } from "./prompt";
 
 export interface AiConfig { endpoint: string; apiKey: string; model: string }
 export interface GenerateOptions { maxResources: number; recordsPerResource: number; existingNames: string[]; repairNotes?: string[] }
@@ -38,6 +38,33 @@ export function extractText(body: unknown): string | null {
 
 export async function callResponses(config: AiConfig, description: string, opts: GenerateOptions, fetchImpl: typeof fetch = fetch): Promise<{ status: number; text: string | null }> {
   const { url, init } = buildRequest(config, description, opts);
+  const res = await fetchImpl(url, init);
+  const json = await res.json().catch(() => null);
+  return { status: res.status, text: res.ok ? extractText(json) : null };
+}
+
+export interface EditOptions { existing: ExistingResourceSummary[]; repairNotes?: string[] }
+
+export function buildEditRequest(config: AiConfig, instruction: string, opts: EditOptions): { url: string; init: RequestInit } {
+  const input = [
+    { role: "system", content: buildEditInstruction(opts) },
+    { role: "user", content: instruction },
+    ...(opts.repairNotes?.length ? [{ role: "user", content: `Fix these problems and return the full document again:\n- ${opts.repairNotes.join("\n- ")}` }] : []),
+  ];
+  const body = {
+    model: config.model,
+    input,
+    text: { format: { type: "json_schema", name: "api_edit_plan", strict: true, schema: strictJsonSchema(editWireSchema) } },
+    max_output_tokens: 8000,
+  };
+  return {
+    url: config.endpoint,
+    init: { method: "POST", headers: { "Content-Type": "application/json", "api-key": config.apiKey }, body: JSON.stringify(body), signal: AbortSignal.timeout(30_000) },
+  };
+}
+
+export async function callEditResponses(config: AiConfig, instruction: string, opts: EditOptions, fetchImpl: typeof fetch = fetch): Promise<{ status: number; text: string | null }> {
+  const { url, init } = buildEditRequest(config, instruction, opts);
   const res = await fetchImpl(url, init);
   const json = await res.json().catch(() => null);
   return { status: res.status, text: res.ok ? extractText(json) : null };

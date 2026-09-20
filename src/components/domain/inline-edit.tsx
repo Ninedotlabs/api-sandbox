@@ -4,13 +4,35 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-interface Props { value: string; ariaLabel: string; onSave: (value: string) => Promise<void> | void; validate?: (value: string) => string | null; className?: string }
+interface Props {
+  value: string;
+  ariaLabel: string;
+  onSave: (value: string) => Promise<void> | void;
+  validate?: (value: string) => string | null;
+  className?: string;
+  /** Lets a caller (e.g. a context menu's Rename) put the row into edit mode; uncontrolled when left out. */
+  editing?: boolean;
+  onEditingChange?: (editing: boolean) => void;
+}
 
-export function InlineEdit({ value, ariaLabel, onSave, validate, className }: Props) {
-  const [editing, setEditing] = useState(false);
+export function InlineEdit({ value, ariaLabel, onSave, validate, className, editing: editingProp, onEditingChange }: Props) {
+  const [internalEditing, setInternalEditing] = useState(false);
+  const editing = editingProp ?? internalEditing;
+  const setEditing = onEditingChange ?? setInternalEditing;
   const [draft, setDraft] = useState(value);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  // A controller (e.g. a context menu's Rename) can flip `editing` on from the outside; when it
+  // does, the draft needs resetting to the current value just as the button's own onClick does.
+  const [seenEditingProp, setSeenEditingProp] = useState(editingProp);
+  if (editingProp !== undefined && editingProp !== seenEditingProp) {
+    setSeenEditingProp(editingProp);
+    if (editingProp) {
+      setDraft(value);
+      setError(null);
+    }
+  }
 
   async function commit() {
     const err = validate?.(draft) ?? null;

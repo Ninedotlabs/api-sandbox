@@ -18,6 +18,26 @@ it("edits on click, validates, saves on Enter and cancels on Escape", async () =
   expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
 });
 
+it("can be switched into edit mode externally, e.g. from a context menu's Rename", async () => {
+  const user = userEvent.setup();
+  const onSave = vi.fn().mockResolvedValue(undefined);
+  const onEditingChange = vi.fn();
+  const { rerender } = render(
+    <InlineEdit value="Product" ariaLabel="Resource name" onSave={onSave} editing={false} onEditingChange={onEditingChange} />,
+  );
+  expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+
+  rerender(
+    <InlineEdit value="Product" ariaLabel="Resource name" onSave={onSave} editing={true} onEditingChange={onEditingChange} />,
+  );
+  const input = screen.getByRole("textbox", { name: "Resource name" });
+  await user.clear(input);
+  await user.type(input, "Item{Enter}");
+  expect(onSave).toHaveBeenCalledWith("Item");
+  // Committing tells the controller to leave edit mode, rather than managing its own state.
+  expect(onEditingChange).toHaveBeenCalledWith(false);
+});
+
 it("keeps the editor open with the draft intact and shows the error when a blur races an in-flight save", async () => {
   const user = userEvent.setup();
   const onSave = vi.fn(

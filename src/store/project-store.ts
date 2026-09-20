@@ -15,10 +15,17 @@ import type { Field, Model, Project, Route } from "@/lib/types";
 
 const ALL_CRUD: CrudAction[] = ["list", "get", "create", "update", "delete"];
 
+/** A model's records as they stood right before an edit plan replaced them, so an Undo
+ * toast can seed them back with `restoreRecords`. */
+export interface RecordSnapshot {
+  modelId: string;
+  records: Record<string, unknown>[];
+}
+
 /** `overrides` win by name (case-insensitive): an existing field keeps its id and gets the
  * plan's values, a new name is appended with a fresh id. Nothing is ever removed. */
 function mergeFields(current: Field[], overrides: PlanField[], resourceIds: Map<string, string>): Field[] {
-  const merged = current.map((f) => ({ ...f }));
+  const merged = current.map((f) => (f.options ? { ...f, options: [...f.options] } : { ...f }));
   for (const o of overrides) {
     const index = merged.findIndex((f) => f.name.toLowerCase() === o.name.toLowerCase());
     const linkTo = o.linkTo ? resourceIds.get(o.linkTo) : undefined;
@@ -50,8 +57,21 @@ interface ProjectState {
   /** Create every resource in an AI plan with its fields, CRUD routes and sample records. */
   applyPlan(projectId: string, plan: ApiPlan): Promise<{ modelIds: string[]; routeCount: number }>;
   /** Merge an AI edit plan into an existing project: new resources are created, existing
-   * ones have their fields merged (never overwritten) and endpoints/records added. */
-  applyEditPlan(projectId: string, plan: EditPlan): Promise<{ modelIds: string[]; newResourceCount: number; changedResourceCount: number; endpointCount: number }>;
+   * ones have their fields merged (never overwritten) and endpoints/records added. Replacing
+   * an existing resource's records is destructive, so every replaced set is returned in
+   * `replacedRecords` for the caller to offer as an Undo toast via `restoreRecords`. */
+  applyEditPlan(
+    projectId: string,
+    plan: EditPlan,
+  ): Promise<{
+    modelIds: string[];
+    newResourceCount: number;
+    changedResourceCount: number;
+    endpointCount: number;
+    replacedRecords: RecordSnapshot[];
+  }>;
+  /** Put back record snapshots captured by `applyEditPlan` (used by Undo). */
+  restoreRecords(projectId: string, snapshots: RecordSnapshot[]): Promise<void>;
 }
 
 export const useProjectStore = create<ProjectState>()((set, get) => {
@@ -187,6 +207,9 @@ export const useProjectStore = create<ProjectState>()((set, get) => {
       try {
         const before = await projectService.get(projectId);
         if (!before) throw new Error("This API no longer exists.");
+        // Names that existed before this call, so a resource created by this same plan
+        // (which has nothing to lose) is never mistaken for one whose records are at risk.
+        const existingNames = new Set(before.models.map((m) => m.name));
         const ids = new Map<string, string>(before.models.map((m) => [m.name, m.id]));
         let created = 0;
         for (const resource of plan.resources) {
@@ -197,6 +220,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => {
         }
         const modelIds: string[] = [];
         let endpointCount = 0;
+        const replacedRecords: RecordSnapshot[] = [];
         for (const resource of plan.resources) {
           const id = ids.get(resource.name)!;
           modelIds.push(id);
@@ -204,7 +228,17 @@ export const useProjectStore = create<ProjectState>()((set, get) => {
           const merged = mergeFields(current.fields, resource.fields, ids);
           const model: Model = { ...current, fields: merged };
           await modelService.update(projectId, model);
-          if (resource.records.length) await consoleService.seedRecords(projectId, id, resource.records);
+          if (resource.records.length) {
+            // seedRecords replaces a model's whole record set. That's the right behaviour for
+            // a resource the plan is actively re-describing ("change the statuses to
+            // shipped/pending/cancelled"), but it's destructive for an existing resource, so
+            // whatever it held is snapshotted first and handed back for an Undo toast.
+            if (existingNames.has(resource.name)) {
+              const previous = await consoleService.sampleData(projectId, id);
+              if (previous.length) replacedRecords.push({ modelId: id, records: previous });
+            }
+            await consoleService.seedRecords(projectId, id, resource.records);
+          }
           const projectNow = (await projectService.get(projectId))!;
           const routes = buildCrudRoutes(model, ALL_CRUD, projectNow.routes);
           await routeService.createMany(projectId, routes);
@@ -219,9 +253,14 @@ export const useProjectStore = create<ProjectState>()((set, get) => {
           await routeService.createMany(projectId, customRoutes);
           endpointCount += customRoutes.length;
         }
-        return { modelIds, newResourceCount: created, changedResourceCount: plan.resources.length - created, endpointCount };
+        return { modelIds, newResourceCount: created, changedResourceCount: plan.resources.length - created, endpointCount, replacedRecords };
       } finally {
         await refresh(projectId);
+      }
+    },
+    async restoreRecords(projectId, snapshots) {
+      for (const { modelId, records } of snapshots) {
+        await consoleService.seedRecords(projectId, modelId, records);
       }
     },
   };

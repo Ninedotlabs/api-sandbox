@@ -182,7 +182,7 @@ it("edit: adds a new resource and changes an existing one, preserving untouched 
   expect(bookAfter.fields.find((f) => f.name === "title")!.id).toBe("f-title"); // untouched field kept its id
   expect(bookAfter.fields.map((f) => f.name)).toEqual(["title", "genre"]);
   expect(after.models.map((m) => m.name)).toEqual(["Book", "Author"]);
-  expect(result).toEqual({ modelIds: [bookAfter.id, after.models[1].id], newResourceCount: 1, changedResourceCount: 1, endpointCount: 10 });
+  expect(result).toEqual({ modelIds: [bookAfter.id, after.models[1].id], newResourceCount: 1, changedResourceCount: 1, endpointCount: 10, replacedRecords: [] });
   expect(after.routes.filter((r) => r.modelId === bookAfter.id)).toHaveLength(5);
 });
 
@@ -198,4 +198,62 @@ it("edit: a link on a new resource can target an existing resource that isn't it
   const book = after.models.find((m) => m.name === "Book")!;
   const review = after.models.find((m) => m.name === "Review")!;
   expect(review.fields.find((f) => f.name === "book")!.linkTo).toBe(book.id);
+});
+
+it("edit: replacing an existing resource's records snapshots what was lost, for Undo", async () => {
+  const project = await useProjectStore.getState().createProject({ name: "Shop", description: "", templateId: null });
+  const book = await useProjectStore.getState().createModel(project.id, "Book");
+  await useProjectStore.getState().saveModel(project.id, { ...book, fields: [{ id: "f-title", name: "title", type: "text", required: true, unique: false }] });
+  await consoleService.seedRecords(project.id, book.id, [{ title: "A" }, { title: "B" }, { title: "C" }]);
+
+  const plan: EditPlan = {
+    resources: [{ name: "Book", description: "", fields: [], records: [{ title: "X" }, { title: "Y" }] }],
+    customEndpoints: [],
+  };
+  const result = await useProjectStore.getState().applyEditPlan(project.id, plan);
+  expect(await consoleService.sampleData(project.id, book.id)).toEqual([
+    { title: "X", id: "1" },
+    { title: "Y", id: "2" },
+  ]);
+  expect(result.replacedRecords).toEqual([
+    { modelId: book.id, records: [{ title: "A", id: "1" }, { title: "B", id: "2" }, { title: "C", id: "3" }] },
+  ]);
+
+  await useProjectStore.getState().restoreRecords(project.id, result.replacedRecords);
+  expect(await consoleService.sampleData(project.id, book.id)).toEqual([
+    { title: "A", id: "1" },
+    { title: "B", id: "2" },
+    { title: "C", id: "3" },
+  ]);
+});
+
+it("edit: a records-empty plan (schema-only edit) never touches or snapshots existing records", async () => {
+  const project = await useProjectStore.getState().createProject({ name: "Shop", description: "", templateId: null });
+  const book = await useProjectStore.getState().createModel(project.id, "Book");
+  await useProjectStore.getState().saveModel(project.id, { ...book, fields: [{ id: "f-title", name: "title", type: "text", required: true, unique: false }] });
+  await consoleService.seedRecords(project.id, book.id, [{ title: "A" }]);
+
+  const plan: EditPlan = {
+    resources: [{ name: "Book", description: "", fields: [{ name: "genre", type: "text", required: false, unique: false }], records: [] }],
+    customEndpoints: [],
+  };
+  const result = await useProjectStore.getState().applyEditPlan(project.id, plan);
+  // Untouched by the *replace* step: the original record survives with its id and title
+  // intact. (A newly added field is separately backfilled with a sample value on existing
+  // records by the mock engine's `ensureDataset` — unrelated to record replacement, and not
+  // what this assertion is checking.)
+  const records = await consoleService.sampleData(project.id, book.id);
+  expect(records).toHaveLength(1);
+  expect(records[0]).toMatchObject({ id: "1", title: "A" });
+  expect(result.replacedRecords).toEqual([]);
+});
+
+it("edit: a brand-new resource's seeded records are not snapshotted (nothing existed to lose)", async () => {
+  const project = await useProjectStore.getState().createProject({ name: "Shop", description: "", templateId: null });
+  const plan: EditPlan = {
+    resources: [{ name: "Author", description: "", fields: [{ name: "name", type: "text", required: true, unique: false }], records: [{ name: "Ann" }] }],
+    customEndpoints: [],
+  };
+  const result = await useProjectStore.getState().applyEditPlan(project.id, plan);
+  expect(result.replacedRecords).toEqual([]);
 });

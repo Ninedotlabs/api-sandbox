@@ -15,7 +15,13 @@ if (!url) {
   process.exit(1);
 }
 
-const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
+// Hosted Postgres (Neon) requires TLS; a local container speaks plaintext and rejects it.
+const isLocal = /@(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(url);
+const client = new pg.Client({
+  connectionString: url,
+  ssl: isLocal ? undefined : { rejectUnauthorized: false },
+  connectionTimeoutMillis: 30_000,
+});
 await client.connect();
 await client.query(`create table if not exists _migrations (
   name text primary key, applied_at timestamptz not null default now())`);

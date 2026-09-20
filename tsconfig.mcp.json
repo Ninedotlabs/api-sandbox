@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    // DOM is here for typing only. The MCP server runs under Node and never touches a
+    // browser API, but it imports modules that are shared with the app - `app-origin.ts`
+    // reads `window.location.origin` behind a `typeof window !== "undefined"` guard. The
+    // guard is correct at runtime; without DOM types this build fails to compile it.
+    "lib": ["ES2022", "DOM"],
     "module": "commonjs",
     "moduleResolution": "node",
     "outDir": "dist",

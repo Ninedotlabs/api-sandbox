@@ -13,7 +13,11 @@ export function createMcpServer(client: ApiClient): McpServer {
   const server = new McpServer(SERVER_INFO);
 
   for (const tool of TOOLS) {
-    server.registerTool(tool.name, { description: tool.description, inputSchema: tool.schema }, async (args) => {
+    // `destructive` is carried into the protocol's own annotations, not just kept as a note
+    // on our side: a client showing a confirmation step before an irreversible call can only
+    // do that if the server actually tells it which tools are irreversible.
+    const annotations = tool.destructive ? { destructiveHint: true } : undefined;
+    server.registerTool(tool.name, { description: tool.description, inputSchema: tool.schema, annotations }, async (args) => {
       try {
         const result = await tool.handler(args, client);
         return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };

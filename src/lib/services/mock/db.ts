@@ -1,6 +1,8 @@
 import type { Project } from "@/lib/types";
 
-const KEY = "universal-api:db:v1";
+// Exported so `src/lib/migrate-local.ts` reads the *real* key rather than a guess that could
+// silently drift from this one and leave the one-time import looking at nothing.
+export const KEY = "universal-api:db:v1";
 
 interface DbShape {
   projects: Project[];

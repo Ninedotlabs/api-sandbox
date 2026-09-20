@@ -71,6 +71,27 @@ This is the task that protects real user data; it ships before Task B's selectio
 
 ---
 
+## Task D2: preserve records across delete and undo (BLOCKING — do not ship Phase 1 without it)
+
+**Files:** `src/lib/services/types.ts`, `src/lib/services/pg/*`, `src/lib/services/mock/*`, `src/store/project-store.ts` (+ tests)
+
+Found by the `pg` layer review. `records.model_id` is `ON DELETE CASCADE`, so deleting a model or a project physically destroys its records. `RemovedModel` and `Project` carry no record data, so `restore` cannot bring them back. The mock never exposed this, because its dataset lives in a separate structure that `ModelService.remove` never clears — delete-then-undo silently preserved records there. On Postgres they are gone for good.
+
+User-visible failure: seed hand-authored records, delete the resource, click Undo. The schema, fields and endpoints come back; every record is gone, with no error and no warning. The same applies to deleting a whole project.
+
+- `RemovedModel` gains `records: Record<string, unknown>[]`. `ModelService.remove` captures them before the delete; `restore` reinserts them.
+- Project deletion needs the same: `ProjectService.remove` returns the records alongside the project (a `RemovedProject { project, records: { modelId, records }[] }`), and `restore` puts them back. This changes the store's `deleteProject`/`restoreProject` signatures, which this phase is already rewriting.
+- Both the `mock` and `pg` implementations change together, and the existing mock tests must still pass.
+- Tests: seed records, delete the model, restore, assert the records come back with their ids; same for a project; a resource with no records restores cleanly.
+
+## Task D3: sample data on a new project
+
+**Files:** `src/lib/services/pg/record-service.ts` or the create path (+ tests)
+
+Also from the `pg` review. The mock lazily auto-seeds sample data on first read, so a newly created project immediately shows records. The pg `RecordService` returns `[]` until `reset()` is explicitly called. A straight swap makes every new project look empty, which reads as a bug.
+
+Decide and implement one of: seed on project/model creation (matching today's behaviour), or make "empty until you generate data" the intended product behaviour with an empty state that says so. Do not leave it implicit — today's behaviour is the default unless there is a reason to change it.
+
 ## Task E: reconcile and delete dead code
 
 **Files:** `src/lib/services/mock/**`, docs

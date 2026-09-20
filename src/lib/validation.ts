@@ -17,9 +17,10 @@ const fieldNameSchema = z
   .min(1, "Give the field a name.")
   .regex(/^[A-Za-z][A-Za-z0-9_]*$/, "Start with a letter, and use only letters, numbers and underscores (no spaces).");
 const SEGMENT = "(?:[a-z0-9-]+|:[A-Za-z][A-Za-z0-9]*)";
-const pathSchema = z
-  .string()
-  .regex(new RegExp(`^(?:/${SEGMENT})+$`), "Paths start with / and use lowercase words, like /customers or /customers/:id.");
+/** Exported so other validators of the same shape (e.g. the AI edit plan's custom-endpoint
+ * paths) can't drift from this one. */
+export const PATH_RE = new RegExp(`^(?:/${SEGMENT})+$`);
+const pathSchema = z.string().regex(PATH_RE, "Paths start with / and use lowercase words, like /customers or /customers/:id.");
 
 function firstIssue(schema: z.ZodType, value: unknown): string | null {
   const result = schema.safeParse(value);

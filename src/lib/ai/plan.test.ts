@@ -221,6 +221,28 @@ it("edit: caps and validates customEndpoints, resolving resourceName or leaving 
   expect(warnings).toContain('Skipped a custom endpoint with an unusable path ("not-a-path").');
 });
 
+it("edit: drops a duplicate custom endpoint (same method+path as another entry) with a warning", () => {
+  const raw = {
+    resources: [],
+    customEndpoints: [
+      { method: "GET", path: "/books/bestsellers", resourceName: "Book", description: "Top sellers" },
+      { method: "GET", path: "/books/bestsellers", resourceName: "Book", description: "Top sellers again" },
+    ],
+  };
+  const { plan, warnings } = parseEditPlan(raw, [existingBook]);
+  expect(plan.customEndpoints).toHaveLength(1);
+  expect(warnings.some((w) => w.includes("duplicate") && w.includes("/books/bestsellers"))).toBe(true);
+});
+
+it("edit: resolves a custom endpoint's resourceName to the existing resource's canonical case (M6)", () => {
+  const raw = {
+    resources: [],
+    customEndpoints: [{ method: "GET", path: "/books/bestsellers", resourceName: "book", description: "" }],
+  };
+  const { plan } = parseEditPlan(raw, [existingBook]);
+  expect(plan.customEndpoints[0].resourceName).toBe("Book");
+});
+
 it("edit: an answer with nothing to change is valid, not an error", () => {
   const { plan, warnings } = parseEditPlan({ resources: [], customEndpoints: [] }, [existingBook]);
   expect(plan).toEqual({ resources: [], customEndpoints: [] });

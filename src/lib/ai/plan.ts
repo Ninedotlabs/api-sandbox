@@ -2,7 +2,7 @@ import { z } from "zod";
 import { FIELD_TYPES } from "@/lib/field-types";
 import { validateBody, type Dataset } from "@/lib/mock-engine";
 import type { Field, FieldType, HttpMethod, Model } from "@/lib/types";
-import { validateFieldName, validateModelName } from "@/lib/validation";
+import { PATH_RE, validateFieldName, validateModelName } from "@/lib/validation";
 
 export class PlanError extends Error {}
 
@@ -201,8 +201,6 @@ export interface ExistingResourceSummary { name: string; fields: PlanField[]; re
 export interface CustomEndpointPlan { method: HttpMethod; path: string; resourceName: string | null; description: string }
 export interface EditPlan extends ApiPlan { customEndpoints: CustomEndpointPlan[] }
 
-const PATH_RE = /^(?:\/(?:[a-z0-9-]+|:[A-Za-z][A-Za-z0-9]*))+$/;
-
 function toPlanFieldMap(fields: PlanField[]): Map<string, PlanField> {
   return new Map(fields.map((f) => [f.name.toLowerCase(), f]));
 }
@@ -374,9 +372,20 @@ export function parseEditPlan(raw: unknown, existing: ExistingResourceSummary[])
   // Custom endpoints
   if (parsed.data.customEndpoints.length > 10) warnings.push("Trimmed to 10 custom endpoints.");
   const resourceNames = new Set(plan.resources.map((r) => r.name));
+  // Same method+path as an earlier entry in this same answer (an existing route is instead
+  // filtered out downstream, in computeEditDiff and applyEditPlan, which know the project's
+  // actual routes).
+  const seenEndpoints = new Set<string>();
   for (const c of parsed.data.customEndpoints.slice(0, 10)) {
     if (!PATH_RE.test(c.path)) { warnings.push(`Skipped a custom endpoint with an unusable path (${JSON.stringify(c.path)}).`); continue; }
-    const resourceName = c.resourceName && (resourceNames.has(c.resourceName) || existingByLowerName.has(c.resourceName.toLowerCase())) ? c.resourceName : null;
+    const key = `${c.method} ${c.path}`;
+    if (seenEndpoints.has(key)) { warnings.push(`Skipped a duplicate custom endpoint (${c.method} ${c.path}).`); continue; }
+    seenEndpoints.add(key);
+    // Canonical name (the existing resource's own casing, or this plan's resolved name) so a
+    // later case-sensitive lookup by name (applyEditPlan) can find it.
+    const resourceName = c.resourceName
+      ? (resourceNames.has(c.resourceName) ? c.resourceName : (existingByLowerName.get(c.resourceName.toLowerCase())?.name ?? null))
+      : null;
     plan.customEndpoints.push({ method: c.method, path: c.path, resourceName, description: c.description.trim() });
   }
 

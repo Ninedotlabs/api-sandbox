@@ -85,18 +85,24 @@ describe.skipIf(!hasDb || !TOKEN || !hasServer)("MCP end-to-end", () => {
 
       const model = (await createResource.handler({ projectId: project.id, name: "Product" }, client)) as Model;
 
-      await updateResource.handler(
-        {
-          projectId: project.id,
-          modelId: model.id,
-          name: "Product",
-          fields: [
-            { id: "fld_name", name: "name", type: "text", required: true, unique: false },
-            { id: "fld_price", name: "price", type: "number", required: false, unique: false },
-          ],
-        },
-        client,
-      );
+      // No `id` on either field, `required`/`unique` omitted entirely - exactly the shape a
+      // plain-English "add a title and price field to Widget" request produces, and exactly
+      // what `update_resource`'s schema used to reject with "fields[].id is required" before
+      // this fix (see AGENTS.md-adjacent task notes / commit history for the failure this
+      // reproduces).
+      const parsedUpdateArgs = updateResource.schema.parse({
+        projectId: project.id,
+        modelId: model.id,
+        name: "Product",
+        fields: [{ name: "name", type: "text", required: true }, { name: "price", type: "number" }],
+      });
+      const updatedModel = (await updateResource.handler(parsedUpdateArgs, client)) as Model;
+      expect(updatedModel.fields).toHaveLength(2);
+      for (const field of updatedModel.fields) {
+        expect(field.id).toMatch(/^fld_/);
+      }
+      expect(updatedModel.fields.find((f) => f.name === "price")?.required).toBe(false);
+      expect(updatedModel.fields.find((f) => f.name === "price")?.unique).toBe(false);
 
       const createdRoutes = (await createEndpoints.handler(
         {

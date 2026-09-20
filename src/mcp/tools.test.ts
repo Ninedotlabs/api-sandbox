@@ -64,7 +64,9 @@ describe("TOOLS", () => {
 
   it("marks the destructive tools as destructive, and only those", () => {
     const destructive = TOOLS.filter((t) => t.destructive).map((t) => t.name).sort();
-    expect(destructive).toEqual(["delete_endpoint", "delete_project", "delete_record", "delete_resource", "replace_records"].sort());
+    expect(destructive).toEqual(
+      ["delete_endpoint", "delete_project", "delete_record", "delete_resource", "replace_records", "update_resource"].sort(),
+    );
   });
 
   describe("schema validation", () => {
@@ -82,7 +84,7 @@ describe("TOOLS", () => {
         projectId: "prj_1",
         routes: [{ method: "GET", path: "/posts", modelId: null, action: "list" }],
       },
-      update_endpoint: { projectId: "prj_1", routeId: "rte_1", method: "GET", path: "/posts", modelId: null, action: "list" },
+      update_endpoint: { projectId: "prj_1", routeId: "rte_1" },
       delete_endpoint: { projectId: "prj_1", routeId: "rte_1" },
       set_endpoint_response: { projectId: "prj_1", routeId: "rte_1", mode: "static", body: { ok: true } },
       list_records: { projectId: "prj_1", modelId: "mdl_1" },
@@ -108,7 +110,7 @@ describe("TOOLS", () => {
       update_resource: ["projectId", "modelId", "name"],
       delete_resource: ["projectId", "modelId"],
       create_endpoints: ["projectId", "routes"],
-      update_endpoint: ["projectId", "routeId", "method", "path", "modelId", "action"],
+      update_endpoint: ["projectId", "routeId"],
       delete_endpoint: ["projectId", "routeId"],
       set_endpoint_response: ["projectId", "routeId", "mode"],
       list_records: ["projectId", "modelId"],
@@ -119,6 +121,53 @@ describe("TOOLS", () => {
       edit_api: ["projectId", "instruction"],
       call_mock_endpoint: ["slug", "method", "path"],
     };
+
+    describe("update_resource's field schema", () => {
+      function parseFields(fields: unknown[]) {
+        const parsed = findTool("update_resource").schema.parse({
+          projectId: "prj_1",
+          modelId: "mdl_1",
+          name: "Posts",
+          fields,
+        }) as { fields: Array<{ id: string; name: string; required: boolean; unique: boolean }> };
+        return parsed.fields;
+      }
+
+      it("generates an id for a field that doesn't have one", () => {
+        const [field] = parseFields([{ name: "title", type: "text" }]);
+        expect(field.id).toMatch(/^fld_[a-z0-9]{10}$/);
+      });
+
+      it("keeps a supplied id instead of generating one", () => {
+        const [field] = parseFields([{ id: "fld_existing", name: "title", type: "text" }]);
+        expect(field.id).toBe("fld_existing");
+      });
+
+      it("generates distinct ids for multiple id-less fields", () => {
+        const [a, b] = parseFields([
+          { name: "title", type: "text" },
+          { name: "price", type: "number" },
+        ]);
+        expect(a.id).not.toBe(b.id);
+      });
+
+      it("defaults required and unique to false when omitted", () => {
+        const [field] = parseFields([{ name: "title", type: "text" }]);
+        expect(field.required).toBe(false);
+        expect(field.unique).toBe(false);
+      });
+
+      it("still honors an explicit required/unique value", () => {
+        const [field] = parseFields([{ name: "title", type: "text", required: true, unique: true }]);
+        expect(field.required).toBe(true);
+        expect(field.unique).toBe(true);
+      });
+
+      it("still rejects a field with no name or an invalid type", () => {
+        expect(() => parseFields([{ type: "text" }])).toThrow();
+        expect(() => parseFields([{ name: "title", type: "not-a-type" }])).toThrow();
+      });
+    });
 
     it("accepts the minimal valid arguments for every tool", () => {
       for (const tool of TOOLS) {
@@ -209,20 +258,72 @@ describe("TOOLS", () => {
       expect(client.post).toHaveBeenCalledWith("/api/v1/projects/prj_1/routes", { routes });
     });
 
-    it("update_endpoint patches /api/v1/projects/:id/routes/:routeId with the full route", async () => {
-      const client = mockClient({ patch: vi.fn(async () => ({ id: "rte_1" })) });
-      await findTool("update_endpoint").handler(
-        { projectId: "prj_1", routeId: "rte_1", method: "GET", path: "/posts", modelId: null, action: "list", description: "List posts" },
-        client,
-      );
-      expect(client.patch).toHaveBeenCalledWith("/api/v1/projects/prj_1/routes/rte_1", {
-        id: "rte_1",
-        method: "GET",
-        path: "/posts",
-        modelId: null,
-        action: "list",
-        description: "List posts",
-        filters: [],
+    describe("update_endpoint", () => {
+      const project = {
+        id: "prj_1",
+        routes: [
+          {
+            id: "rte_1",
+            method: "GET",
+            path: "/orders/:id",
+            modelId: "mdl_1",
+            action: "get",
+            description: "Get one order",
+            filters: ["status"],
+            response: { mode: "static", status: 200, body: { ok: true } },
+          },
+        ],
+      };
+
+      it("fetches the current route and merges only the given fields, preserving the rest - including an existing custom response", async () => {
+        const client = mockClient({
+          get: vi.fn(async () => project),
+          patch: vi.fn(async (_path: string, body: unknown) => body),
+        });
+
+        await findTool("update_endpoint").handler({ projectId: "prj_1", routeId: "rte_1", path: "/orders/:orderId" }, client);
+
+        expect(client.get).toHaveBeenCalledWith("/api/v1/projects/prj_1");
+        expect(client.patch).toHaveBeenCalledWith("/api/v1/projects/prj_1/routes/rte_1", {
+          id: "rte_1",
+          method: "GET",
+          path: "/orders/:orderId",
+          modelId: "mdl_1",
+          action: "get",
+          description: "Get one order",
+          filters: ["status"],
+          response: { mode: "static", status: 200, body: { ok: true } },
+        });
+      });
+
+      it("overrides only the fields actually supplied", async () => {
+        const client = mockClient({
+          get: vi.fn(async () => project),
+          patch: vi.fn(async (_path: string, body: unknown) => body),
+        });
+
+        await findTool("update_endpoint").handler(
+          { projectId: "prj_1", routeId: "rte_1", description: "Fetch an order", filters: [] },
+          client,
+        );
+
+        expect(client.patch).toHaveBeenCalledWith("/api/v1/projects/prj_1/routes/rte_1", {
+          id: "rte_1",
+          method: "GET",
+          path: "/orders/:id",
+          modelId: "mdl_1",
+          action: "get",
+          description: "Fetch an order",
+          filters: [],
+          response: { mode: "static", status: 200, body: { ok: true } },
+        });
+      });
+
+      it("throws a plain-language error when the route no longer exists", async () => {
+        const client = mockClient({ get: vi.fn(async () => ({ id: "prj_1", routes: [] })) });
+        await expect(
+          findTool("update_endpoint").handler({ projectId: "prj_1", routeId: "missing", path: "/x" }, client),
+        ).rejects.toThrow("This route no longer exists.");
       });
     });
 

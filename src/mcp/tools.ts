@@ -11,6 +11,7 @@
  * `/api/v1`, since its whole purpose is to exercise a mock API the way a real client would.
  */
 import { z } from "zod";
+import { createId } from "../lib/ids";
 import type { ApiClient } from "./client";
 
 const TEMPLATE_IDS = ["blog", "store", "todo"] as const;
@@ -24,6 +25,9 @@ function requiredString(message: string) {
   return z.string({ message }).trim().min(1, message);
 }
 
+const MODEL_ID_HINT = "The resource's id, from create_resource's result or one of get_project's resources.";
+const ROUTE_ID_HINT = "The endpoint's id, from create_endpoints's result or one of get_project's routes.";
+
 export interface McpTool<A extends z.ZodTypeAny = z.ZodTypeAny> {
   name: string;
   description: string;
@@ -33,17 +37,33 @@ export interface McpTool<A extends z.ZodTypeAny = z.ZodTypeAny> {
   destructive?: boolean;
 }
 
+/**
+ * `id` is optional on input: a caller adding a brand-new field has no id to supply (it can't
+ * know the format, and inventing one risks collision or malformed data), so one is generated
+ * here when absent. Supplying an id is how an existing field is edited or kept as-is - see
+ * `update_resource`'s description for the fetch-then-merge workflow this exists for.
+ * `required`/`unique` default to false so a caller who never mentions them - the common case -
+ * isn't forced to make either decision.
+ */
 const fieldSchema = z
   .object({
-    id: requiredString("fields[].id is required"),
+    id: z
+      .string()
+      .trim()
+      .min(1, "fields[].id must not be empty when given")
+      .optional()
+      .describe(
+        "Omit when adding a new field - one is generated. Supply an existing field's id to edit it or keep it unchanged.",
+      ),
     name: requiredString("fields[].name is required"),
     type: z.enum(FIELD_TYPES, { message: "fields[].type is invalid" }),
-    required: z.boolean(),
-    unique: z.boolean(),
+    required: z.boolean().default(false).describe("Whether the field must be present on every record. Defaults to false."),
+    unique: z.boolean().default(false).describe("Whether the field's value must be unique across records. Defaults to false."),
     options: z.array(z.string()).optional(),
     linkTo: z.string().optional(),
   })
-  .passthrough();
+  .passthrough()
+  .transform((field) => ({ ...field, id: field.id && field.id.length > 0 ? field.id : createId("fld") }));
 
 const responseQuerySchema = z.object({
   modelId: requiredString("response.query.modelId is required"),
@@ -64,11 +84,31 @@ const routeInputSchema = z.object({
   id: z.string().optional(),
   method: z.enum(HTTP_METHODS, { message: "method is required" }),
   path: requiredString("path is required"),
-  modelId: z.string().nullable(),
+  modelId: z
+    .string()
+    .nullable()
+    .describe(
+      "The resource this endpoint operates on - its id, from create_resource's result or one of get_project's " +
+        "resources - or null for a custom endpoint not tied to a resource.",
+    ),
   action: z.enum(ROUTE_ACTIONS, { message: "action is required" }),
   description: z.string().default(""),
   filters: z.array(z.string()).default([]),
   response: z.unknown().optional(),
+});
+
+/**
+ * update_endpoint's schema: every field but the route itself is optional, because the
+ * handler fetches the current route and merges only what's supplied onto it (see its
+ * handler) - a field left out keeps its current value instead of being reset to empty.
+ */
+const routeUpdateSchema = routeInputSchema.extend({
+  method: z.enum(HTTP_METHODS, { message: "method is invalid" }).optional(),
+  path: z.string().trim().min(1, "path must not be empty").optional(),
+  action: z.enum(ROUTE_ACTIONS, { message: "action is invalid" }).optional(),
+  modelId: routeInputSchema.shape.modelId.optional(),
+  description: z.string().optional(),
+  filters: z.array(z.string()).optional(),
 });
 
 function projectPath(projectId: string): string {
@@ -106,7 +146,10 @@ export const TOOLS: McpTool[] = [
 
   defineTool({
     name: "get_project",
-    description: "Fetch one project's full definition - its resources, endpoints and metadata - by id.",
+    description:
+      "Fetch one project's full definition - its resources (with each field's id), its endpoints (with each " +
+      "route's id) and metadata - by id. This is the source for the modelId, routeId and field ids that other " +
+      "tools need but can't invent on their own.",
     schema: z.object({ projectId: requiredString("projectId is required") }),
     handler: async (args, client) => client.get(projectPath(args.projectId)),
   }),
@@ -153,7 +196,9 @@ export const TOOLS: McpTool[] = [
 
   defineTool({
     name: "create_resource",
-    description: "Add a new resource (data model) to a project by name; add its fields afterward with update_resource.",
+    description:
+      "Add a new resource (data model) to a project by name; the result's id is the modelId other tools use. " +
+      "Add its fields afterward with update_resource.",
     schema: z.object({ projectId: requiredString("projectId is required"), name: requiredString("name is required") }),
     handler: async (args, client) => client.post(`${projectPath(args.projectId)}/models`, { name: args.name }),
   }),
@@ -161,13 +206,25 @@ export const TOOLS: McpTool[] = [
   defineTool({
     name: "update_resource",
     description:
-      "Replace a resource's name and its full field list - the definitive way to add, edit or remove fields, since the fields you send become the whole set.",
+      "Replace a resource's name and its ENTIRE field list in one call. This is destructive: any existing field " +
+      "you don't include is permanently deleted the moment this runs, with no confirmation and no undo. To add, " +
+      "edit or remove a field without losing the others: first fetch the resource's current fields with " +
+      "get_project, then send back that full list with your change applied - keep the fields you're not " +
+      "touching (with their id), edit others in place (also keeping their id), and add new ones. A new field's " +
+      "id can be omitted, since you can't know it in advance - one is generated. required and unique default to " +
+      "false when omitted.",
     schema: z.object({
       projectId: requiredString("projectId is required"),
-      modelId: requiredString("modelId is required"),
+      modelId: requiredString("modelId is required").describe(MODEL_ID_HINT),
       name: requiredString("name is required"),
-      fields: z.array(fieldSchema),
+      fields: z
+        .array(fieldSchema)
+        .describe(
+          "The resource's complete field list after this call - any current field left out is deleted. Fetch " +
+            "the existing fields with get_project first and include the ones you're keeping.",
+        ),
     }),
+    destructive: true,
     handler: async ({ projectId, modelId, name, fields }, client) =>
       client.patch(modelPath(projectId, modelId), { id: modelId, name, fields }),
   }),
@@ -176,14 +233,20 @@ export const TOOLS: McpTool[] = [
     name: "delete_resource",
     description:
       "Permanently remove a resource, its fields, its records, and any endpoints or links built on it. The change is immediate; the result carries the undo payload needed to put it back.",
-    schema: z.object({ projectId: requiredString("projectId is required"), modelId: requiredString("modelId is required") }),
+    schema: z.object({
+      projectId: requiredString("projectId is required"),
+      modelId: requiredString("modelId is required").describe(MODEL_ID_HINT),
+    }),
     destructive: true,
     handler: async (args, client) => client.del(modelPath(args.projectId, args.modelId)),
   }),
 
   defineTool({
     name: "create_endpoints",
-    description: "Add one or more endpoints (routes) to a project - a method, a path, and how it behaves (CRUD action or custom).",
+    description:
+      "Add one or more endpoints (routes) to a project - a method, a path, and how it behaves (CRUD action or " +
+      "custom). Each route's modelId links it to a resource (get one from create_resource or get_project), or " +
+      "pass null for a custom endpoint not tied to a resource.",
     schema: z.object({
       projectId: requiredString("projectId is required"),
       routes: z.array(routeInputSchema, { message: "routes is required" }),
@@ -193,19 +256,31 @@ export const TOOLS: McpTool[] = [
 
   defineTool({
     name: "update_endpoint",
-    description: "Change an endpoint's method, path, action, description or filters. Use set_endpoint_response to shape what it returns.",
-    schema: z.object({ projectId: requiredString("projectId is required"), routeId: requiredString("routeId is required") }).extend(
-      routeInputSchema.shape,
+    description:
+      "Change one or more of an endpoint's method, path, resource link (modelId), action, description or " +
+      "filters. Only the fields you include are changed - anything left out keeps its current value, including " +
+      "any custom response set with set_endpoint_response. Get routeId from create_endpoints's result or " +
+      "get_project's list of routes. Use set_endpoint_response to shape what the endpoint returns.",
+    schema: z.object({ projectId: requiredString("projectId is required"), routeId: requiredString("routeId is required").describe(ROUTE_ID_HINT) }).extend(
+      routeUpdateSchema.shape,
     ),
-    handler: async ({ projectId, routeId, description, filters, ...rest }, client) =>
-      client.patch(routePath(projectId, routeId), { ...rest, id: routeId, description: description ?? "", filters: filters ?? [] }),
+    handler: async ({ projectId, routeId, ...patch }, client) => {
+      const project = (await client.get(projectPath(projectId))) as { routes: Array<Record<string, unknown>> };
+      const route = project.routes?.find((r) => r.id === routeId);
+      if (!route) throw new Error("This route no longer exists.");
+      const merged = { ...route, ...patch, id: routeId };
+      return client.patch(routePath(projectId, routeId), merged);
+    },
   }),
 
   defineTool({
     name: "delete_endpoint",
     description:
       "Permanently remove an endpoint. The change is immediate; the result carries the undo payload needed to put it back.",
-    schema: z.object({ projectId: requiredString("projectId is required"), routeId: requiredString("routeId is required") }),
+    schema: z.object({
+      projectId: requiredString("projectId is required"),
+      routeId: requiredString("routeId is required").describe(ROUTE_ID_HINT),
+    }),
     destructive: true,
     handler: async (args, client) => client.del(routePath(args.projectId, args.routeId)),
   }),
@@ -225,7 +300,7 @@ export const TOOLS: McpTool[] = [
       "and sorted records instead of inventing data. Use mode \"auto\" with no other fields to reset an endpoint to default.",
     schema: z.object({
       projectId: requiredString("projectId is required"),
-      routeId: requiredString("routeId is required"),
+      routeId: requiredString("routeId is required").describe(ROUTE_ID_HINT),
       mode: z.enum(RESPONSE_MODES, { message: "mode is required" }),
       status: z.number().int().min(100).max(599).optional(),
       headers: z.record(z.string(), z.string()).optional(),
@@ -245,7 +320,10 @@ export const TOOLS: McpTool[] = [
   defineTool({
     name: "list_records",
     description: "List a resource's stored sample records.",
-    schema: z.object({ projectId: requiredString("projectId is required"), modelId: requiredString("modelId is required") }),
+    schema: z.object({
+      projectId: requiredString("projectId is required"),
+      modelId: requiredString("modelId is required").describe(MODEL_ID_HINT),
+    }),
     handler: async (args, client) => client.get(recordsPath(args.projectId, args.modelId)),
   }),
 
@@ -256,7 +334,7 @@ export const TOOLS: McpTool[] = [
       "and the previous records are not returned, so read them first with list_records if you might need them back.",
     schema: z.object({
       projectId: requiredString("projectId is required"),
-      modelId: requiredString("modelId is required"),
+      modelId: requiredString("modelId is required").describe(MODEL_ID_HINT),
       records: z.array(z.record(z.string(), z.unknown()), { message: "records is required" }),
     }),
     destructive: true,
@@ -268,7 +346,7 @@ export const TOOLS: McpTool[] = [
     description: "Add a single record to a resource; an id is generated if you don't supply one.",
     schema: z.object({
       projectId: requiredString("projectId is required"),
-      modelId: requiredString("modelId is required"),
+      modelId: requiredString("modelId is required").describe(MODEL_ID_HINT),
       record: z.record(z.string(), z.unknown(), { message: "record is required" }),
     }),
     handler: async ({ projectId, modelId, record }, client) => client.post(recordsPath(projectId, modelId), record),
@@ -280,8 +358,8 @@ export const TOOLS: McpTool[] = [
       "Permanently remove one record by id. The change is immediate; the result only echoes the deleted id, so keep a copy beforehand if you need to restore it.",
     schema: z.object({
       projectId: requiredString("projectId is required"),
-      modelId: requiredString("modelId is required"),
-      recordId: requiredString("recordId is required"),
+      modelId: requiredString("modelId is required").describe(MODEL_ID_HINT),
+      recordId: requiredString("recordId is required").describe("The record's id, from list_records or the id returned by add_record."),
     }),
     destructive: true,
     handler: async ({ projectId, modelId, recordId }, client) => client.del(`${recordsPath(projectId, modelId)}/${recordId}`),
@@ -317,7 +395,7 @@ export const TOOLS: McpTool[] = [
     description:
       "Call a project's mock API the way a real client would - GET/POST/PUT/PATCH/DELETE against /api/{slug}/{path} - to see exactly what it serves, including any custom response shape.",
     schema: z.object({
-      slug: requiredString("slug is required"),
+      slug: requiredString("slug is required").describe("The project's address (slug), from create_project's or get_project's result."),
       method: z.enum(HTTP_METHODS, { message: "method is required" }),
       path: requiredString("path is required"),
       query: z.record(z.string(), z.string()).optional(),

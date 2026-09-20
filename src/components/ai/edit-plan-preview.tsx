@@ -41,8 +41,10 @@ function ResourceBlock({ resource }: { resource: ResourceDiff }) {
       )}
       {resource.inboundLinks.map((link) => (
         <p key={`${link.modelName}.${link.fieldName}`} className="mt-2 text-[13px] text-warning">
-          {countLabel(link.recordCount, `${link.modelName} record`)}{" "}
-          {link.recordCount === 1 ? "links" : "link"} to this resource and will lose {link.recordCount === 1 ? "its" : "their"} link.
+          {/* "Up to" because recordCount is the linking model's total record count, not how
+              many of them actually have this link field set — an upper bound, not a fact. */}
+          Up to {countLabel(link.recordCount, `${link.modelName} record`)} may lose {link.recordCount === 1 ? "its" : "their"} link to this
+          resource.
         </p>
       ))}
     </section>

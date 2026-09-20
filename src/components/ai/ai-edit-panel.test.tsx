@@ -250,7 +250,7 @@ it("I5: discloses inbound links from other resources when a resource's records a
   renderUi(<AiEditPanel project={projectWithOrder} onApplied={vi.fn()} onCancel={vi.fn()} />);
   await user.type(screen.getByLabelText("Describe what should change"), "Change Book's sample data");
   await user.click(screen.getByRole("button", { name: "Preview changes" }));
-  expect(await screen.findByText(/3 Order records link to this resource and will lose their link/)).toBeInTheDocument();
+  expect(await screen.findByText(/Up to 3 Order records may lose their link to this resource/)).toBeInTheDocument();
 });
 
 it("shows the server error with a Retry button", async () => {

@@ -32,6 +32,62 @@ it("C1: renders every differing attribute of a changed field, not just its type"
   expect(screen.getByText("no longer required")).toBeInTheDocument();
 });
 
+// C1, isolated: a required-only, unique-only, or linkTo-only change must each individually
+// reach the rendered preview — not just the combined type+required case above.
+it("C1: renders a required-only change", () => {
+  const diff: EditDiff = {
+    newResources: [],
+    changedResources: [
+      {
+        name: "Order",
+        isNew: false,
+        fields: [{ name: "notes", kind: "changed", before: { name: "notes", type: "text", required: true, unique: false }, after: { name: "notes", type: "text", required: false, unique: false } }],
+        recordCount: 0,
+        inboundLinks: [],
+      },
+    ],
+    newEndpoints: [],
+  };
+  renderUi(<EditPlanPreview diff={diff} warnings={[]} />);
+  expect(screen.getByText("no longer required")).toBeInTheDocument();
+});
+
+it("C1: renders a unique-only change", () => {
+  const diff: EditDiff = {
+    newResources: [],
+    changedResources: [
+      {
+        name: "Order",
+        isNew: false,
+        fields: [{ name: "sku", kind: "changed", before: { name: "sku", type: "text", required: false, unique: false }, after: { name: "sku", type: "text", required: false, unique: true } }],
+        recordCount: 0,
+        inboundLinks: [],
+      },
+    ],
+    newEndpoints: [],
+  };
+  renderUi(<EditPlanPreview diff={diff} warnings={[]} />);
+  expect(screen.getByText("now unique")).toBeInTheDocument();
+});
+
+it("C1: renders a linkTo-only change", () => {
+  const diff: EditDiff = {
+    newResources: [],
+    changedResources: [
+      {
+        name: "Review",
+        isNew: false,
+        fields: [{ name: "subject", kind: "changed", before: { name: "subject", type: "link", required: true, unique: false, linkTo: "Book" }, after: { name: "subject", type: "link", required: true, unique: false, linkTo: "Author" } }],
+        recordCount: 0,
+        inboundLinks: [],
+      },
+    ],
+    newEndpoints: [],
+  };
+  renderUi(<EditPlanPreview diff={diff} warnings={[]} />);
+  expect(screen.getByText("was linked to Book")).toBeInTheDocument();
+});
+
 it("still renders 'new' for an added field", () => {
   const diff: EditDiff = {
     newResources: [],
@@ -55,5 +111,7 @@ it("I5: discloses that another resource's records will lose their link when this
     newEndpoints: [],
   };
   renderUi(<EditPlanPreview diff={diff} warnings={[]} />);
-  expect(screen.getByText(/3 Order records link to this resource and will lose their link/)).toBeInTheDocument();
+  // "Up to" because the count is the linking model's total record count, not a precise count
+  // of records whose link is actually set to this resource — an upper bound, not a fact.
+  expect(screen.getByText(/Up to 3 Order records may lose their link to this resource/)).toBeInTheDocument();
 });

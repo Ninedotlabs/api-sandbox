@@ -57,12 +57,48 @@ it("C1: a re-listed field identical to the current one produces no field change 
   expect(diff.changedResources[0].fields).toEqual([]);
 });
 
-it("C1: a field re-listed with only its options or required/unique changed is still marked changed", () => {
+// Each of these isolates a single differing attribute — options, required, unique, linkTo —
+// so each is its own test rather than one test that only actually exercises options.
+it("C1: a field re-listed with only its options changed is marked changed", () => {
   const p: Project = { ...project, models: [{ id: "m1", name: "Order", fields: [{ id: "f1", name: "status", type: "choice", required: true, unique: false, options: ["Pending", "Shipped"] }] }] };
   const plan: EditPlan = { resources: [{ name: "Order", description: "", fields: [{ name: "status", type: "choice", required: true, unique: false, options: ["Refunded"] }], records: [] }], customEndpoints: [] };
   const diff = computeEditDiff(p, plan);
   expect(diff.changedResources[0].fields).toEqual([
     { name: "status", kind: "changed", before: { name: "status", type: "choice", required: true, unique: false, options: ["Pending", "Shipped"] }, after: { name: "status", type: "choice", required: true, unique: false, options: ["Refunded"] } },
+  ]);
+});
+
+it("C1: a field re-listed with only its required flag changed is marked changed", () => {
+  const p: Project = { ...project, models: [{ id: "m1", name: "Order", fields: [{ id: "f1", name: "notes", type: "text", required: true, unique: false }] }] };
+  const plan: EditPlan = { resources: [{ name: "Order", description: "", fields: [{ name: "notes", type: "text", required: false, unique: false }], records: [] }], customEndpoints: [] };
+  const diff = computeEditDiff(p, plan);
+  expect(diff.changedResources[0].fields).toEqual([
+    { name: "notes", kind: "changed", before: { name: "notes", type: "text", required: true, unique: false }, after: { name: "notes", type: "text", required: false, unique: false } },
+  ]);
+});
+
+it("C1: a field re-listed with only its unique flag changed is marked changed", () => {
+  const p: Project = { ...project, models: [{ id: "m1", name: "Order", fields: [{ id: "f1", name: "sku", type: "text", required: false, unique: false }] }] };
+  const plan: EditPlan = { resources: [{ name: "Order", description: "", fields: [{ name: "sku", type: "text", required: false, unique: true }], records: [] }], customEndpoints: [] };
+  const diff = computeEditDiff(p, plan);
+  expect(diff.changedResources[0].fields).toEqual([
+    { name: "sku", kind: "changed", before: { name: "sku", type: "text", required: false, unique: false }, after: { name: "sku", type: "text", required: false, unique: true } },
+  ]);
+});
+
+it("C1: a field re-listed with only its linkTo target changed is marked changed", () => {
+  const p: Project = {
+    ...project,
+    models: [
+      { id: "m1", name: "Book", fields: [] },
+      { id: "m2", name: "Author", fields: [] },
+      { id: "m3", name: "Review", fields: [{ id: "f3", name: "subject", type: "link", required: true, unique: false, linkTo: "m1" }] },
+    ],
+  };
+  const plan: EditPlan = { resources: [{ name: "Review", description: "", fields: [{ name: "subject", type: "link", required: true, unique: false, linkTo: "Author" }], records: [] }], customEndpoints: [] };
+  const diff = computeEditDiff(p, plan);
+  expect(diff.changedResources[0].fields).toEqual([
+    { name: "subject", kind: "changed", before: { name: "subject", type: "link", required: true, unique: false, linkTo: "Book" }, after: { name: "subject", type: "link", required: true, unique: false, linkTo: "Author" } },
   ]);
 });
 

@@ -10,9 +10,9 @@
  * imported and tested without also standing up a real stdio server.
  */
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { createApiClient } from "./client.js";
-import { createMcpServer } from "./server.js";
-import { loadConfig } from "./stdio-config.js";
+import { createApiClient } from "./client";
+import { createMcpServer } from "./server";
+import { loadConfig } from "./stdio-config";
 
 async function main(): Promise<void> {
   const { baseUrl, token } = loadConfig();

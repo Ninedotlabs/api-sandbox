@@ -8,8 +8,11 @@ const UNAUTHORIZED_MESSAGE = "This endpoint needs an API token.";
  * that exception escape - a naive `===` (or a length check that then short-circuits)
  * would otherwise let an attacker learn the token's length, or one character at a time,
  * from how long the comparison takes.
+ *
+ * Exported so `/api/mcp` (see `src/app/api/mcp/route.ts`) can check its own bearer token
+ * the same way, without a second, easy-to-drift implementation of the same comparison.
  */
-function tokensMatch(provided: string, expected: string): boolean {
+export function tokensMatch(provided: string, expected: string): boolean {
   const a = Buffer.from(provided);
   const b = Buffer.from(expected);
   if (a.length !== b.length) return false;

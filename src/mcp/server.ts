@@ -4,8 +4,8 @@
  * itself - not just the tool list - can never drift between them.
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { ApiClient } from "./client.js";
-import { TOOLS } from "./tools.js";
+import type { ApiClient } from "./client";
+import { TOOLS } from "./tools";
 
 const SERVER_INFO = { name: "universal-api", version: "0.1.0" };
 

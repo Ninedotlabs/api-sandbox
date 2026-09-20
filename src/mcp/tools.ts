@@ -11,7 +11,7 @@
  * `/api/v1`, since its whole purpose is to exercise a mock API the way a real client would.
  */
 import { z } from "zod";
-import type { ApiClient } from "./client.js";
+import type { ApiClient } from "./client";
 
 const TEMPLATE_IDS = ["blog", "store", "todo"] as const;
 const FIELD_TYPES = ["text", "number", "boolean", "date", "email", "url", "choice", "link", "json"] as const;

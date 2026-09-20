@@ -6,7 +6,7 @@ import { pgModelService } from "./model-service";
 import { pgProjectService } from "./project-service";
 import { pgRouteService } from "./route-service";
 
-const hasDb = Boolean(process.env.DATABASE_URL);
+const hasDb = Boolean(process.env.PG_TESTS_ENABLED);
 
 describe.skipIf(!hasDb)("pgProjectService", () => {
   afterAll(async () => {

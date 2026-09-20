@@ -79,6 +79,9 @@ export function TopBar({ project }: { project?: Project }) {
             <ProjectMenu project={project} />
           </>
         )}
+        <Link href="/mcp" className="rounded-md px-2 py-1 text-sm text-ink-2 transition-colors duration-150 hover:bg-panel hover:text-ink">
+          MCP
+        </Link>
         <UserAvatar />
       </div>
     </header>

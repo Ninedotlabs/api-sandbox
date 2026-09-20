@@ -16,6 +16,7 @@ it("shows the project switcher, reference link and project menu inside a project
   expect(screen.getByRole("button", { name: /Shop/ })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Reference" })).toHaveAttribute("href", "/projects/p1/reference");
   expect(screen.getByRole("button", { name: "Project actions" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "MCP" })).toHaveAttribute("href", "/mcp");
 });
 
 it("offers the drawer toggles on the workspace route only", () => {

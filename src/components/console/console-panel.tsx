@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Kicker } from "@/components/domain/kicker";
 import { MethodLabel } from "@/components/domain/method-label";
@@ -39,6 +39,8 @@ export function ConsolePanel() {
   const { project, consoleRouteId, consoleDraft, loadInConsole } = useWorkspace();
   const markProgress = useUiStore((s) => s.markProgress);
   const [sending, setSending] = useState(false);
+  /** Identifies the newest send, so earlier ones can be discarded when they land late. */
+  const sendSeq = useRef(0);
   const [entries, setEntries] = useState<LogEntry[]>([]);
   const [loaded, setLoaded] = useState<Loaded>(() => ({
     seenRouteId: consoleRouteId,
@@ -104,16 +106,21 @@ export function ConsolePanel() {
 
   async function send(request: { params: Record<string, string>; query: Record<string, string>; body: unknown }) {
     if (!route) return;
+    // A send in flight belongs to the endpoint it started on. If the user picks another endpoint,
+    // replays a log row or sends again before it lands, its response is stale: the log still records
+    // it, but it must not overwrite the panel or clear the spinner under whatever is current now.
+    const id = ++sendSeq.current;
+    const routeId = route.id;
     setSending(true);
     try {
-      const response = await consoleService.send(project.id, { routeId: route.id, ...request });
-      setLoaded((s) => ({ ...s, response }));
+      const response = await consoleService.send(project.id, { routeId, ...request });
+      setLoaded((s) => (id === sendSeq.current && s.routeId === routeId ? { ...s, response } : s));
       markProgress(project.id, "tested");
       setEntries(await consoleService.log(project.id));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not send the request.");
     } finally {
-      setSending(false);
+      if (id === sendSeq.current) setSending(false);
     }
   }
 
@@ -137,7 +144,7 @@ export function ConsolePanel() {
           <SelectContent>
             {groups.map((group) => (
               <SelectGroup key={group.key}>
-                <SelectLabel>{group.title}</SelectLabel>
+                <SelectLabel className="font-mono text-[11px]">{group.title}</SelectLabel>
                 {group.routes.map((r) => (
                   <SelectItem key={r.id} value={r.id} textValue={`${r.method} ${r.path}`} className="font-mono">
                     <MethodLabel method={r.method} />

@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { buildCrudRoutes } from "@/lib/crud";
@@ -73,6 +73,25 @@ it("reloads a logged request when its row is clicked", async () => {
 
   expect(screen.getByLabelText(/^name/)).toHaveValue("Lamp");
   expect(screen.getByText(/400 Bad Request/)).toBeInTheDocument();
+});
+
+it("discards a response that lands after the endpoint changed", async () => {
+  const user = userEvent.setup();
+  // Long enough that switching endpoints (several ticks of Select interaction) happens in flight.
+  setMockLatency(150);
+  await openConsole(await storeProject());
+  await pickCreate(user);
+
+  await user.type(screen.getByLabelText(/^name/), "Lamp");
+  await user.click(screen.getByRole("button", { name: "Send request" }));
+
+  await user.click(screen.getByRole("combobox", { name: "Endpoint" }));
+  await user.click(await screen.findByRole("option", { name: "GET /products" }));
+
+  await waitFor(() => expect(logRows()).toHaveLength(1));
+  expect(logRows()[0]).toHaveTextContent("POST");
+  expect(screen.queryByText(/400 Bad Request/)).not.toBeInTheDocument();
+  expect(screen.getByText("Pick an endpoint, fill the request and send it.")).toBeInTheDocument();
 });
 
 it("sends with Ctrl+Enter from inside the form", async () => {

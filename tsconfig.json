@@ -19,6 +19,9 @@
       }
     ],
     "paths": {
+      // `auth.ts` lives at the project root (Auth.js v5 convention), not under `src/`,
+      // so it needs its own entry ahead of the general `@/*` -> `src/*` mapping below.
+      "@/auth": ["./auth"],
       "@/*": ["./src/*"]
     }
   },

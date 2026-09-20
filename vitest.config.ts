@@ -20,6 +20,12 @@ export default defineConfig({
     exclude: ["**/node_modules/**", "**/dist/**", "**/.claude/**"],
     setupFiles: ["./vitest.setup.ts", "./vitest.setup.pg.ts"],
     css: false,
+    // `next-auth`'s own internals import bare `next/server` (no extension) from inside
+    // node_modules; Vitest's default SSR externalization hands that straight to Node's
+    // resolver instead of Vite's, and Node can't find it without the `.js`. Routing these
+    // two packages through Vite's own resolution (which does add the extension) fixes it -
+    // see `src/app/api/auth/[...nextauth]/route.test.ts`.
+    server: { deps: { inline: ["next-auth", "@auth/core"] } },
     // Node 22+ ships an experimental global `localStorage` that shadows
     // jsdom's implementation and lacks methods like `.clear()`. Disable it
     // so vitest-environment-jsdom's own localStorage is used instead.

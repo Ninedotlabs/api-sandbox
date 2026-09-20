@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - The Azure key is read only on the server from `process.env.AZURE_AI_API_KEY`; never `NEXT_PUBLIC_*`; never logged; never included in error responses. `.env.local` is gitignored; `.env.example` is committed (add `!.env.example` to `.gitignore` because it has `.env*`).
-- Env vars: `AZURE_AI_ENDPOINT` (full URL ending in `/openai/v1/responses`), `AZURE_AI_API_KEY`, `AZURE_AI_MODEL` (deployment name; default in `.env.example` is `Luna`).
+- Env vars: `AZURE_AI_ENDPOINT` (full URL ending in `/openai/v1/responses`), `AZURE_AI_API_KEY`, `AZURE_AI_MODEL` (deployment name; default in `.env.example` is `gpt-5.6-luna`).
 - Request caps: `description` 1–2000 chars, `maxResources` 1–6 (default 6), `recordsPerResource` 0–12 (default 8), `max_output_tokens` 8000, timeout 30 s.
 - Wire format for the model (strict JSON schema): every object has `additionalProperties: false` and all keys required; optional values are `null`; record values are strings in `{ field, value }` pairs and are coerced by field type on our side.
 - Error messages to the UI, verbatim: 400 `"Describe the API you want (up to 2000 characters)."`, 503 `"AI is not configured. Add the Azure settings to .env.local and restart."`, 502 credentials `"AI credentials were rejected."`, 502 unusable `"The model returned an unusable answer. Try rephrasing."`, 504 `"AI took too long. Try again."`, other upstream `"AI request failed (<status>)."`.
@@ -498,7 +498,7 @@ export async function POST(req: Request) {
 ```
 AZURE_AI_ENDPOINT=https://<resource>.services.ai.azure.com/openai/v1/responses
 AZURE_AI_API_KEY=
-AZURE_AI_MODEL=Luna
+AZURE_AI_MODEL=gpt-5.6-luna
 ```
 `.gitignore`: append `!.env.example` after the `.env*` line.
 

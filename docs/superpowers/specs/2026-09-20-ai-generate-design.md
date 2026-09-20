@@ -14,7 +14,7 @@ From a one-paragraph description, generate a complete mock API in the current pr
 ```
 AZURE_AI_ENDPOINT=https://<resource>.services.ai.azure.com/openai/v1/responses
 AZURE_AI_API_KEY=
-AZURE_AI_MODEL=Luna
+AZURE_AI_MODEL=gpt-5.6-luna
 ```
 `AZURE_AI_MODEL` is the deployment name sent as `model`. `npm run ai:check` (a small script in `scripts/ai-check.mjs`) sends a minimal request and prints the HTTP status and the first 200 characters of the reply so the three values can be verified before using the UI.
 

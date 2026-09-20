@@ -315,7 +315,7 @@ export const TOOLS: McpTool[] = [
   defineTool({
     name: "call_mock_endpoint",
     description:
-      "Call a project's mock API the way a real client would - GET/POST/PUT/PATCH/DELETE against /{slug}/{path} - to see exactly what it serves, including any custom response shape.",
+      "Call a project's mock API the way a real client would - GET/POST/PUT/PATCH/DELETE against /api/{slug}/{path} - to see exactly what it serves, including any custom response shape.",
     schema: z.object({
       slug: requiredString("slug is required"),
       method: z.enum(HTTP_METHODS, { message: "method is required" }),
@@ -325,7 +325,7 @@ export const TOOLS: McpTool[] = [
     }),
     handler: async ({ slug, method, path, query, body }, client) => {
       const normalized = path.startsWith("/") ? path : `/${path}`;
-      return client.callEndpoint(method, `/${slug}${normalized}`, { query, body });
+      return client.callEndpoint(method, `/api/${slug}${normalized}`, { query, body });
     },
   }),
 ];

@@ -334,14 +334,14 @@ describe("TOOLS", () => {
           callEndpoint: vi.fn(async () => ({ status: 200, headers: { "content-type": "application/json" }, body: { data: [] } })),
         });
         const result = await findTool("call_mock_endpoint").handler({ slug: "bookshop", method: "GET", path: "/books" }, client);
-        expect(client.callEndpoint).toHaveBeenCalledWith("GET", "/bookshop/books", { query: undefined, body: undefined });
+        expect(client.callEndpoint).toHaveBeenCalledWith("GET", "/api/bookshop/books", { query: undefined, body: undefined });
         expect(result).toEqual({ status: 200, headers: { "content-type": "application/json" }, body: { data: [] } });
       });
 
       it("normalizes a path that doesn't start with a slash", async () => {
         const client = mockClient({ callEndpoint: vi.fn(async () => ({ status: 200, headers: {}, body: undefined })) });
         await findTool("call_mock_endpoint").handler({ slug: "bookshop", method: "GET", path: "books" }, client);
-        expect(client.callEndpoint).toHaveBeenCalledWith("GET", "/bookshop/books", { query: undefined, body: undefined });
+        expect(client.callEndpoint).toHaveBeenCalledWith("GET", "/api/bookshop/books", { query: undefined, body: undefined });
       });
     });
   });

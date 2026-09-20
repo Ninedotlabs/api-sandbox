@@ -58,23 +58,25 @@ it("shows the browser-menu hint the first time a menu is opened, and not once it
   expect(useUiStore.getState().seenContextMenuHint).toBe(true);
 });
 
-it("does not let a right-click bubble up to open an ancestor's context menu too", () => {
-  const outer = items();
+it("stops a right-click on a nested target from bubbling to an ancestor's own contextmenu handler", () => {
+  // Two nested `ContextMenuTarget`s alone don't prove this: Radix's own trigger calls only
+  // `preventDefault`, and its `composeEventHandlers` already skips opening a second menu once
+  // `defaultPrevented` is set, regardless of whether propagation was ever stopped. That let a
+  // version of this test pass with the `stopPropagation` guard removed. A plain ancestor handler
+  // has no such defaultPrevented check, so it only stays silent if propagation actually stopped.
+  const ancestorHandler = vi.fn();
   const inner: ContextMenuItemSpec[] = [{ id: "inner-one", label: "Inner", onSelect: vi.fn() }];
   renderUi(
-    <ContextMenuTarget items={outer}>
-      <div data-testid="background">
-        <ContextMenuTarget items={inner}>
-          <div data-testid="row">Row</div>
-        </ContextMenuTarget>
-      </div>
-    </ContextMenuTarget>,
+    <div onContextMenu={ancestorHandler}>
+      <ContextMenuTarget items={inner}>
+        <div data-testid="row">Row</div>
+      </ContextMenuTarget>
+    </div>,
   );
   const row = screen.getByTestId("row");
   fireEvent(row, createEvent.contextMenu(row, { bubbles: true, cancelable: true }));
-  expect(screen.getAllByRole("menu")).toHaveLength(1);
   expect(screen.getByRole("menuitem", { name: "Inner" })).toBeInTheDocument();
-  expect(screen.queryByRole("menuitem", { name: "One" })).not.toBeInTheDocument();
+  expect(ancestorHandler).not.toHaveBeenCalled();
 });
 
 it("does not show the hint again once it has already been seen", () => {

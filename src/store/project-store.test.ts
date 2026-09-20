@@ -1,13 +1,17 @@
+import { toast } from "sonner";
 import { computeEditDiff } from "@/lib/ai/diff";
 import type { EditPlan } from "@/lib/ai/plan";
 import { buildCrudRoutes } from "@/lib/crud";
-import { consoleService, routeService } from "@/lib/services";
+import { consoleService, modelService, projectService, routeService } from "@/lib/services";
 import { setMockLatency } from "@/lib/services/mock/latency";
 import { useProjectStore } from "./project-store";
+
+vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));
 
 beforeEach(() => {
   setMockLatency(0);
   useProjectStore.setState({ projects: [], loaded: false });
+  vi.mocked(toast.error).mockClear();
 });
 
 it("loads, creates, deletes and restores projects", async () => {
@@ -530,4 +534,72 @@ it("edit: changing a choice field's options invalidates existing records, which 
     // "Refunded" is the only option left, so faker's arrayElement is deterministic here.
     expect(r.status).toBe("Refunded");
   }
+});
+
+describe("optimistic saves (saveModel, updateProject, saveRoute)", () => {
+  it("saveModel: applies the edit to local state before the network call resolves", async () => {
+    const p = await useProjectStore.getState().createProject({ name: "Shop", description: "", templateId: null });
+    const model = await useProjectStore.getState().createModel(p.id, "Product");
+    let resolveUpdate: ((m: typeof model) => void) | undefined;
+    vi.spyOn(modelService, "update").mockImplementationOnce(
+      () => new Promise((resolve) => { resolveUpdate = resolve; }),
+    );
+
+    const next = { ...model, name: "Renamed" };
+    const promise = useProjectStore.getState().saveModel(p.id, next);
+    // The network call above is deliberately still pending - state must already show the
+    // edit, not the round trip's eventual result.
+    expect(useProjectStore.getState().projects.find((x) => x.id === p.id)!.models[0].name).toBe("Renamed");
+
+    // Settling the stubbed call (which never actually persisted anything) lets the pending
+    // `saveModel` promise finish; nothing further is asserted about state past this point,
+    // since the reconcile step's own refresh legitimately reflects the mock db this stub
+    // bypassed.
+    resolveUpdate!(next);
+    await promise;
+  });
+
+  it("saveModel: a failing save rolls back to the pre-edit model and reports the error", async () => {
+    const p = await useProjectStore.getState().createProject({ name: "Shop", description: "", templateId: null });
+    const model = await useProjectStore.getState().createModel(p.id, "Product");
+    vi.spyOn(modelService, "update").mockRejectedValueOnce(new Error("A model with this name already exists."));
+
+    await useProjectStore.getState().saveModel(p.id, { ...model, name: "Taken" });
+
+    const after = useProjectStore.getState().projects.find((x) => x.id === p.id)!.models[0];
+    expect(after).toEqual(model);
+    expect(toast.error).toHaveBeenCalledWith("A model with this name already exists.");
+  });
+
+  it("updateProject: a failing save rolls back to the pre-edit project and reports the error", async () => {
+    const p = await useProjectStore.getState().createProject({ name: "Shop", description: "", templateId: null });
+    vi.spyOn(projectService, "update").mockRejectedValueOnce(new Error("Another API already uses this address."));
+
+    await useProjectStore.getState().updateProject(p.id, { name: "New Name" });
+
+    const after = useProjectStore.getState().projects.find((x) => x.id === p.id)!;
+    expect(after.name).toBe(p.name);
+    expect(toast.error).toHaveBeenCalledWith("Another API already uses this address.");
+  });
+
+  it("updateProject: applies the edit optimistically and keeps it once the save succeeds", async () => {
+    const p = await useProjectStore.getState().createProject({ name: "Shop", description: "", templateId: null });
+    await useProjectStore.getState().updateProject(p.id, { name: "Renamed Shop" });
+    const after = useProjectStore.getState().projects.find((x) => x.id === p.id)!;
+    expect(after.name).toBe("Renamed Shop");
+  });
+
+  it("saveRoute: a failing save rolls back to the pre-edit route and reports the error", async () => {
+    const p = await useProjectStore.getState().createProject({ name: "Shop", description: "", templateId: "store" });
+    const product = p.models[0];
+    await useProjectStore.getState().addRoutes(p.id, buildCrudRoutes(product, ["list"], []));
+    const current = useProjectStore.getState().projects.find((x) => x.id === p.id)!.routes[0];
+    vi.spyOn(routeService, "update").mockRejectedValueOnce(new Error("Two routes can't share the same method and path."));
+
+    await useProjectStore.getState().saveRoute(p.id, { ...current, description: "Changed" });
+
+    const after = useProjectStore.getState().projects.find((x) => x.id === p.id)!.routes[0];
+    expect(after).toEqual(current);
+    expect(toast.error).toHaveBeenCalledWith("Two routes can't share the same method and path.");
+  });
 });

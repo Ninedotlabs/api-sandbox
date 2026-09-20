@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { create } from "zustand";
 import type { ApiPlan, EditPlan } from "@/lib/ai/plan";
 import {
@@ -60,7 +61,7 @@ interface ProjectState {
   undoEdit(projectId: string, undo: EditUndo): Promise<void>;
 }
 
-export const useProjectStore = create<ProjectState>()((set) => {
+export const useProjectStore = create<ProjectState>()((set, get) => {
   const replace = (project: Project) =>
     set((s) => ({
       projects: s.projects.some((p) => p.id === project.id)
@@ -71,6 +72,32 @@ export const useProjectStore = create<ProjectState>()((set) => {
     const project = await projectService.get(id);
     if (project) replace(project);
   };
+
+  /**
+   * Applies `apply(current)` to `projectId`'s project immediately (so a field edit or a rename
+   * shows up the instant it's made, not after a network round trip), then runs `save` in the
+   * background. On success, `reconcile` folds in whatever the server actually persisted
+   * (timestamps, trimmed strings, ids); on failure, state rolls back to exactly what it was
+   * before `apply` ran and the error is reported with `toast.error` - the caller isn't left
+   * waiting to find out, and isn't expected to show its own error for this failure.
+   */
+  async function optimistic<T>(
+    projectId: string,
+    apply: (project: Project) => Project,
+    save: () => Promise<T>,
+    reconcile: (result: T) => Promise<void> | void,
+    fallbackMessage: string,
+  ): Promise<void> {
+    const before = get().projects.find((p) => p.id === projectId) ?? null;
+    if (before) replace(apply(before));
+    try {
+      const result = await save();
+      await reconcile(result);
+    } catch (e) {
+      if (before) replace(before);
+      toast.error(e instanceof Error ? e.message : fallbackMessage);
+    }
+  }
 
   return {
     projects: [],
@@ -84,7 +111,13 @@ export const useProjectStore = create<ProjectState>()((set) => {
       return project;
     },
     async updateProject(id, patch) {
-      replace(await projectService.update(id, patch));
+      await optimistic(
+        id,
+        (p) => ({ ...p, ...patch }),
+        () => projectService.update(id, patch),
+        (updated) => replace(updated),
+        "Could not save this API.",
+      );
     },
     async deleteProject(id) {
       const removed = await projectService.remove(id);
@@ -106,8 +139,13 @@ export const useProjectStore = create<ProjectState>()((set) => {
       return model;
     },
     async saveModel(projectId, model) {
-      await modelService.update(projectId, model);
-      await refresh(projectId);
+      await optimistic(
+        projectId,
+        (p) => ({ ...p, models: p.models.map((m) => (m.id === model.id ? model : m)) }),
+        () => modelService.update(projectId, model),
+        () => refresh(projectId),
+        "Could not save this resource.",
+      );
     },
     async deleteModel(projectId, modelId) {
       const removed = await modelService.remove(projectId, modelId);
@@ -123,8 +161,13 @@ export const useProjectStore = create<ProjectState>()((set) => {
       await refresh(projectId);
     },
     async saveRoute(projectId, route) {
-      await routeService.update(projectId, route);
-      await refresh(projectId);
+      await optimistic(
+        projectId,
+        (p) => ({ ...p, routes: p.routes.map((r) => (r.id === route.id ? route : r)) }),
+        () => routeService.update(projectId, route),
+        () => refresh(projectId),
+        "Could not save this endpoint.",
+      );
     },
     async deleteRoute(projectId, routeId) {
       const removed = await routeService.remove(projectId, routeId);

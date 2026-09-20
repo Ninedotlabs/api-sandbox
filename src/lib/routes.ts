@@ -38,25 +38,41 @@ export function missingCrud(model: Model, routes: Route[]): boolean {
  * convention `routeParams`/`fillPath` (`./paths.ts`) use for the other direction
  * (filling a pattern with concrete values); this is the reverse - matching a
  * concrete path back to its pattern.
+ *
+ * Multiple routes can match the same segments (`/books/:id` and `/books/best-selling`
+ * both match `["books", "best-selling"]`). Rather than taking whichever comes first in
+ * `routes` - which makes a route's reachability depend on array order, and silently
+ * shadows more specific routes added later, such as an AI-generated custom endpoint -
+ * every match is ranked by specificity (more literal segments wins) and the most
+ * specific one is returned. Ties fall back to `routes` order, which callers pass in
+ * `position` order, so the result stays deterministic.
  */
 export function matchRoute(
   routes: Route[],
   method: string,
   segments: string[],
 ): { route: Route; params: Record<string, string> } | null {
+  let best: { route: Route; params: Record<string, string>; literalCount: number } | null = null;
+
   for (const route of routes) {
     if (route.method !== method) continue;
     const routeSegments = route.path.split("/").filter(Boolean);
     if (routeSegments.length !== segments.length) continue;
     const params: Record<string, string> = {};
+    let literalCount = 0;
     const matched = routeSegments.every((seg, i) => {
       if (seg.startsWith(":")) {
         params[seg.slice(1)] = segments[i];
         return true;
       }
-      return seg === segments[i];
+      if (seg !== segments[i]) return false;
+      literalCount++;
+      return true;
     });
-    if (matched) return { route, params };
+    if (matched && (!best || literalCount > best.literalCount)) {
+      best = { route, params, literalCount };
+    }
   }
-  return null;
+
+  return best ? { route: best.route, params: best.params } : null;
 }

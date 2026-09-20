@@ -16,7 +16,7 @@ import {
 } from "./rows";
 
 /** Addresses the app itself uses (`/v1`, `/ai`, `/mcp`, `/auth`, `/api`); a project can't take one as its slug. */
-const RESERVED_SLUGS = new Set(["v1", "ai", "mcp", "auth", "api"]);
+export const RESERVED_SLUGS = new Set(["v1", "ai", "mcp", "auth", "api"]);
 const SLUG_FORMAT = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 interface Queryable {

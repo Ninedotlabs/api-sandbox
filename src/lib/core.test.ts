@@ -80,6 +80,40 @@ describe("matchRoute", () => {
   it("returns null for an unmatched literal segment", () => {
     expect(matchRoute(routes, "GET", ["magazines"])).toBeNull();
   });
+
+  it("prefers a literal segment over a :param when both match, regardless of array order", () => {
+    const literalFirst: Route[] = [
+      { id: "rte_id", method: "GET", path: "/books/:id", modelId: "mdl_book", action: "get", description: "", filters: [] },
+      {
+        id: "rte_best",
+        method: "GET",
+        path: "/books/best-selling",
+        modelId: null,
+        action: "custom",
+        description: "",
+        filters: [],
+      },
+    ];
+    const reversed = [...literalFirst].reverse();
+
+    for (const candidateRoutes of [literalFirst, reversed]) {
+      expect(matchRoute(candidateRoutes, "GET", ["books", "best-selling"])?.route.id).toBe("rte_best");
+      expect(matchRoute(candidateRoutes, "GET", ["books", "42"])?.route.id).toBe("rte_id");
+    }
+  });
+
+  it("prefers the more specific route in a multi-segment path, regardless of array order", () => {
+    const paramMiddle: Route[] = [
+      { id: "rte_param", method: "GET", path: "/a/:x/c", modelId: null, action: "custom", description: "", filters: [] },
+      { id: "rte_literal", method: "GET", path: "/a/b/c", modelId: null, action: "custom", description: "", filters: [] },
+    ];
+    const reversed = [...paramMiddle].reverse();
+
+    for (const candidateRoutes of [paramMiddle, reversed]) {
+      expect(matchRoute(candidateRoutes, "GET", ["a", "b", "c"])?.route.id).toBe("rte_literal");
+      expect(matchRoute(candidateRoutes, "GET", ["a", "x", "c"])?.route.id).toBe("rte_param");
+    }
+  });
 });
 
 describe("moveItem", () => {

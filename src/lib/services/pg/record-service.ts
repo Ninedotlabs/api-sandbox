@@ -16,10 +16,28 @@ function recordFromRow(row: RecordRow): Record<string, unknown> {
 
 export const pgRecordService: RecordService = {
   async sampleData(projectId, modelId) {
-    const { rows } = await query<RecordRow>("select id, data from records where model_id = $1 order by created_at, id", [
-      modelId,
-    ]);
-    return rows.map(recordFromRow);
+    try {
+      const { rows } = await query<RecordRow>(
+        "select id, data from records where model_id = $1 order by created_at, id",
+        [modelId],
+      );
+      return rows.map(recordFromRow);
+    } catch (error) {
+      throw friendlyDbError(error, "Could not load records.");
+    }
+  },
+
+  async insertRecord(projectId, modelId, record) {
+    try {
+      const { id, ...rest } = record;
+      await query("insert into records (model_id, id, data) values ($1, $2, $3::jsonb)", [
+        modelId,
+        String(id),
+        JSON.stringify(rest),
+      ]);
+    } catch (error) {
+      throw friendlyDbError(error, "Could not save this record.");
+    }
   },
 
   async seedRecords(projectId, modelId, records) {

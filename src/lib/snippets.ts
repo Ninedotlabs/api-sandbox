@@ -1,8 +1,7 @@
+import { getAppOrigin } from "./app-origin";
 import { fillPath, routeParams } from "./paths";
 import { baseUrl } from "./slug";
 import type { Project, Route } from "./types";
-
-const ORIGIN = "http://localhost:3000";
 
 export interface Snippets {
   curl: string;
@@ -26,7 +25,7 @@ function toPythonLiteral(value: unknown): string {
 
 export function buildSnippets(project: Project, route: Route, body?: unknown): Snippets {
   const params = Object.fromEntries(routeParams(route.path).map((p) => [p, "1"]));
-  const url = `${ORIGIN}${baseUrl(project.slug)}${fillPath(route.path, params)}`;
+  const url = `${getAppOrigin()}${baseUrl(project.slug)}${fillPath(route.path, params)}`;
   const hasBody = body !== undefined && ["POST", "PUT", "PATCH"].includes(route.method);
   const compact = hasBody ? JSON.stringify(body) : "";
   // Single-quoted shell string: close the quote, emit an escaped quote, reopen it.

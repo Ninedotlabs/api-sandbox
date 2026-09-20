@@ -2,6 +2,7 @@
 
 import { Check } from "lucide-react";
 import { useState } from "react";
+import { getAppOriginDisplay } from "@/lib/app-origin";
 import { baseUrl } from "@/lib/slug";
 
 /**
@@ -18,7 +19,7 @@ export function MockStrip({ sending, slug }: { sending: boolean; slug: string })
   return (
     <div className="space-y-2">
       <p className="flex items-center gap-2 font-mono text-[11px] text-ink-3">
-        <span>localhost:3000</span>
+        <span>{getAppOriginDisplay()}</span>
         <span aria-hidden>·</span>
         <span className="text-ink-2">{baseUrl(slug)}</span>
       </p>

@@ -15,7 +15,8 @@ import { useUiStore } from "@/store/ui-store";
 function Editor({ onAddResource }: { onAddResource: () => void }) {
   const router = useRouter();
   const { project, selection, select, loadInConsole, setConsoleOpen, setRailOpen } = useWorkspace();
-  const progress = useUiStore((s) => s.progress[project.id] ?? {});
+  // Select the stored value only; a `?? {}` inside the selector would return a new object every render.
+  const progress = useUiStore((s) => s.progress[project.id]);
 
   // The new-resource row lives in the rail, which is a drawer on narrow screens.
   function addResource() {

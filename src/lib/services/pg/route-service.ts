@@ -15,7 +15,11 @@ async function fetchOrderedRoutes(client: PoolClient, projectId: string): Promis
   return rows;
 }
 
-async function insertRoute(client: PoolClient, projectId: string, route: Route, position: number): Promise<void> {
+/** Exported so `model-service.ts` can insert a captured route (on undo of a model delete)
+ * through the same statement `createMany`/`restore` use here, rather than hand-writing a
+ * second column list that silently drifts from this one - which is exactly how `response`
+ * went missing from that path once already. */
+export async function insertRoute(client: PoolClient, projectId: string, route: Route, position: number): Promise<void> {
   await client.query(
     `insert into routes (id, project_id, model_id, method, path, action, description, filters, position, response)
      values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10::jsonb)`,

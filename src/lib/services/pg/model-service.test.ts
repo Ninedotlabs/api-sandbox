@@ -108,6 +108,39 @@ describe.skipIf(!hasDb)("pgModelService", () => {
     }
   });
 
+  it("preserves a route's `response` through a model delete and undo (restore)", async () => {
+    // Regression: `remove()`/`restore()` used to hand-build/hand-insert the captured route
+    // instead of going through the same mapper/insert `route-service.ts` uses, so a field
+    // like `response` silently vanished on this path even though createMany/update kept it.
+    const p = await freshProject("Model Remove Restore Response Api");
+    try {
+      const book = await pgModelService.create(p.id, "Book");
+      const [route] = await pgRouteService.createMany(p.id, [
+        {
+          id: "rte_book_list",
+          method: "GET",
+          path: "/books",
+          modelId: book.id,
+          action: "list",
+          description: "",
+          filters: [],
+          response: { mode: "template", template: { items: "{{records}}", total: "{{count}}" } },
+        },
+      ]);
+      expect(route.response).toEqual({ mode: "template", template: { items: "{{records}}", total: "{{count}}" } });
+
+      const removed = await pgModelService.remove(p.id, book.id);
+      expect(removed.routes[0].route.response).toEqual({ mode: "template", template: { items: "{{records}}", total: "{{count}}" } });
+
+      await pgModelService.restore(p.id, removed);
+      const afterRestore = await pgProjectService.get(p.id);
+      const restoredRoute = afterRestore!.routes.find((r) => r.id === "rte_book_list")!;
+      expect(restoredRoute.response).toEqual({ mode: "template", template: { items: "{{records}}", total: "{{count}}" } });
+    } finally {
+      await pgProjectService.remove(p.id);
+    }
+  });
+
   it("rejects removing a model that no longer exists", async () => {
     const p = await freshProject("Model Remove Missing Api");
     try {

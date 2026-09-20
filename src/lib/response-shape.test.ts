@@ -79,6 +79,25 @@ describe("applyResponseShape — custom routes", () => {
     expect(shaped.status).toBe(202);
     expect(shaped.body).toEqual({ pong: true });
   });
+
+  it("returns the 501 - not the status it was wearing - when a custom route's response is explicitly `mode: \"auto\"`", () => {
+    // Auto has no CRUD behaviour to fall back to for a custom route, so it has nothing
+    // usable to serve, whatever else is sitting on the `response` object.
+    const route: Route = {
+      id: "c",
+      method: "GET",
+      path: "/ping",
+      modelId: null,
+      action: "custom",
+      description: "",
+      filters: [],
+      response: { mode: "auto", status: 418 },
+    };
+    const engineResult: EngineResult = { status: 200, body: { message: "This route has no model action yet. Link it to a model to return data." } };
+    const shaped = applyResponseShape(route, engineResult, emptyContext);
+    expect(shaped.status).toBe(501);
+    expect((shaped.body as { error: string }).error.toLowerCase()).not.toContain("link it to a model");
+  });
 });
 
 describe("applyResponseShape — static mode", () => {
@@ -244,6 +263,106 @@ describe("applyResponseShape — template is data, never code", () => {
     expect(body.also).toBe("${1+1}");
     expect(body.proc).toBeNull();
     expect(shaped.warnings.length).toBeGreaterThan(0);
+  });
+
+  it("resolves {{body.<name>}} to null for a key inherited from Object.prototype, not the inherited function", () => {
+    // `body.*` must behave like `params.*`/`query.*`: only the object's own keys are found.
+    // `"toString" in obj` is true for every object via the prototype chain; a real own-key
+    // check must say false, so this is treated as an unknown placeholder like any typo.
+    const route: Route = {
+      id: "r",
+      method: "GET",
+      path: "/x",
+      modelId: null,
+      action: "custom",
+      description: "",
+      filters: [],
+      response: { mode: "template", template: { oops: "{{body.toString}}" } },
+    };
+    const shaped = applyResponseShape(route, { status: 200, body: null }, { params: {}, query: {}, body: { name: "Ada" } });
+    expect((shaped.body as { oops: unknown }).oops).toBeNull();
+    expect(shaped.warnings.some((w) => w.includes("body.toString"))).toBe(true);
+  });
+
+  it("does not blow the call stack on a maximally nested template - it just stops descending past the depth limit", () => {
+    let deep: unknown = "{{count}}";
+    for (let i = 0; i < 500; i++) deep = [deep];
+    const route: Route = {
+      id: "r",
+      method: "GET",
+      path: "/x",
+      modelId: null,
+      action: "custom",
+      description: "",
+      filters: [],
+      response: { mode: "template", template: { top: "{{count}}", deep } },
+    };
+    let shaped!: ReturnType<typeof applyResponseShape>;
+    expect(() => {
+      shaped = applyResponseShape(route, { status: 200, body: null }, { ...emptyContext, records: [{ id: "1" }] });
+    }).not.toThrow();
+    // The shallow placeholder is unaffected by the guard that protects the deep one.
+    expect((shaped.body as { top: unknown }).top).toBe(1);
+  });
+
+  it("treats a whole-string placeholder with surrounding whitespace as in-string interpolation, not the typed value", () => {
+    const route: Route = {
+      id: "r",
+      method: "GET",
+      path: "/x",
+      modelId: null,
+      action: "custom",
+      description: "",
+      filters: [],
+      response: { mode: "template", template: { padded: " {{count}}" } },
+    };
+    const shaped = applyResponseShape(route, { status: 200, body: null }, { ...emptyContext, records: [{ id: "1" }, { id: "2" }] });
+    expect((shaped.body as { padded: unknown }).padded).toBe(" 2");
+  });
+
+  it("interpolates two placeholders in the same string", () => {
+    const route: Route = {
+      id: "r",
+      method: "GET",
+      path: "/x/:from/:to",
+      modelId: null,
+      action: "custom",
+      description: "",
+      filters: [],
+      response: { mode: "template", template: { range: "{{params.from}}-{{params.to}}" } },
+    };
+    const shaped = applyResponseShape(route, { status: 200, body: null }, { params: { from: "1", to: "10" }, query: {}, body: undefined });
+    expect((shaped.body as { range: unknown }).range).toBe("1-10");
+  });
+
+  it("never substitutes a placeholder that appears in an object key - keys are copied literally", () => {
+    const route: Route = {
+      id: "r",
+      method: "GET",
+      path: "/x",
+      modelId: null,
+      action: "custom",
+      description: "",
+      filters: [],
+      response: { mode: "template", template: { "{{count}}": "literal-key" } },
+    };
+    const shaped = applyResponseShape(route, { status: 200, body: null }, { ...emptyContext, records: [{ id: "1" }] });
+    expect(shaped.body).toEqual({ "{{count}}": "literal-key" });
+  });
+
+  it("substitutes a placeholder nested inside an array inside an object", () => {
+    const route: Route = {
+      id: "r",
+      method: "GET",
+      path: "/x",
+      modelId: null,
+      action: "custom",
+      description: "",
+      filters: [],
+      response: { mode: "template", template: { wrapper: [{ deep: ["{{count}}", "static"] }] } },
+    };
+    const shaped = applyResponseShape(route, { status: 200, body: null }, { ...emptyContext, records: [{ id: "1" }, { id: "2" }, { id: "3" }] });
+    expect(shaped.body).toEqual({ wrapper: [{ deep: [3, "static"] }] });
   });
 });
 

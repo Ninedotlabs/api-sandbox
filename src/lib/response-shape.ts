@@ -72,7 +72,11 @@ function resolvePlaceholder(name: string, ctx: Placeholders): { value: unknown; 
   if (bodyMatch) {
     const key = bodyMatch[1];
     const bodyObj = ctx.body;
-    const found = typeof bodyObj === "object" && bodyObj !== null && !Array.isArray(bodyObj) && key in (bodyObj as Record<string, unknown>);
+    const found =
+      typeof bodyObj === "object" &&
+      bodyObj !== null &&
+      !Array.isArray(bodyObj) &&
+      Object.prototype.hasOwnProperty.call(bodyObj, key);
     return { value: found ? (bodyObj as Record<string, unknown>)[key] : null, found };
   }
   return { value: null, found: false };
@@ -84,12 +88,20 @@ function stringifyForInterpolation(value: unknown): string {
   return String(value);
 }
 
+/** A template nested deeper than this stops being descended into - it is returned as-is
+ * rather than substituted - so a maximally nested (or malicious) template can't exhaust the
+ * call stack. Ordinary templates never come close: this is a self-DoS guard, not a real
+ * shape restriction. */
+const MAX_TEMPLATE_DEPTH = 50;
+
 /**
  * Literal placeholder substitution over a JSON tree. Never evaluates anything: a string
  * that isn't exactly one recognised `{{placeholder}}` (whole-value) or doesn't contain one
- * (in-string) passes through completely untouched, whatever it looks like.
+ * (in-string) passes through completely untouched, whatever it looks like. Object keys are
+ * always copied verbatim - a placeholder can appear in a value, never in a key.
  */
-function substitute(node: unknown, ctx: Placeholders, warnings: Set<string>): unknown {
+function substitute(node: unknown, ctx: Placeholders, warnings: Set<string>, depth = 0): unknown {
+  if (depth > MAX_TEMPLATE_DEPTH) return node;
   if (typeof node === "string") {
     const whole = WHOLE_PLACEHOLDER_RE.exec(node);
     if (whole) {
@@ -105,10 +117,10 @@ function substitute(node: unknown, ctx: Placeholders, warnings: Set<string>): un
       return stringifyForInterpolation(found ? value : null);
     });
   }
-  if (Array.isArray(node)) return node.map((n) => substitute(n, ctx, warnings));
+  if (Array.isArray(node)) return node.map((n) => substitute(n, ctx, warnings, depth + 1));
   if (node && typeof node === "object") {
     const out: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(node)) out[key] = substitute(value, ctx, warnings);
+    for (const [key, value] of Object.entries(node)) out[key] = substitute(value, ctx, warnings, depth + 1);
     return out;
   }
   return node;
@@ -143,12 +155,17 @@ function deriveRecordContext(
  * output - every existing route must keep working untouched.
  */
 export function applyResponseShape(route: Route, engineResult: EngineResult, context: ResponseContext): ShapedResponse {
-  if (route.action === "custom" && !route.response) {
-    return { status: 501, headers: {}, body: { error: NO_RESPONSE_MESSAGE }, warnings: [] };
-  }
-
   const response = route.response;
   const mode = response?.mode ?? "auto";
+
+  // A custom route has no CRUD behaviour for "auto" to fall back to - the engine's own
+  // result for it is just the same placeholder this feature exists to delete. So the 501
+  // depends on there being nothing *usable* to serve, not merely on `response` being unset:
+  // `{mode: "auto", status: 418}` has "no response defined" just as much as no `response`
+  // at all, whatever status or headers happen to be sitting on the object.
+  if (route.action === "custom" && mode === "auto") {
+    return { status: 501, headers: {}, body: { error: NO_RESPONSE_MESSAGE }, warnings: [] };
+  }
 
   if (mode === "auto") {
     return {

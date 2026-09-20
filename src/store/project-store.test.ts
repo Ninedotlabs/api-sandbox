@@ -15,10 +15,28 @@ it("loads, creates, deletes and restores projects", async () => {
   expect(useProjectStore.getState().loaded).toBe(true);
   const p = await useProjectStore.getState().createProject({ name: "Blog", description: "", templateId: "blog" });
   expect(useProjectStore.getState().projects).toHaveLength(1);
-  const snapshot = await useProjectStore.getState().deleteProject(p.id);
+  const removed = await useProjectStore.getState().deleteProject(p.id);
   expect(useProjectStore.getState().projects).toHaveLength(0);
-  await useProjectStore.getState().restoreProject(snapshot);
+  await useProjectStore.getState().restoreProject(removed);
   expect(useProjectStore.getState().projects[0].name).toBe("Blog");
+});
+
+it("brings a deleted project's records back on Undo", async () => {
+  const p = await useProjectStore.getState().createProject({ name: "Diary", description: "", templateId: null });
+  const model = await useProjectStore.getState().createModel(p.id, "Entry");
+  await useProjectStore.getState().saveModel(p.id, {
+    ...model,
+    fields: [{ id: "f-text", name: "text", type: "text", required: true, unique: false }],
+  });
+  await consoleService.seedRecords(p.id, model.id, [{ text: "Day one" }]);
+  const seeded = await consoleService.sampleData(p.id, model.id);
+
+  const removed = await useProjectStore.getState().deleteProject(p.id);
+  expect(await consoleService.sampleData(p.id, model.id)).toEqual([]);
+
+  await useProjectStore.getState().restoreProject(removed);
+  expect(useProjectStore.getState().projects.find((x) => x.id === p.id)).toBeTruthy();
+  expect(await consoleService.sampleData(p.id, model.id)).toEqual(seeded);
 });
 
 it("duplicates a project and adds the copy alongside it", async () => {

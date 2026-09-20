@@ -3,6 +3,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { getPool } from "@/lib/db/client";
 import { pgModelService } from "./model-service";
 import { pgProjectService } from "./project-service";
+import { pgRecordService } from "./record-service";
 import { pgRouteService } from "./route-service";
 
 const hasDb = Boolean(process.env.PG_TESTS_ENABLED);
@@ -111,6 +112,42 @@ describe.skipIf(!hasDb)("pgModelService", () => {
     const p = await freshProject("Model Remove Missing Api");
     try {
       await expect(pgModelService.remove(p.id, "missing")).rejects.toThrow("This model no longer exists.");
+    } finally {
+      await pgProjectService.remove(p.id);
+    }
+  });
+
+  it("captures a model's records on remove and puts them back on restore, with their ids", async () => {
+    const p = await freshProject("Model Records Api");
+    try {
+      const task = await pgModelService.create(p.id, "Task");
+      await pgRecordService.seedRecords(p.id, task.id, [
+        { title: "Buy milk", done: false },
+        { id: "custom", title: "Walk dog", done: true },
+      ]);
+      const seeded = await pgRecordService.sampleData(p.id, task.id);
+
+      const removed = await pgModelService.remove(p.id, task.id);
+      expect(removed.records).toEqual(seeded);
+      // records.model_id is ON DELETE CASCADE - confirm the delete really happened, so
+      // restore below is proven to be putting something back rather than finding it untouched.
+      expect(await pgRecordService.sampleData(p.id, task.id)).toEqual([]);
+
+      await pgModelService.restore(p.id, removed);
+      expect(await pgRecordService.sampleData(p.id, task.id)).toEqual(seeded);
+    } finally {
+      await pgProjectService.remove(p.id);
+    }
+  });
+
+  it("restores a model that held no records cleanly", async () => {
+    const p = await freshProject("Model No Records Api");
+    try {
+      const solo = await pgModelService.create(p.id, "Solo");
+      const removed = await pgModelService.remove(p.id, solo.id);
+      expect(removed.records).toEqual([]);
+      await pgModelService.restore(p.id, removed);
+      expect(await pgRecordService.sampleData(p.id, solo.id)).toEqual([]);
     } finally {
       await pgProjectService.remove(p.id);
     }

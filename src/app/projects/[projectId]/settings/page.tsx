@@ -43,14 +43,14 @@ export default function SettingsPage() {
 
   async function remove() {
     try {
-      const snapshot = await deleteProject(project.id);
+      const removed = await deleteProject(project.id);
       router.push("/projects");
-      toast(`${snapshot.name} deleted`, {
+      toast(`${project.name} deleted`, {
         action: {
           label: "Undo",
           onClick: async () => {
             try {
-              await restoreProject(snapshot);
+              await restoreProject(removed);
             } catch (e) {
               toast.error(e instanceof Error ? e.message : "Could not undo.");
             }

@@ -31,13 +31,13 @@ export function ProjectMenu({ project }: { project: Project }) {
   async function remove() {
     setArmed(false);
     try {
-      const snapshot = await deleteProject(project.id);
+      const removed = await deleteProject(project.id);
       router.push("/projects");
-      toast(`${snapshot.name} deleted`, {
+      toast(`${project.name} deleted`, {
         action: {
           label: "Undo",
           onClick: () =>
-            void restoreProject(snapshot).catch((e) => toast.error(e instanceof Error ? e.message : "Could not undo.")),
+            void restoreProject(removed).catch((e) => toast.error(e instanceof Error ? e.message : "Could not undo.")),
         },
       });
     } catch (e) {

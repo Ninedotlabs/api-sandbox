@@ -5,7 +5,7 @@ import { mockProjectService } from "./mock/project-service";
 import { mockRouteService } from "./mock/route-service";
 import type { ConsoleService, ModelService, ProjectService, RouteService } from "./types";
 
-export type { CreateProjectInput, LogEntry, RemovedModel, RemovedRoute } from "./types";
+export type { CreateProjectInput, LogEntry, RemovedModel, RemovedProject, RemovedRoute } from "./types";
 
 export const projectService: ProjectService = mockProjectService;
 export const modelService: ModelService = mockModelService;

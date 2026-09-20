@@ -5,7 +5,7 @@ import { createId } from "@/lib/ids";
 import { slugify } from "@/lib/slug";
 import { buildTemplateModels } from "@/lib/templates";
 import type { Field, Model, Project, Route } from "@/lib/types";
-import type { ProjectService } from "../types";
+import type { ProjectService, RemovedProject } from "../types";
 import {
   fieldFromRow,
   routeFromRow,
@@ -231,10 +231,32 @@ export const pgProjectService: ProjectService = {
   },
 
   async remove(id) {
-    await query("delete from projects where id = $1", [id]);
+    try {
+      return await withTransaction(async (client) => {
+        const project = await loadProject(client, id);
+        if (!project) throw new Error("This API no longer exists.");
+
+        // Captured before the delete below cascades it away (`records.model_id` is `ON DELETE
+        // CASCADE`), so Undo has real records to put back. A model with no records is left out
+        // entirely rather than listed with an empty array.
+        const records: RemovedProject["records"] = [];
+        for (const model of project.models) {
+          const { rows } = await client.query<{ id: string; data: Record<string, unknown> }>(
+            "select id, data from records where model_id = $1 order by created_at, id",
+            [model.id],
+          );
+          if (rows.length) records.push({ modelId: model.id, records: rows.map((r) => ({ ...r.data, id: r.id })) });
+        }
+
+        await client.query("delete from projects where id = $1", [id]);
+        return { project, records };
+      });
+    } catch (error) {
+      throw friendlyDbError(error, "Could not delete this API.");
+    }
   },
 
-  async restore(project) {
+  async restore({ project, records }) {
     try {
       await withTransaction(async (client) => {
         await client.query(
@@ -243,6 +265,16 @@ export const pgProjectService: ProjectService = {
         );
         await insertModelsAndFields(client, project.id, project.models);
         await insertRoutes(client, project.id, project.routes);
+        for (const { modelId, records: modelRecords } of records) {
+          for (const record of modelRecords) {
+            const { id, ...rest } = record;
+            await client.query("insert into records (model_id, id, data) values ($1, $2, $3::jsonb)", [
+              modelId,
+              String(id),
+              JSON.stringify(rest),
+            ]);
+          }
+        }
       });
     } catch (error) {
       throw friendlyDbError(error, "Could not bring back this API.");

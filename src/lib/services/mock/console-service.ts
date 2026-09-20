@@ -21,6 +21,29 @@ function datasetFor(project: Project): Dataset {
   return fresh;
 }
 
+/**
+ * Removes and returns a single model's records from the dataset, without touching any other
+ * model's — unlike `datasetFor`, this never lazily generates sample data for the rest of the
+ * project. Used by `ModelService.remove`/`ProjectService.remove` to capture what a delete is
+ * about to destroy, mirroring `records.model_id` being `ON DELETE CASCADE` on Postgres.
+ */
+export function takeModelRecords(projectId: string, modelId: string): Record<string, unknown>[] {
+  const dataset = datasets.get(projectId);
+  if (!dataset) return [];
+  const records = dataset[modelId] ?? [];
+  delete dataset[modelId];
+  return records;
+}
+
+/** Puts a model's records back into the dataset exactly as given (used by Undo). Setting an
+ * empty array still records the model as "known", so a later read doesn't mistake it for an
+ * untouched model and lazily generate fresh sample data for it. */
+export function putModelRecords(projectId: string, modelId: string, records: Record<string, unknown>[]): void {
+  const dataset = datasets.get(projectId) ?? {};
+  dataset[modelId] = records as Dataset[string];
+  datasets.set(projectId, dataset);
+}
+
 export const mockConsoleService: ConsoleService = {
   async send(projectId, request) {
     const started = performance.now();

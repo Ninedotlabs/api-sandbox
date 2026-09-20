@@ -142,12 +142,26 @@ export const pgModelService: ModelService = {
         );
         const links = linkRows.rows.map((r) => ({ modelId: r.model_id, fieldId: r.id }));
 
+        // Captured before the delete below cascades it away, so Undo has real records to put
+        // back rather than data that's already gone for good.
+        const recordRows = await client.query<{ id: string; data: Record<string, unknown> }>(
+          "select id, data from records where model_id = $1 order by created_at, id",
+          [modelId],
+        );
+        const records = recordRows.rows.map((r) => ({ ...r.data, id: r.id }));
+
         // Deleting the model cascades: its own fields and records, the routes
         // pointed at it, and (via `on delete set null`) the `link_to` on the
         // fields captured in `links` above.
         await client.query("delete from models where id = $1", [modelId]);
 
-        const removed: RemovedModel = { model: { id: modelId, name, fields }, beforeId, routes: removedRoutes, links };
+        const removed: RemovedModel = {
+          model: { id: modelId, name, fields },
+          beforeId,
+          routes: removedRoutes,
+          links,
+          records,
+        };
         return removed;
       });
     } catch (error) {
@@ -155,7 +169,7 @@ export const pgModelService: ModelService = {
     }
   },
 
-  async restore(projectId, { model, beforeId, routes, links }) {
+  async restore(projectId, { model, beforeId, routes, links, records }) {
     try {
       return await withTransaction(async (client) => {
         const existing = await fetchModelsForValidation(client, projectId);
@@ -204,6 +218,15 @@ export const pgModelService: ModelService = {
             "update fields set link_to = $1 where id = $2 and model_id = $3 and type = 'link' and link_to is null",
             [model.id, link.fieldId, link.modelId],
           );
+        }
+
+        for (const record of records) {
+          const { id, ...rest } = record;
+          await client.query("insert into records (model_id, id, data) values ($1, $2, $3::jsonb)", [
+            model.id,
+            String(id),
+            JSON.stringify(rest),
+          ]);
         }
 
         return { ...model, fields: relinkedFields };

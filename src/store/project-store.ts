@@ -9,6 +9,7 @@ import {
   routeService,
   type CreateProjectInput,
   type RemovedModel,
+  type RemovedProject,
   type RemovedRoute,
 } from "@/lib/services";
 import type { Field, Model, Project, Route } from "@/lib/types";
@@ -42,8 +43,9 @@ interface ProjectState {
   loadProjects(): Promise<void>;
   createProject(input: CreateProjectInput): Promise<Project>;
   updateProject(id: string, patch: Partial<Pick<Project, "name" | "description" | "slug">>): Promise<void>;
-  deleteProject(id: string): Promise<Project>;
-  restoreProject(project: Project): Promise<void>;
+  /** Returns what Undo needs to put back the whole project, including every model's records. */
+  deleteProject(id: string): Promise<RemovedProject>;
+  restoreProject(removed: RemovedProject): Promise<void>;
   duplicateProject(id: string): Promise<Project>;
   createModel(projectId: string, name: string): Promise<Model>;
   saveModel(projectId: string, model: Model): Promise<void>;
@@ -75,7 +77,7 @@ interface ProjectState {
   restoreRecords(projectId: string, snapshots: RecordSnapshot[]): Promise<void>;
 }
 
-export const useProjectStore = create<ProjectState>()((set, get) => {
+export const useProjectStore = create<ProjectState>()((set) => {
   const replace = (project: Project) =>
     set((s) => ({
       projects: s.projects.some((p) => p.id === project.id)
@@ -85,11 +87,6 @@ export const useProjectStore = create<ProjectState>()((set, get) => {
   const refresh = async (id: string) => {
     const project = await projectService.get(id);
     if (project) replace(project);
-  };
-  const snapshot = (id: string): Project => {
-    const project = get().projects.find((p) => p.id === id);
-    if (!project) throw new Error("Project is not loaded");
-    return project;
   };
 
   return {
@@ -107,14 +104,13 @@ export const useProjectStore = create<ProjectState>()((set, get) => {
       replace(await projectService.update(id, patch));
     },
     async deleteProject(id) {
-      const previous = snapshot(id);
-      await projectService.remove(id);
+      const removed = await projectService.remove(id);
       set((s) => ({ projects: s.projects.filter((p) => p.id !== id) }));
-      return previous;
+      return removed;
     },
-    async restoreProject(project) {
-      await projectService.restore(project);
-      replace(project);
+    async restoreProject(removed) {
+      await projectService.restore(removed);
+      replace(removed.project);
     },
     async duplicateProject(id) {
       const copy = await projectService.duplicate(id);

@@ -3,6 +3,7 @@ import { createId } from "@/lib/ids";
 import type { Model } from "@/lib/types";
 import { validateFields, validateModelName } from "@/lib/validation";
 import type { ModelService, RemovedModel } from "../types";
+import { putModelRecords, takeModelRecords } from "./console-service";
 import { updateProject } from "./db";
 import { delay } from "./latency";
 import { restoreRoutes } from "./route-service";
@@ -43,6 +44,9 @@ export const mockModelService: ModelService = {
         links: p.models.flatMap((m) =>
           m.fields.filter((f) => f.linkTo === modelId).map((f) => ({ modelId: m.id, fieldId: f.id })),
         ),
+        // Physically removed below, mirroring `records.model_id` being `ON DELETE CASCADE`
+        // on Postgres, so Undo has something to put back rather than data that was never lost.
+        records: takeModelRecords(projectId, modelId),
       };
       return {
         ...p,
@@ -55,7 +59,7 @@ export const mockModelService: ModelService = {
     return delay(removed as RemovedModel);
   },
 
-  async restore(projectId, { model, beforeId, routes, links }) {
+  async restore(projectId, { model, beforeId, routes, links, records }) {
     let restored = model;
     updateProject(projectId, (p) => {
       const err = validateModelName(model.name, p.models, model.id);
@@ -76,6 +80,7 @@ export const mockModelService: ModelService = {
       };
       return { ...p, models: insertBefore(relinked, restored, beforeId), routes: restoreRoutes(p.routes, routes) };
     });
+    putModelRecords(projectId, model.id, records);
     return delay(restored);
   },
 };

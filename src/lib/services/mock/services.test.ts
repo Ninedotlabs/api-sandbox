@@ -94,6 +94,71 @@ it("removes and restores routes and models with Undo", async () => {
   await expect(mockRouteService.remove(p.id, "missing")).rejects.toThrow("This route no longer exists.");
 });
 
+it("keeps a model's records for Undo and restores them with their original ids", async () => {
+  const p = await mockProjectService.create({ name: "Contacts Api", description: "", templateId: null });
+  const customer = await mockModelService.create(p.id, "Customer");
+  await mockModelService.update(p.id, {
+    ...customer,
+    fields: [{ id: "f_name", name: "name", type: "text", required: true, unique: false }],
+  });
+  await mockConsoleService.seedRecords(p.id, customer.id, [{ name: "Ann" }, { name: "Bo" }]);
+  const seeded = await mockConsoleService.sampleData(p.id, customer.id);
+  expect(seeded).toEqual([
+    { id: "1", name: "Ann" },
+    { id: "2", name: "Bo" },
+  ]);
+
+  const removed = await mockModelService.remove(p.id, customer.id);
+  expect(removed.records).toEqual(seeded);
+  // records.model_id is ON DELETE CASCADE on Postgres — the mock mirrors that by clearing
+  // them from its own dataset, so a bug here can't hide behind data that was never removed.
+  expect(await mockConsoleService.sampleData(p.id, customer.id)).toEqual([]);
+
+  await mockModelService.restore(p.id, removed);
+  expect(await mockConsoleService.sampleData(p.id, customer.id)).toEqual(seeded);
+});
+
+it("restores a model that held no records cleanly", async () => {
+  const p = await mockProjectService.create({ name: "Blank Api", description: "", templateId: null });
+  const solo = await mockModelService.create(p.id, "Solo");
+
+  const removed = await mockModelService.remove(p.id, solo.id);
+  expect(removed.records).toEqual([]);
+
+  await mockModelService.restore(p.id, removed);
+  expect(await mockConsoleService.sampleData(p.id, solo.id)).toEqual([]);
+});
+
+it("keeps every model's records across a whole-project delete and restore, skipping a model with none", async () => {
+  const p = await mockProjectService.create({ name: "Shop Contacts Api", description: "", templateId: null });
+  const product = await mockModelService.create(p.id, "Product");
+  const customer = await mockModelService.create(p.id, "Customer");
+  await mockModelService.update(p.id, {
+    ...product,
+    fields: [{ id: "f_name", name: "name", type: "text", required: true, unique: false }],
+  });
+  await mockConsoleService.seedRecords(p.id, product.id, [{ name: "Lamp" }]);
+  // Explicitly emptied (not merely unseeded — seeding Product above already lazily generated
+  // placeholder records for every other model in the project too) so this model's zero-record
+  // state is deterministic: it must not show up as a `{ modelId, records: [] }` entry below.
+  await mockConsoleService.seedRecords(p.id, customer.id, []);
+  const productRecords = await mockConsoleService.sampleData(p.id, product.id);
+
+  const removed = await mockProjectService.remove(p.id);
+  expect(removed.project.id).toBe(p.id);
+  expect(removed.records).toEqual([{ modelId: product.id, records: productRecords }]);
+  expect(removed.records.some((r) => r.modelId === customer.id)).toBe(false);
+  expect(await mockProjectService.get(p.id)).toBeNull();
+
+  await mockProjectService.restore(removed);
+  expect(await mockProjectService.get(p.id)).not.toBeNull();
+  expect(await mockConsoleService.sampleData(p.id, product.id)).toEqual(productRecords);
+});
+
+it("fails plainly when removing a project that no longer exists", async () => {
+  await expect(mockProjectService.remove("missing")).rejects.toThrow("This API no longer exists.");
+});
+
 it("keeps a session log of sent requests, newest first, capped at 50", async () => {
   const p = await newStore();
   const [list] = buildCrudRoutes(p.models[0], ["list"], []);

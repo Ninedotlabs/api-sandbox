@@ -11,9 +11,11 @@ export interface ProjectService {
   get(id: string): Promise<Project | null>;
   create(input: CreateProjectInput): Promise<Project>;
   update(id: string, patch: Partial<Pick<Project, "name" | "description" | "slug">>): Promise<Project>;
-  remove(id: string): Promise<void>;
-  /** Put back a previously deleted project (used by Undo). */
-  restore(project: Project): Promise<void>;
+  /** Deletes the project and everything under it (models, fields, routes, records — `records.model_id`
+   * is `ON DELETE CASCADE`), returning what Undo needs to put it all back. */
+  remove(id: string): Promise<RemovedProject>;
+  /** Put back a previously deleted project and its records (used by Undo). */
+  restore(removed: RemovedProject): Promise<void>;
   /**
    * Deep-copies a project: fresh ids for the project, every model, field and route
    * (`field.linkTo`/`route.modelId` remapped to the new ids), named `<name> copy` (`copy 2`,
@@ -36,6 +38,18 @@ export interface RemovedModel {
   routes: RemovedRoute[];
   /** Link fields on other models that pointed at this model. */
   links: { modelId: string; fieldId: string }[];
+  /** The model's records at the time it was removed (`records.model_id` is `ON DELETE
+   * CASCADE`, so they'd otherwise be gone for good), so Undo can put them back with their
+   * original ids. Empty when the model held no records. */
+  records: Record<string, unknown>[];
+}
+
+/** A deleted project plus the records held by its models, so Undo can put the whole thing
+ * back — a `Project` alone carries no record data, and `records.model_id` is `ON DELETE
+ * CASCADE`. Models that held no records are left out rather than listed with an empty array. */
+export interface RemovedProject {
+  project: Project;
+  records: { modelId: string; records: Record<string, unknown>[] }[];
 }
 
 export interface ModelService {

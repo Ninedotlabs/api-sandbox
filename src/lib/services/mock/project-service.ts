@@ -4,7 +4,7 @@ import { buildTemplateModels } from "@/lib/templates";
 import type { Model, Project, Route } from "@/lib/types";
 import { validateProjectName, validateSlug } from "@/lib/validation";
 import type { ProjectService } from "../types";
-import { mockConsoleService } from "./console-service";
+import { mockConsoleService, putModelRecords, takeModelRecords } from "./console-service";
 import { readDb, updateProject, writeDb } from "./db";
 import { delay } from "./latency";
 
@@ -82,15 +82,24 @@ export const mockProjectService: ProjectService = {
 
   async remove(id) {
     const db = readDb();
+    const project = db.projects.find((p) => p.id === id);
+    if (!project) throw new Error("This API no longer exists.");
+    // Captured (and cleared from the mock dataset) before the project itself is dropped, so
+    // Undo has real records to restore rather than data that was never removed — mirroring
+    // `records.model_id` being `ON DELETE CASCADE` on Postgres.
+    const records = project.models
+      .map((m) => ({ modelId: m.id, records: takeModelRecords(id, m.id) }))
+      .filter((r) => r.records.length > 0);
     db.projects = db.projects.filter((p) => p.id !== id);
     writeDb(db);
-    return delay(undefined);
+    return delay({ project, records });
   },
 
-  async restore(project) {
+  async restore({ project, records }) {
     const db = readDb();
     db.projects = [...db.projects.filter((p) => p.id !== project.id), project];
     writeDb(db);
+    for (const { modelId, records: modelRecords } of records) putModelRecords(project.id, modelId, modelRecords);
     return delay(undefined);
   },
 

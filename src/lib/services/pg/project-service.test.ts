@@ -113,16 +113,74 @@ describe.skipIf(!hasDb)("pgProjectService", () => {
         },
       ]);
       const full = (await pgProjectService.get(p.id)) as Project;
-      await pgProjectService.remove(p.id);
+      const removed = await pgProjectService.remove(p.id);
+      expect(removed.project).toEqual(full);
       expect(await pgProjectService.get(p.id)).toBeNull();
 
-      await pgProjectService.restore(full);
+      await pgProjectService.restore(removed);
       const restored = await pgProjectService.get(p.id);
       expect(restored).toEqual(full);
       expect(restored!.routes.map((r) => r.id)).toEqual(routes.map((r) => r.id));
     } finally {
       await cleanup(p.id);
     }
+  });
+
+  it("carries every model's records across a whole-project remove and restore, skipping a model with none", async () => {
+    const p = await pgProjectService.create({ name: "Records Api", description: "", templateId: "store" });
+    try {
+      const product = p.models.find((m) => m.name === "Product")!;
+      const customer = p.models.find((m) => m.name === "Customer")!;
+      // Order (the third model) is never touched at all, unlike the mock this deliberately
+      // doesn't need an explicit empty seed - the pg RecordService never lazily generates data.
+      await query("insert into records (model_id, id, data) values ($1, $2, $3::jsonb), ($1, $4, $5::jsonb)", [
+        product.id,
+        "1",
+        JSON.stringify({ name: "Lamp" }),
+        "2",
+        JSON.stringify({ name: "Desk" }),
+      ]);
+      await query("insert into records (model_id, id, data) values ($1, $2, $3::jsonb)", [
+        customer.id,
+        "1",
+        JSON.stringify({ name: "Ann" }),
+      ]);
+
+      const removed = await pgProjectService.remove(p.id);
+      expect(removed.records).toEqual(
+        expect.arrayContaining([
+          { modelId: product.id, records: [{ id: "1", name: "Lamp" }, { id: "2", name: "Desk" }] },
+          { modelId: customer.id, records: [{ id: "1", name: "Ann" }] },
+        ]),
+      );
+      const order = p.models.find((m) => m.name === "Order")!;
+      expect(removed.records.some((r) => r.modelId === order.id)).toBe(false);
+      const remainingRecords = await query("select 1 from records where model_id = any($1::text[])", [
+        p.models.map((m) => m.id),
+      ]);
+      expect(remainingRecords.rowCount).toBe(0);
+
+      await pgProjectService.restore(removed);
+      const productRecords = await query<{ id: string; data: { name: string } }>(
+        "select id, data from records where model_id = $1 order by id",
+        [product.id],
+      );
+      expect(productRecords.rows.map((r) => ({ id: r.id, ...r.data }))).toEqual([
+        { id: "1", name: "Lamp" },
+        { id: "2", name: "Desk" },
+      ]);
+      const customerRecords = await query<{ id: string; data: { name: string } }>(
+        "select id, data from records where model_id = $1",
+        [customer.id],
+      );
+      expect(customerRecords.rows.map((r) => ({ id: r.id, ...r.data }))).toEqual([{ id: "1", name: "Ann" }]);
+    } finally {
+      await cleanup(p.id);
+    }
+  });
+
+  it("fails plainly when removing a project that no longer exists", async () => {
+    await expect(pgProjectService.remove("missing")).rejects.toThrow("This API no longer exists.");
   });
 
   it("duplicates a project, remapping linkTo/modelId and copying records", async () => {

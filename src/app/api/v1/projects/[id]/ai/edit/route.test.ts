@@ -103,16 +103,46 @@ describe("POST /api/v1/projects/:id/ai/edit", () => {
       newResourceCount: 0,
       changedResourceCount: 1,
       endpointCount: 0,
-      replacedRecords: [],
+      undo: { replacedRecords: [], removedModels: [], removedRoutes: [], removedFields: [] },
     });
 
     const res = await post("prj_1", { instruction: "add a genre field to Book" });
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { data: { project: Project; changedResourceCount: number } };
+    const body = (await res.json()) as { data: { project: Project; changedResourceCount: number; undo: unknown } };
     expect(body.data.changedResourceCount).toBe(1);
     expect(body.data.project.models[0].fields.map((f) => f.name)).toEqual(["title", "genre"]);
+    expect(body.data.undo).toEqual({ replacedRecords: [], removedModels: [], removedRoutes: [], removedFields: [] });
     expect(applyPlanModule.applyEditPlanPg).toHaveBeenCalledWith("prj_1", expect.objectContaining({ resources: expect.any(Array) }));
+  });
+
+  it("performs a removal and returns the undo payload so the caller can reverse it", async () => {
+    vi.spyOn(pgProjectService, "get").mockResolvedValueOnce(project).mockResolvedValueOnce({
+      ...project,
+      models: [],
+    });
+    vi.spyOn(pgRecordService, "sampleData").mockResolvedValue([]);
+    const removalPlanJson = JSON.stringify({
+      resources: [],
+      customEndpoints: [],
+      removals: { resources: ["Book"], fields: [], endpoints: [] },
+    });
+    vi.mocked(request.callEditResponses).mockResolvedValue({ status: 200, text: removalPlanJson });
+    const removedModel = { model: project.models[0], beforeId: null, routes: [], links: [], records: [] };
+    vi.mocked(applyPlanModule.applyEditPlanPg).mockResolvedValue({
+      modelIds: [],
+      newResourceCount: 0,
+      changedResourceCount: 0,
+      endpointCount: 0,
+      undo: { replacedRecords: [], removedModels: [removedModel], removedRoutes: [], removedFields: [] },
+    });
+
+    const res = await post("prj_1", { instruction: "remove the Book resource" });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { project: Project; undo: { removedModels: unknown[] } } };
+    expect(body.data.project.models).toEqual([]);
+    expect(body.data.undo.removedModels).toEqual([removedModel]);
   });
 
   it("returns 502 when the AI request itself fails", async () => {

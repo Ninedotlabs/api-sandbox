@@ -33,6 +33,31 @@ function harness(initial: Project) {
     project.routes.push(...routes);
     return routes;
   });
+  vi.spyOn(pgRouteService, "remove").mockImplementation(async (_id, routeId) => {
+    const index = project.routes.findIndex((r) => r.id === routeId);
+    const route = project.routes[index];
+    const beforeId = project.routes[index + 1]?.id ?? null;
+    project.routes.splice(index, 1);
+    return { route, beforeId };
+  });
+  vi.spyOn(pgModelService, "remove").mockImplementation(async (_id, modelId) => {
+    const index = project.models.findIndex((m) => m.id === modelId);
+    const model = project.models[index];
+    const beforeId = project.models[index + 1]?.id ?? null;
+    const removedRoutes = project.routes.filter((r) => r.modelId === modelId);
+    project.routes = project.routes.filter((r) => r.modelId !== modelId);
+    const links = project.models.flatMap((m) => m.fields.filter((f) => f.linkTo === modelId).map((f) => ({ modelId: m.id, fieldId: f.id })));
+    project.models.splice(index, 1);
+    const modelRecords = records[modelId] ?? [];
+    delete records[modelId];
+    return {
+      model,
+      beforeId,
+      routes: removedRoutes.map((route) => ({ route, beforeId: null })),
+      links,
+      records: modelRecords,
+    };
+  });
   vi.spyOn(pgRecordService, "seedRecords").mockImplementation(async (_id, modelId, recs) => {
     records[modelId] = recs.map((r, i) => ({ id: String(i + 1), ...r }));
   });
@@ -148,7 +173,7 @@ describe("applyEditPlanPg", () => {
 
     const result = await applyEditPlanPg("prj_1", plan);
 
-    expect(result.replacedRecords).toEqual([{ modelId: "mdl_book", records: [{ id: "1", title: "Old" }] }]);
+    expect(result.undo.replacedRecords).toEqual([{ modelId: "mdl_book", records: [{ id: "1", title: "Old" }] }]);
     expect(records["mdl_book"]).toEqual([{ id: "1", title: "New" }]);
   });
 
@@ -171,5 +196,82 @@ describe("applyEditPlanPg", () => {
     const paths = project.routes.map((r) => `${r.method} ${r.path}`);
     expect(paths).toEqual(["GET /ping", "GET /status"]);
     expect(result.endpointCount).toBe(1);
+  });
+
+  // C2: this endpoint used to silently ignore `plan.removals`. These mirror the store's
+  // "edit: removals" tests one for one, so the two paths are exercised the same way.
+  describe("removals", () => {
+    function seededShop(): Project {
+      return {
+        ...emptyProject(),
+        models: [
+          {
+            id: "mdl_book",
+            name: "Book",
+            fields: [
+              { id: "fld_title", name: "title", type: "text", required: true, unique: false },
+              { id: "fld_genre", name: "genre", type: "text", required: false, unique: false },
+            ],
+          },
+        ],
+        routes: [
+          { id: "rt_list", method: "GET", path: "/books", modelId: "mdl_book", action: "list", description: "", filters: [] },
+          { id: "rt_get", method: "GET", path: "/books/:id", modelId: "mdl_book", action: "get", description: "", filters: [] },
+        ],
+      };
+    }
+
+    it("removes a field, snapshotting the resource's records for undo", async () => {
+      const { project, records } = harness(seededShop());
+      records["mdl_book"] = [{ id: "1", title: "Dune", genre: "Sci-fi" }];
+      const plan: EditPlan = { resources: [], customEndpoints: [], removals: { resources: [], fields: [{ resource: "Book", field: "genre" }], endpoints: [] } };
+
+      const result = await applyEditPlanPg("prj_1", plan);
+
+      const book = project.models.find((m) => m.id === "mdl_book")!;
+      expect(book.fields.map((f) => f.name)).toEqual(["title"]);
+      expect(result.undo.removedFields).toEqual([
+        { modelId: "mdl_book", field: { id: "fld_genre", name: "genre", type: "text", required: false, unique: false }, records: [{ id: "1", title: "Dune", genre: "Sci-fi" }] },
+      ]);
+    });
+
+    it("removes a resource, returning it (with its routes, links and records) in undo", async () => {
+      const { project, records } = harness(seededShop());
+      records["mdl_book"] = [{ id: "1", title: "Dune" }];
+      const plan: EditPlan = { resources: [], customEndpoints: [], removals: { resources: ["Book"], fields: [], endpoints: [] } };
+
+      const result = await applyEditPlanPg("prj_1", plan);
+
+      expect(project.models.some((m) => m.id === "mdl_book")).toBe(false);
+      expect(project.routes.some((r) => r.modelId === "mdl_book")).toBe(false);
+      expect(result.undo.removedModels).toHaveLength(1);
+      expect(result.undo.removedModels[0].model.id).toBe("mdl_book");
+      expect(result.undo.removedModels[0].records).toEqual([{ id: "1", title: "Dune" }]);
+    });
+
+    it("removes an endpoint, returning it in undo", async () => {
+      const { project } = harness(seededShop());
+      const plan: EditPlan = { resources: [], customEndpoints: [], removals: { resources: [], fields: [], endpoints: [{ method: "GET", path: "/books/:id" }] } };
+
+      const result = await applyEditPlanPg("prj_1", plan);
+
+      expect(project.routes.some((r) => r.id === "rt_get")).toBe(false);
+      expect(result.undo.removedRoutes).toEqual([{ route: { id: "rt_get", method: "GET", path: "/books/:id", modelId: "mdl_book", action: "get", description: "", filters: [] }, beforeId: null }]);
+    });
+
+    it("performs additions and changes before removals, so a plan replacing one field with another never leaves the resource empty", async () => {
+      const { project } = harness(seededShop());
+      const plan: EditPlan = {
+        resources: [{ name: "Book", description: "", fields: [{ name: "subtitle", type: "text", required: false, unique: false }], records: [] }],
+        customEndpoints: [],
+        removals: { resources: [], fields: [{ resource: "Book", field: "genre" }], endpoints: [] },
+      };
+
+      const result = await applyEditPlanPg("prj_1", plan);
+
+      const book = project.models.find((m) => m.id === "mdl_book")!;
+      expect(book.fields.map((f) => f.name)).toEqual(["title", "subtitle"]);
+      expect(result.undo.removedFields).toHaveLength(1);
+    });
   });
 });

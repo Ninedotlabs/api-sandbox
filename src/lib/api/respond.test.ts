@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { fail, handle, ok } from "./respond";
+import { z } from "zod";
+import { fail, firstIssue, handle, ok, readJson } from "./respond";
 
 describe("ok", () => {
   it("wraps the payload in { data } with a 200 by default", async () => {
@@ -60,5 +61,30 @@ describe("handle", () => {
     });
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: "Something went wrong. Please try again." });
+  });
+});
+
+describe("readJson", () => {
+  it("parses a JSON body", async () => {
+    const req = new Request("http://t/x", { method: "POST", body: JSON.stringify({ a: 1 }) });
+    expect(await readJson(req)).toEqual({ a: 1 });
+  });
+
+  it("resolves to undefined instead of throwing on invalid JSON", async () => {
+    const req = new Request("http://t/x", { method: "POST", body: "not json" });
+    expect(await readJson(req)).toBeUndefined();
+  });
+
+  it("resolves to undefined instead of throwing on a missing body", async () => {
+    const req = new Request("http://t/x", { method: "POST" });
+    expect(await readJson(req)).toBeUndefined();
+  });
+});
+
+describe("firstIssue", () => {
+  it("returns the first issue's own message", () => {
+    const schema = z.object({ name: z.string().min(1, "name is required") });
+    const result = schema.safeParse({ name: "" });
+    expect(firstIssue(result.error!)).toBe("name is required");
   });
 });

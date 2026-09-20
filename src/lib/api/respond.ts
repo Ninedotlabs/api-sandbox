@@ -14,6 +14,7 @@
  * "Give your API a name.") - and anything that isn't even an `Error` becomes a generic 500,
  * since we can't vouch for a value we didn't throw ourselves.
  */
+import type { ZodError } from "zod";
 
 export function ok<T>(data: T, status = 200): Response {
   return Response.json({ data }, { status });
@@ -59,4 +60,14 @@ export async function handle(fn: () => Promise<Response>): Promise<Response> {
     }
     return fail(500, GENERIC_500);
   }
+}
+
+/** The request body, or `undefined` when it's missing or isn't valid JSON - never throws. */
+export async function readJson(req: Request): Promise<unknown> {
+  return req.json().catch(() => undefined);
+}
+
+/** The first zod issue's own (already plain-language) message, naming the offending field. */
+export function firstIssue(error: ZodError, fallback = "This value isn't valid."): string {
+  return error.issues[0]?.message ?? fallback;
 }

@@ -33,10 +33,10 @@ function Probe() {
   );
 }
 
-function renderTree(project = storeProject()) {
+function renderTree(project = storeProject(), props: React.ComponentProps<typeof ApiTree> = {}) {
   renderUi(
     <WorkspaceProvider project={project}>
-      <ApiTree />
+      <ApiTree {...props} />
       <Probe />
     </WorkspaceProvider>,
   );
@@ -92,15 +92,12 @@ it("previews the example request when an endpoint is hovered", async () => {
   expect(await screen.findByText(/Content-Type/)).toBeInTheDocument();
 });
 
-it("offers an inline row for a new resource", async () => {
-  renderTree();
+it("asks the page to start creating a resource", async () => {
+  const onCreatingChange = vi.fn();
+  renderTree(storeProject(), { onCreatingChange });
   const user = userEvent.setup();
   await user.click(screen.getByRole("button", { name: /Resource/ }));
-  const input = screen.getByLabelText("Resource name");
-  await user.type(input, "Product{Enter}");
-  expect(await screen.findByRole("alert")).toHaveTextContent("A model with this name already exists.");
-  await user.keyboard("{Escape}");
-  expect(screen.queryByLabelText("Resource name")).not.toBeInTheDocument();
+  expect(onCreatingChange).toHaveBeenCalledWith(true);
 });
 
 it("closes the mobile rail drawer once an endpoint is selected", async () => {

@@ -1,8 +1,10 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { Lock, Plus } from "lucide-react";
 import { useState } from "react";
+import { TypeBadge } from "@/components/domain/type-badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { moveItem } from "@/lib/arrays";
 import { newField } from "@/lib/templates";
@@ -60,6 +62,23 @@ export function ModelFieldTable({ model, models, onSave }: Props) {
             </TableRow>
           </TableHeader>
           <TableBody>
+            <TableRow aria-label="id (added automatically)" className="bg-panel/60 text-ink-3">
+              <TableCell className="w-8 text-center">
+                <Lock className="mx-auto size-3.5" aria-hidden />
+              </TableCell>
+              <TableCell className="font-mono text-[13px] text-ink-2">id</TableCell>
+              <TableCell>
+                <TypeBadge type="text" />
+              </TableCell>
+              <TableCell className="text-xs">Added automatically to every record</TableCell>
+              <TableCell className="text-center">
+                <Checkbox checked disabled aria-label="id is required" />
+              </TableCell>
+              <TableCell className="text-center">
+                <Checkbox checked disabled aria-label="id is unique" />
+              </TableCell>
+              <TableCell className="w-10" />
+            </TableRow>
             {fields.map((f, i) => (
               <FieldRow
                 key={f.id}

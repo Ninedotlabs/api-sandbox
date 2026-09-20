@@ -14,7 +14,6 @@ import { baseUrl } from "@/lib/slug";
 import type { Model, Project, Route } from "@/lib/types";
 import { useProjectStore } from "@/store/project-store";
 import { EndpointPreview } from "./endpoint-preview";
-import { NewResourceRow } from "./new-resource-row";
 import { TreeNode } from "./tree-node";
 
 const ORIGIN = "localhost:3000";
@@ -82,12 +81,10 @@ export function ApiTree({ creating, onCreatingChange }: Props = {}) {
   const addRoutes = useProjectStore((s) => s.addRoutes);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [activeKey, setActiveKey] = useState<string | null>(null);
-  const [ownCreating, setOwnCreating] = useState(false);
   const rows = useRef(new Map<string, HTMLDivElement | null>());
   const pendingFocus = useRef<string | null>(null);
 
-  const showNewRow = onCreatingChange ? !!creating : ownCreating;
-  const setShowNewRow = onCreatingChange ?? setOwnCreating;
+  const startCreating = () => onCreatingChange?.(true);
 
   const items = useMemo(() => flatten(project, collapsed), [project, collapsed]);
   const selectedKey =
@@ -167,13 +164,6 @@ export function ApiTree({ creating, onCreatingChange }: Props = {}) {
         return;
     }
     event.preventDefault();
-  }
-
-  function onCreated(model: Model) {
-    setShowNewRow(false);
-    setActiveKey(`model-${model.id}`);
-    select({ kind: "resource", id: model.id });
-    setRailOpen(false);
   }
 
   async function addEndpoint() {
@@ -259,12 +249,8 @@ export function ApiTree({ creating, onCreatingChange }: Props = {}) {
         })}
       </div>
 
-      {showNewRow && (
-        <NewResourceRow project={project} onCreated={onCreated} onCancel={() => setShowNewRow(false)} />
-      )}
-
       <div className="sticky bottom-0 flex gap-1 border-t border-line bg-rail p-2">
-        <Button variant="outline" size="sm" className="h-7 flex-1 gap-1 rounded-md" onClick={() => setShowNewRow(true)}>
+        <Button variant="outline" size="sm" className="h-7 flex-1 gap-1 rounded-md" onClick={startCreating}>
           <Plus className="size-3.5" />
           Resource
         </Button>

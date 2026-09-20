@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ConsolePanel } from "@/components/console/console-panel";
 import { EndpointEditor } from "@/components/editor/endpoint-editor";
 import { LifecycleGuide } from "@/components/editor/lifecycle-guide";
+import { NewResourcePanel } from "@/components/editor/new-resource-panel";
 import { ResourceEditor } from "@/components/editor/resource-editor";
 import { ApiTree } from "@/components/rail/api-tree";
 import { WorkspaceShell } from "@/components/shell/workspace-shell";
@@ -12,16 +13,26 @@ import { useWorkspace } from "@/components/workspace/workspace-context";
 import { buildChecklist } from "@/lib/onboarding";
 import { useUiStore } from "@/store/ui-store";
 
-function Editor({ onAddResource }: { onAddResource: () => void }) {
+function Editor({ creating, onCreatingChange }: { creating: boolean; onCreatingChange: (creating: boolean) => void }) {
   const router = useRouter();
   const { project, selection, select, loadInConsole, setConsoleOpen, setRailOpen } = useWorkspace();
   // Select the stored value only; a `?? {}` inside the selector would return a new object every render.
   const progress = useUiStore((s) => s.progress[project.id]);
 
-  // The new-resource row lives in the rail, which is a drawer on narrow screens.
-  function addResource() {
-    setRailOpen(true);
-    onAddResource();
+  const addResource = () => onCreatingChange(true);
+
+  if (creating) {
+    return (
+      <NewResourcePanel
+        project={project}
+        onCancel={() => onCreatingChange(false)}
+        onCreated={(model) => {
+          onCreatingChange(false);
+          select({ kind: "resource", id: model.id });
+          setRailOpen(false);
+        }}
+      />
+    );
   }
 
   const model = selection?.kind === "resource" ? project.models.find((m) => m.id === selection.id) : null;
@@ -55,7 +66,7 @@ export default function WorkspacePage() {
   return (
     <WorkspaceShell
       rail={<ApiTree creating={creating} onCreatingChange={setCreating} />}
-      editor={<Editor onAddResource={() => setCreating(true)} />}
+      editor={<Editor creating={creating} onCreatingChange={setCreating} />}
       console={<ConsolePanel />}
     />
   );

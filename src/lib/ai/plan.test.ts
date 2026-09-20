@@ -1,4 +1,4 @@
-import { parsePlan, PlanError, strictJsonSchema } from "./plan";
+import { parsePlan, parseEditPlan, PlanError, strictJsonSchema, type ExistingResourceSummary } from "./plan";
 
 const good = {
   resources: [
@@ -126,4 +126,85 @@ it("sets an unresolved link to null and warns once per field", () => {
   const book = plan.resources.find((r) => r.name === "Book")!;
   expect(book.records).toEqual([{ title: "Dune", author: null }]);
   expect(warnings).toContain("Book: 1 sample record had an unknown author link and was left empty.");
+});
+
+const existingBook: ExistingResourceSummary = {
+  name: "Book",
+  fields: [
+    { name: "title", type: "text", required: true, unique: false },
+    { name: "price", type: "number", required: true, unique: false },
+  ],
+};
+
+it("edit: matches an existing resource by name instead of renaming it", () => {
+  const raw = {
+    resources: [{ name: "book", description: "", fields: [{ name: "genre", type: "choice", required: false, unique: false, options: ["Fiction"], linkTo: null }], records: [] }],
+    customEndpoints: [],
+  };
+  const { plan, warnings } = parseEditPlan(raw, [existingBook]);
+  expect(plan.resources[0].name).toBe("Book");
+  expect(plan.resources[0].fields.map((f) => f.name)).toEqual(["genre"]);
+  expect(warnings).toEqual([]);
+});
+
+it("edit: validates a changed resource's records against its current fields merged with the plan's", () => {
+  const raw = {
+    resources: [{
+      name: "Book", description: "",
+      fields: [{ name: "genre", type: "text", required: false, unique: false, options: null, linkTo: null }],
+      records: [{ entries: [{ field: "title", value: "Dune" }, { field: "price", value: "12.5" }, { field: "genre", value: "Fiction" }] }],
+    }],
+    customEndpoints: [],
+  };
+  const { plan, warnings } = parseEditPlan(raw, [existingBook]);
+  // "title" and "price" aren't in this resource's plan fields, but they're on the current
+  // resource, so a record naming them is valid and they come through unchanged.
+  expect(plan.resources[0].records).toEqual([{ title: "Dune", price: 12.5, genre: "Fiction" }]);
+  expect(warnings).toEqual([]);
+});
+
+it("edit: a brand-new resource still avoids clashing with an existing name", () => {
+  const raw = { resources: [{ name: "Book", description: "", fields: [{ name: "isbn", type: "text", required: false, unique: false, options: null, linkTo: null }], records: [] }, { name: "Book", description: "", fields: [], records: [] }], customEndpoints: [] };
+  // Two resources both literally named "Book": the first matches the existing one, the
+  // second is new and must not collide with either.
+  const { plan, warnings } = parseEditPlan(raw, [existingBook]);
+  expect(plan.resources.map((r) => r.name)).toEqual(["Book", "Book2"]);
+  expect(warnings).toContain("Renamed Book to Book2 because a resource with that name already exists.");
+});
+
+it("edit: a link can target an existing resource that isn't itself part of this edit", () => {
+  const raw = {
+    resources: [{ name: "Review", description: "", fields: [{ name: "rating", type: "number", required: true, unique: false, options: null, linkTo: null }, { name: "book", type: "link", required: true, unique: false, options: null, linkTo: "Book" }], records: [{ entries: [{ field: "rating", value: "5" }, { field: "book", value: "1" }] }] }],
+    customEndpoints: [],
+  };
+  const { plan, warnings } = parseEditPlan(raw, [existingBook]);
+  expect(plan.resources[0].fields.find((f) => f.name === "book")!.linkTo).toBe("Book");
+  expect(plan.resources[0].records[0]).toEqual({ rating: 5, book: "1" });
+  expect(warnings).toEqual([]);
+});
+
+it("edit: caps and validates customEndpoints, resolving resourceName or leaving it null", () => {
+  const raw = {
+    resources: [{ name: "Book", description: "", fields: [], records: [] }],
+    customEndpoints: [
+      { method: "GET", path: "/books/bestsellers", resourceName: "Book", description: "The 10 best-selling books" },
+      { method: "GET", path: "not-a-path", resourceName: null, description: "" },
+      { method: "GET", path: "/ping", resourceName: "Nobody", description: "" },
+    ],
+  };
+  const { plan, warnings } = parseEditPlan(raw, [existingBook]);
+  expect(plan.customEndpoints).toHaveLength(2);
+  expect(plan.customEndpoints[0]).toEqual({ method: "GET", path: "/books/bestsellers", resourceName: "Book", description: "The 10 best-selling books" });
+  expect(plan.customEndpoints[1]).toEqual({ method: "GET", path: "/ping", resourceName: null, description: "" });
+  expect(warnings).toContain('Skipped a custom endpoint with an unusable path ("not-a-path").');
+});
+
+it("edit: an answer with nothing to change is valid, not an error", () => {
+  const { plan, warnings } = parseEditPlan({ resources: [], customEndpoints: [] }, [existingBook]);
+  expect(plan).toEqual({ resources: [], customEndpoints: [] });
+  expect(warnings).toEqual([]);
+});
+
+it("edit: still rejects a malformed answer", () => {
+  expect(() => parseEditPlan({ nope: true }, [existingBook])).toThrow(PlanError);
 });

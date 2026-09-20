@@ -28,11 +28,22 @@ function loadEnvLocal(): void {
 
 loadEnvLocal();
 
-// Having DATABASE_URL is not the same as the database answering. Neon auto-suspends
-// after idle and its cold start takes several seconds, so a suite that assumes
-// reachability hangs and then fails for reasons unrelated to the code under test.
-// Probe once per worker, patiently, and let the integration suites skip cleanly when
-// the database is asleep, unreachable, or simply not part of this run.
+// The integration tests create and delete real rows, so they must never be able to
+// reach the application's own database. They run only against PG_TEST_DATABASE_URL —
+// a database you nominate for the purpose, normally a local Postgres:
+//
+//   docker run --rm -d -p 5433:5432 -e POSTGRES_PASSWORD=postgres postgres:16-alpine
+//   export PG_TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5433/postgres
+//   node --env-file=.env.local scripts/db-migrate.mjs   # against that URL
+//
+// With it unset, DATABASE_URL is removed from the test environment entirely so nothing
+// downstream can fall back to it, and the integration suites skip themselves.
+delete process.env.DATABASE_URL;
+if (process.env.PG_TEST_DATABASE_URL) process.env.DATABASE_URL = process.env.PG_TEST_DATABASE_URL;
+
+// Having a URL is not the same as the database answering: a cold or absent server would
+// otherwise hang the suite and fail it for reasons unrelated to the code under test.
+// Probe once per worker, patiently, and skip cleanly when it cannot connect.
 async function probeDatabase(): Promise<void> {
   if (!process.env.DATABASE_URL) return;
   const { Client } = await import("pg");

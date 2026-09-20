@@ -15,6 +15,9 @@ interface Props {
   autoFocus?: boolean;
 }
 
+/** Shared with the `/projects` background context menu's "New project", which focuses this input. */
+export const NEW_PROJECT_NAME_ID = "new-project-name";
+
 const CHOICES: { id: TemplateId | null; label: string }[] = [
   { id: null, label: "Blank" },
   ...TEMPLATES.map((t) => ({ id: t.id as TemplateId | null, label: t.name })),
@@ -58,11 +61,11 @@ export function NewProjectRow({ existingProjects, onCreate, autoFocus }: Props) 
   return (
     <form onSubmit={submit} className="flex flex-wrap items-center gap-3 p-3">
       <div className="min-w-56 flex-1">
-        <label htmlFor="new-project-name" className="sr-only">
+        <label htmlFor={NEW_PROJECT_NAME_ID} className="sr-only">
           Project name
         </label>
         <Input
-          id="new-project-name"
+          id={NEW_PROJECT_NAME_ID}
           autoFocus={autoFocus}
           value={name}
           placeholder="New project name"

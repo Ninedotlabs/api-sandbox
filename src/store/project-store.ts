@@ -44,6 +44,7 @@ interface ProjectState {
   updateProject(id: string, patch: Partial<Pick<Project, "name" | "description" | "slug">>): Promise<void>;
   deleteProject(id: string): Promise<Project>;
   restoreProject(project: Project): Promise<void>;
+  duplicateProject(id: string): Promise<Project>;
   createModel(projectId: string, name: string): Promise<Model>;
   saveModel(projectId: string, model: Model): Promise<void>;
   /** Returns what Undo needs to put back just this model. */
@@ -114,6 +115,11 @@ export const useProjectStore = create<ProjectState>()((set, get) => {
     async restoreProject(project) {
       await projectService.restore(project);
       replace(project);
+    },
+    async duplicateProject(id) {
+      const copy = await projectService.duplicate(id);
+      replace(copy);
+      return copy;
     },
     async createModel(projectId, name) {
       const model = await modelService.create(projectId, name);

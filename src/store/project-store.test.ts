@@ -20,6 +20,15 @@ it("loads, creates, deletes and restores projects", async () => {
   expect(useProjectStore.getState().projects[0].name).toBe("Blog");
 });
 
+it("duplicates a project and adds the copy alongside it", async () => {
+  const p = await useProjectStore.getState().createProject({ name: "Blog", description: "", templateId: "blog" });
+  const copy = await useProjectStore.getState().duplicateProject(p.id);
+  expect(copy.name).toBe("Blog copy");
+  const { projects } = useProjectStore.getState();
+  expect(projects.map((x) => x.id)).toEqual(expect.arrayContaining([p.id, copy.id]));
+  expect(projects).toHaveLength(2);
+});
+
 it("refreshes the cached project after model changes", async () => {
   const p = await useProjectStore.getState().createProject({ name: "Todo", description: "", templateId: null });
   const model = await useProjectStore.getState().createModel(p.id, "Task");

@@ -31,7 +31,12 @@ export function TreeNode({ label, level, posInSet, setSize, selected, active, ex
       aria-selected={selected}
       aria-expanded={expanded}
       tabIndex={active ? 0 : -1}
-      onClick={onSelect}
+      onClick={(e) => {
+        // A row can nest an inline-rename control (input or its trigger button); clicking it
+        // should not also select/toggle the row.
+        if ((e.target as HTMLElement).closest("input, button")) return;
+        onSelect();
+      }}
       className={cn(
         "flex h-7 cursor-pointer items-center gap-1.5 border-l-2 pr-2 text-[13px] transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset focus-visible:outline-none",
         level === 1 ? "pl-2" : "pl-5",

@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { createEvent, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { buildCrudRoutes } from "@/lib/crud";
@@ -104,4 +104,71 @@ it("sends with Ctrl+Enter from inside the form", async () => {
 
   expect(await screen.findByText(/400 Bad Request/)).toBeInTheDocument();
   expect(logRows()).toHaveLength(1);
+});
+
+function openMenu(row: HTMLElement) {
+  fireEvent(row, createEvent.contextMenu(row, { bubbles: true, cancelable: true }));
+}
+
+describe("right-click menus", () => {
+  it("disables Copy response and Clear log until there's a response and a logged request", async () => {
+    const user = userEvent.setup();
+    await openConsole(await storeProject());
+    await pickCreate(user);
+
+    openMenu(screen.getByRole("group", { name: "Response" }));
+    expect(screen.getByRole("menuitem", { name: "Copy response" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("menuitem", { name: "Copy as cURL" })).not.toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("menuitem", { name: "Clear log" })).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("disables the whole menu's cURL item until an endpoint is chosen", async () => {
+    await openConsole(await storeProject());
+    openMenu(screen.getByRole("group", { name: "Response" }));
+    expect(screen.getByRole("menuitem", { name: "Copy as cURL" })).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("copies the pretty response body and a cURL snippet from either the response or the request area", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    await openConsole(await storeProject());
+    await pickCreate(user);
+    await user.type(screen.getByLabelText(/^name/), "Lamp");
+    await user.type(screen.getByLabelText(/^price/), "25");
+    await user.click(screen.getByRole("button", { name: "Send request" }));
+    expect(await screen.findByText(/201 Created/)).toBeInTheDocument();
+
+    openMenu(screen.getByRole("group", { name: "Response" }));
+    await user.click(screen.getByRole("menuitem", { name: "Copy response" }));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('"name": "Lamp"'));
+
+    openMenu(screen.getByRole("group", { name: "Request" }));
+    await user.click(screen.getByRole("menuitem", { name: "Copy as cURL" }));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("curl"));
+  });
+
+  it("clears the log from the context menu", async () => {
+    const user = userEvent.setup();
+    await openConsole(await storeProject());
+    await pickCreate(user);
+    await user.type(screen.getByLabelText(/^name/), "Lamp");
+    await user.type(screen.getByLabelText(/^price/), "25");
+    await user.click(screen.getByRole("button", { name: "Send request" }));
+    expect(await screen.findByText(/201 Created/)).toBeInTheDocument();
+    expect(logRows()).toHaveLength(1);
+
+    openMenu(screen.getByRole("group", { name: "Response" }));
+    await user.click(screen.getByRole("menuitem", { name: "Clear log" }));
+    expect(await screen.findByText("No requests yet.")).toBeInTheDocument();
+  });
+
+  it("leaves the browser's menu alone on Shift+right-click", async () => {
+    await openConsole(await storeProject());
+    const target = screen.getByRole("group", { name: "Response" });
+    const event = createEvent.contextMenu(target, { bubbles: true, cancelable: true, shiftKey: true });
+    fireEvent(target, event);
+    expect(event.defaultPrevented).toBe(false);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
 });

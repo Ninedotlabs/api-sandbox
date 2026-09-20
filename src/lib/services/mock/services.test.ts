@@ -108,3 +108,15 @@ it("keeps a session log of sent requests, newest first, capped at 50", async () 
   await mockConsoleService.clearLog(p.id);
   expect(await mockConsoleService.log(p.id)).toEqual([]);
 });
+
+it("seeds records for a model and serves them", async () => {
+  const p = await newStore();
+  const product = p.models[0];
+  await mockConsoleService.seedRecords(p.id, product.id, [
+    { name: "Lamp", price: 25 },
+    { name: "Desk", price: 120 },
+  ]);
+  const rows = await mockConsoleService.sampleData(p.id, product.id);
+  expect(rows.map((r) => r.id)).toEqual(["1", "2"]);
+  expect(rows[0]).toMatchObject({ name: "Lamp", price: 25 });
+});

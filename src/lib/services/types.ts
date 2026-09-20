@@ -62,6 +62,8 @@ export interface LogEntry {
 export interface ConsoleService {
   send(projectId: string, request: TestRequest): Promise<TestResponse>;
   sampleData(projectId: string, modelId: string): Promise<Record<string, unknown>[]>;
+  /** Replace this model's records in the mock dataset; missing ids become "1", "2" … */
+  seedRecords(projectId: string, modelId: string, records: Record<string, unknown>[]): Promise<void>;
   reset(projectId: string): Promise<void>;
   /** The session's sent requests for this project, newest first (max 50). */
   log(projectId: string): Promise<LogEntry[]>;

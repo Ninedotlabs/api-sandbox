@@ -54,6 +54,14 @@ export const mockConsoleService: ConsoleService = {
     return delay(project ? (datasetFor(project)[modelId] ?? []) : []);
   },
 
+  async seedRecords(projectId, modelId, records) {
+    const project = findProject(projectId);
+    if (project) {
+      datasetFor(project)[modelId] = records.map((record, i) => ({ ...record, id: String(record.id ?? i + 1) }));
+    }
+    return delay(undefined);
+  },
+
   async reset(projectId) {
     datasets.delete(projectId);
     return delay(undefined);

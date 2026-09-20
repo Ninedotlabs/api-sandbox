@@ -1,4 +1,5 @@
 import { buildCrudRoutes } from "@/lib/crud";
+import { consoleService } from "@/lib/services";
 import { setMockLatency } from "@/lib/services/mock/latency";
 import { useProjectStore } from "./project-store";
 
@@ -91,4 +92,40 @@ describe("undo restores only the deleted entity", () => {
     await store.addRoutes(p.id, [{ ...routes[0], id: "rt_new" }]);
     await expect(store.restoreRoute(p.id, removed)).rejects.toThrow("Two routes can't share the same method and path.");
   });
+});
+
+it("applies an AI plan: models with fields, five routes each, seeded records", async () => {
+  const p = await useProjectStore.getState().createProject({ name: "Books", description: "", templateId: null });
+  const result = await useProjectStore.getState().applyPlan(p.id, {
+    resources: [
+      {
+        name: "Author",
+        description: "",
+        fields: [{ name: "name", type: "text", required: true, unique: false }],
+        records: [{ name: "Ann" }],
+      },
+      {
+        name: "Book",
+        description: "",
+        fields: [
+          { name: "title", type: "text", required: true, unique: false },
+          { name: "author", type: "link", required: false, unique: false, linkTo: "Author" },
+        ],
+        records: [{ title: "Dune", author: "1" }],
+      },
+    ],
+  });
+  const project = useProjectStore.getState().projects.find((x) => x.id === p.id)!;
+  expect(project.models.map((m) => m.name)).toEqual(["Author", "Book"]);
+  const book = project.models[1];
+  expect(book.fields.find((f) => f.name === "author")!.linkTo).toBe(project.models[0].id);
+  expect(project.routes.filter((r) => r.modelId === book.id).map((r) => r.action)).toEqual([
+    "list",
+    "get",
+    "create",
+    "update",
+    "delete",
+  ]);
+  expect(result).toEqual({ modelIds: project.models.map((m) => m.id), routeCount: 10 });
+  expect(await consoleService.sampleData(p.id, book.id)).toEqual([{ title: "Dune", author: "1", id: "1" }]);
 });

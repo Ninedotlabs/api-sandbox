@@ -7,7 +7,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
-    setupFiles: ["./vitest.setup.ts"],
+    setupFiles: ["./vitest.setup.ts", "./vitest.setup.pg.ts"],
     css: false,
     // Node 22+ ships an experimental global `localStorage` that shadows
     // jsdom's implementation and lacks methods like `.clear()`. Disable it

@@ -58,6 +58,25 @@ it("shows the browser-menu hint the first time a menu is opened, and not once it
   expect(useUiStore.getState().seenContextMenuHint).toBe(true);
 });
 
+it("does not let a right-click bubble up to open an ancestor's context menu too", () => {
+  const outer = items();
+  const inner: ContextMenuItemSpec[] = [{ id: "inner-one", label: "Inner", onSelect: vi.fn() }];
+  renderUi(
+    <ContextMenuTarget items={outer}>
+      <div data-testid="background">
+        <ContextMenuTarget items={inner}>
+          <div data-testid="row">Row</div>
+        </ContextMenuTarget>
+      </div>
+    </ContextMenuTarget>,
+  );
+  const row = screen.getByTestId("row");
+  fireEvent(row, createEvent.contextMenu(row, { bubbles: true, cancelable: true }));
+  expect(screen.getAllByRole("menu")).toHaveLength(1);
+  expect(screen.getByRole("menuitem", { name: "Inner" })).toBeInTheDocument();
+  expect(screen.queryByRole("menuitem", { name: "One" })).not.toBeInTheDocument();
+});
+
 it("does not show the hint again once it has already been seen", () => {
   useUiStore.setState({ seenContextMenuHint: true });
   const row = renderTarget();

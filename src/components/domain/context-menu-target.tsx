@@ -23,6 +23,11 @@ interface Props {
  * an item spec array as menu rows, and keeps Shift+right-click reserved for the browser's own
  * menu: a capture-phase handler on the trigger stops the event before Radix's own bubble-phase
  * handler runs, so it never calls `preventDefault`.
+ *
+ * A plain right-click also stops propagating once it reaches this trigger (after Radix's own
+ * handler has run). Targets nest — a page-background menu wraps rows that carry their own more
+ * specific menu — and Radix's trigger only calls `preventDefault`, never `stopPropagation`; left
+ * alone, a right-click on a row would bubble up and also pop open the background menu.
  */
 export function ContextMenuTarget({ items, children, asChild }: Props) {
   const seenHint = useUiStore((s) => s.seenContextMenuHint);
@@ -47,6 +52,7 @@ export function ContextMenuTarget({ items, children, asChild }: Props) {
         onContextMenuCapture={(event) => {
           if (event.shiftKey) event.stopPropagation();
         }}
+        onContextMenu={(event) => event.stopPropagation()}
       >
         {children}
       </ContextMenuTrigger>

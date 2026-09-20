@@ -48,7 +48,7 @@ export function ProjectMenu({ project }: { project: Project }) {
   return (
     <DropdownMenu onOpenChange={(open) => !open && setArmed(false)}>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="icon" aria-label="Project actions" className="rounded-xl">
+        <Button variant="ghost" size="icon-sm" aria-label="Project actions" className="rounded-md text-ink-2">
           <MoreVertical className="size-4" />
         </Button>
       </DropdownMenuTrigger>

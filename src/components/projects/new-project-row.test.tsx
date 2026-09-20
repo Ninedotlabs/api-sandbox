@@ -1,6 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { TEMPLATES } from "@/lib/templates";
 import { NewProjectRow } from "./new-project-row";
+
+const CHOICE_LAST = TEMPLATES[TEMPLATES.length - 1].name;
 
 it("creates a project from a template", async () => {
   const user = userEvent.setup();
@@ -35,4 +38,25 @@ it("shows a rejected creation inline and keeps the name", async () => {
   await user.click(screen.getByRole("button", { name: "Create" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("boom");
   expect(screen.getByLabelText("Project name")).toHaveValue("My Store");
+});
+
+it("moves the template choice with the arrow keys under a roving tabindex", async () => {
+  const user = userEvent.setup();
+  render(<NewProjectRow existingProjects={[]} onCreate={vi.fn()} />);
+  const blank = screen.getByRole("radio", { name: "Blank" });
+  expect(blank).toHaveAttribute("tabindex", "0");
+  expect(screen.getByRole("radio", { name: "Store" })).toHaveAttribute("tabindex", "-1");
+
+  blank.focus();
+  await user.keyboard("{ArrowRight}");
+  const blog = screen.getByRole("radio", { name: "Blog" });
+  expect(blog).toBeChecked();
+  expect(blog).toHaveFocus();
+  expect(blog).toHaveAttribute("tabindex", "0");
+  expect(blank).toHaveAttribute("tabindex", "-1");
+
+  await user.keyboard("{ArrowLeft}");
+  expect(screen.getByRole("radio", { name: "Blank" })).toBeChecked();
+  await user.keyboard("{ArrowUp}");
+  expect(screen.getByRole("radio", { name: CHOICE_LAST })).toBeChecked();
 });

@@ -37,7 +37,7 @@ export default function ReferencePage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-4xl gap-10 px-6 py-10">
+    <div className="mx-auto flex max-w-4xl flex-col gap-10 px-6 py-10 lg:flex-row">
       <ReferenceIndex sections={sections} />
       <article className="min-w-0 flex-1 space-y-12">
         <section id="introduction" className="scroll-mt-20 space-y-3">

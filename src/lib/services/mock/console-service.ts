@@ -60,7 +60,7 @@ export const mockConsoleService: ConsoleService = {
   },
 
   async log(projectId) {
-    return delay(logs.get(projectId) ?? []);
+    return delay([...(logs.get(projectId) ?? [])]);
   },
 
   async clearLog(projectId) {

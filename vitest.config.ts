@@ -7,6 +7,10 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    // `.claude/worktrees/` holds isolated checkouts for background agents. Their tests
+    // belong to that checkout, not this one, and sweeping them up makes a green run look
+    // red for reasons that have nothing to do with the code under test.
+    exclude: ["**/node_modules/**", "**/dist/**", "**/.claude/**"],
     setupFiles: ["./vitest.setup.ts"],
     css: false,
     // Node 22+ ships an experimental global `localStorage` that shadows

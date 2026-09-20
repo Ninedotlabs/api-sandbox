@@ -1,3 +1,4 @@
+import type { EditPlan } from "@/lib/ai/plan";
 import { buildCrudRoutes } from "@/lib/crud";
 import { consoleService, routeService } from "@/lib/services";
 import { setMockLatency } from "@/lib/services/mock/latency";
@@ -161,4 +162,40 @@ it("resumes an AI plan after a failed step, without duplicating models", async (
   expect(project.models.map((m) => m.name)).toEqual(["Author", "Book"]);
   expect(project.routes).toHaveLength(10);
   expect(result).toEqual({ modelIds: project.models.map((m) => m.id), routeCount: 10 });
+});
+
+it("edit: adds a new resource and changes an existing one, preserving untouched fields and ids", async () => {
+  const project = await useProjectStore.getState().createProject({ name: "Shop", description: "", templateId: null });
+  const book = await useProjectStore.getState().createModel(project.id, "Book");
+  await useProjectStore.getState().saveModel(project.id, { ...book, fields: [{ id: "f-title", name: "title", type: "text", required: true, unique: false }] });
+
+  const plan: EditPlan = {
+    resources: [
+      { name: "Book", description: "", fields: [{ name: "genre", type: "text", required: false, unique: false }], records: [] },
+      { name: "Author", description: "", fields: [{ name: "name", type: "text", required: true, unique: false }], records: [{ name: "Ann" }] },
+    ],
+    customEndpoints: [],
+  };
+  const result = await useProjectStore.getState().applyEditPlan(project.id, plan);
+  const after = useProjectStore.getState().projects.find((x) => x.id === project.id)!;
+  const bookAfter = after.models.find((m) => m.name === "Book")!;
+  expect(bookAfter.fields.find((f) => f.name === "title")!.id).toBe("f-title"); // untouched field kept its id
+  expect(bookAfter.fields.map((f) => f.name)).toEqual(["title", "genre"]);
+  expect(after.models.map((m) => m.name)).toEqual(["Book", "Author"]);
+  expect(result).toEqual({ modelIds: [bookAfter.id, after.models[1].id], newResourceCount: 1, changedResourceCount: 1, endpointCount: 10 });
+  expect(after.routes.filter((r) => r.modelId === bookAfter.id)).toHaveLength(5);
+});
+
+it("edit: a link on a new resource can target an existing resource that isn't itself in the plan", async () => {
+  const project = await useProjectStore.getState().createProject({ name: "Shop", description: "", templateId: null });
+  await useProjectStore.getState().createModel(project.id, "Book");
+  const plan: EditPlan = {
+    resources: [{ name: "Review", description: "", fields: [{ name: "rating", type: "number", required: true, unique: false }, { name: "book", type: "link", required: true, unique: false, linkTo: "Book" }], records: [{ rating: 5, book: "1" }] }],
+    customEndpoints: [],
+  };
+  await useProjectStore.getState().applyEditPlan(project.id, plan);
+  const after = useProjectStore.getState().projects.find((x) => x.id === project.id)!;
+  const book = after.models.find((m) => m.name === "Book")!;
+  const review = after.models.find((m) => m.name === "Review")!;
+  expect(review.fields.find((f) => f.name === "book")!.linkTo).toBe(book.id);
 });

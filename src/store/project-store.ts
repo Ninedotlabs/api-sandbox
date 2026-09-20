@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ApiPlan } from "@/lib/ai/plan";
+import type { ApiPlan, EditPlan, PlanField } from "@/lib/ai/plan";
 import { buildCrudRoutes, type CrudAction } from "@/lib/crud";
 import { createId } from "@/lib/ids";
 import {
@@ -11,9 +11,23 @@ import {
   type RemovedModel,
   type RemovedRoute,
 } from "@/lib/services";
-import type { Model, Project, Route } from "@/lib/types";
+import type { Field, Model, Project, Route } from "@/lib/types";
 
 const ALL_CRUD: CrudAction[] = ["list", "get", "create", "update", "delete"];
+
+/** `overrides` win by name (case-insensitive): an existing field keeps its id and gets the
+ * plan's values, a new name is appended with a fresh id. Nothing is ever removed. */
+function mergeFields(current: Field[], overrides: PlanField[], resourceIds: Map<string, string>): Field[] {
+  const merged = current.map((f) => ({ ...f }));
+  for (const o of overrides) {
+    const index = merged.findIndex((f) => f.name.toLowerCase() === o.name.toLowerCase());
+    const linkTo = o.linkTo ? resourceIds.get(o.linkTo) : undefined;
+    const next: Field = { id: index >= 0 ? merged[index].id : createId("fld"), name: o.name, type: o.type, required: o.required, unique: o.unique, ...(o.options ? { options: o.options } : {}), ...(linkTo ? { linkTo } : {}) };
+    if (index >= 0) merged[index] = next;
+    else merged.push(next);
+  }
+  return merged;
+}
 
 interface ProjectState {
   projects: Project[];
@@ -35,6 +49,9 @@ interface ProjectState {
   restoreRoute(projectId: string, removed: RemovedRoute): Promise<void>;
   /** Create every resource in an AI plan with its fields, CRUD routes and sample records. */
   applyPlan(projectId: string, plan: ApiPlan): Promise<{ modelIds: string[]; routeCount: number }>;
+  /** Merge an AI edit plan into an existing project: new resources are created, existing
+   * ones have their fields merged (never overwritten) and endpoints/records added. */
+  applyEditPlan(projectId: string, plan: EditPlan): Promise<{ modelIds: string[]; newResourceCount: number; changedResourceCount: number; endpointCount: number }>;
 }
 
 export const useProjectStore = create<ProjectState>()((set, get) => {
@@ -158,6 +175,51 @@ export const useProjectStore = create<ProjectState>()((set, get) => {
           await consoleService.seedRecords(projectId, id, resource.records);
         }
         return { modelIds, routeCount };
+      } finally {
+        await refresh(projectId);
+      }
+    },
+    async applyEditPlan(projectId, plan) {
+      // Resumable and additive, same guarantee as applyPlan: `ids` starts from every
+      // existing model (so a link can target one this edit never touches), fields are
+      // merged rather than replaced, and standard endpoints/records are only ever added
+      // to or replaced for a resource this plan actually names.
+      try {
+        const before = await projectService.get(projectId);
+        if (!before) throw new Error("This API no longer exists.");
+        const ids = new Map<string, string>(before.models.map((m) => [m.name, m.id]));
+        let created = 0;
+        for (const resource of plan.resources) {
+          if (!ids.has(resource.name)) {
+            ids.set(resource.name, (await modelService.create(projectId, resource.name)).id);
+            created++;
+          }
+        }
+        const modelIds: string[] = [];
+        let endpointCount = 0;
+        for (const resource of plan.resources) {
+          const id = ids.get(resource.name)!;
+          modelIds.push(id);
+          const current = (await projectService.get(projectId))!.models.find((m) => m.id === id)!;
+          const merged = mergeFields(current.fields, resource.fields, ids);
+          const model: Model = { ...current, fields: merged };
+          await modelService.update(projectId, model);
+          if (resource.records.length) await consoleService.seedRecords(projectId, id, resource.records);
+          const projectNow = (await projectService.get(projectId))!;
+          const routes = buildCrudRoutes(model, ALL_CRUD, projectNow.routes);
+          await routeService.createMany(projectId, routes);
+          endpointCount += routes.length;
+        }
+        const projectNow = (await projectService.get(projectId))!;
+        const customRoutes = plan.customEndpoints
+          .map((c) => ({ ...c, modelId: c.resourceName ? (ids.get(c.resourceName) ?? null) : null }))
+          .filter((c) => !projectNow.routes.some((r) => r.method === c.method && r.path === c.path))
+          .map((c) => ({ id: createId("rt"), method: c.method, path: c.path, modelId: c.modelId, action: "custom" as const, description: c.description, filters: [] }));
+        if (customRoutes.length) {
+          await routeService.createMany(projectId, customRoutes);
+          endpointCount += customRoutes.length;
+        }
+        return { modelIds, newResourceCount: created, changedResourceCount: plan.resources.length - created, endpointCount };
       } finally {
         await refresh(projectId);
       }

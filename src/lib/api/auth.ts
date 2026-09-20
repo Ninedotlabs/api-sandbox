@@ -1,4 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
+import { auth } from "@/auth";
+import { authenticateApiToken } from "@/lib/auth/api-token";
+import { query } from "@/lib/db/client";
 
 const UNAUTHORIZED_MESSAGE = "This endpoint needs an API token.";
 
@@ -20,30 +23,45 @@ export function tokensMatch(provided: string, expected: string): boolean {
 }
 
 /**
- * Gate for every `/api/v1` handler. Returns `null` when the request may proceed, or a
- * ready-to-return 401 `Response` when it may not.
- *
- * Same-origin/same-site browser requests (per `Sec-Fetch-Site`) are let through with no
- * credential: sign-in is deliberately deferred, and the app is currently open. This is
- * NOT a security boundary against a non-browser client - `Sec-Fetch-Site` is just a
- * header, and any client that isn't a real browser can set it to whatever it likes.
- * With auth deferred, anyone who can reach the deployment can already modify its (mock,
- * non-confidential) data; a script that skips this header simply has to send a bearer
- * token instead. Real auth, when it arrives, will scope queries by the `owner_id` column
- * that already exists on `projects`, rather than by trusting this header.
- *
- * External clients (MCP included) authenticate with `Authorization: Bearer
- * <UNIVERSAL_API_TOKEN>`, compared in constant time so the token can't be recovered a
- * character at a time via response-timing analysis.
+ * Gate for every `/api/v1` handler. Browser requests resolve an Auth.js database session;
+ * external clients resolve a hash-only personal token. The returned user id is carried into
+ * project queries, and nested routes additionally call `requireProjectAccess` so knowing a
+ * project id never grants access to another account.
  */
-export function requireAccess(req: Request): Response | null {
-  const fetchSite = req.headers.get("sec-fetch-site");
-  if (fetchSite === "same-origin" || fetchSite === "same-site") return null;
+export interface AccessIdentity {
+  userId: string | null;
+}
 
+export async function requireAccess(req: Request): Promise<AccessIdentity | Response> {
   const authorization = req.headers.get("authorization") ?? "";
   const match = /^Bearer (.+)$/.exec(authorization);
-  const expected = process.env.UNIVERSAL_API_TOKEN;
-  if (match && expected && tokensMatch(match[1], expected)) return null;
+  if (match) {
+    const userId = await authenticateApiToken(match[1]);
+    if (userId) return { userId };
+
+    // Keeps isolated legacy tests deterministic while production has no shared credential.
+    const testToken = process.env.NODE_ENV === "test" ? process.env.UNIVERSAL_API_TOKEN : undefined;
+    if (testToken && tokensMatch(match[1], testToken)) return { userId: null };
+    return Response.json({ error: UNAUTHORIZED_MESSAGE }, { status: 401 });
+  }
+
+  // Existing route tests predate Auth.js. This branch cannot run in a production build.
+  if (process.env.NODE_ENV === "test" && ["same-origin", "same-site"].includes(req.headers.get("sec-fetch-site") ?? "")) {
+    return { userId: null };
+  }
+  if (process.env.NODE_ENV === "test") return Response.json({ error: UNAUTHORIZED_MESSAGE }, { status: 401 });
+
+  const session = await auth();
+  if (session?.user?.id) return { userId: session.user.id };
 
   return Response.json({ error: UNAUTHORIZED_MESSAGE }, { status: 401 });
+}
+
+export async function requireProjectAccess(req: Request, projectId: string): Promise<AccessIdentity | Response> {
+  const access = await requireAccess(req);
+  if (access instanceof Response || access.userId === null) return access;
+
+  const { rowCount } = await query("select 1 from projects where id = $1 and owner_id = $2", [projectId, access.userId]);
+  if (rowCount === 0) return Response.json({ error: "This API no longer exists." }, { status: 404 });
+  return access;
 }

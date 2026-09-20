@@ -1,8 +1,9 @@
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
-export function Wordmark() {
+export function Wordmark({ className }: { className?: string }) {
   return (
-    <Link href="/projects" aria-label="Universal API home" className="inline-flex items-center gap-2 text-ink">
+    <Link href="/projects" aria-label="Universal API home" className={cn("inline-flex items-center gap-2 text-ink", className)}>
       <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden className="shrink-0">
         <path d="M7 4 3 10l4 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
         <path d="m13 4 4 6-4 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />

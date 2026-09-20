@@ -1,12 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Bot, Braces, Globe2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { ContextMenuTarget } from "@/components/domain/context-menu-target";
 import { Kicker } from "@/components/domain/kicker";
 import { NEW_PROJECT_NAME_ID, NewProjectRow } from "@/components/projects/new-project-row";
 import { ProjectList } from "@/components/projects/project-list";
-import { TopBar } from "@/components/shell/top-bar";
+import { DashboardShell } from "@/components/shell/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { backgroundItems } from "@/lib/context-menu-items";
@@ -32,13 +33,42 @@ export default function ProjectsPage() {
   });
 
   return (
-    <div className="min-h-screen">
-      <TopBar />
+    <DashboardShell title="Projects" description="Create, shape and test public mock APIs.">
       <ContextMenuTarget items={backgroundMenuItems} asChild>
-        <main className="mx-auto max-w-5xl space-y-4 px-4 py-8 md:px-6">
-          <div className="flex items-baseline gap-3">
-            <h1 className="text-xl font-semibold">Projects</h1>
-            {loaded && <Kicker>{countLabel(projects.length, "project")}</Kicker>}
+        <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 md:px-6 md:py-8">
+          <section className="overflow-hidden rounded-2xl border border-line bg-slate text-slate-ink shadow-pop">
+            <div className="grid gap-6 p-6 md:grid-cols-[1fr_auto] md:items-center md:p-8">
+              <div className="max-w-2xl space-y-3">
+                <Kicker>API workspace</Kicker>
+                <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">Go from an idea to a testable endpoint in minutes.</h2>
+                <p className="max-w-xl text-sm leading-relaxed text-slate-muted md:text-base">
+                  Model resources visually, generate them with AI, seed realistic data, then share a live URL with your frontend or test suite.
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                {[
+                  { icon: Braces, label: "Design" },
+                  { icon: Globe2, label: "Publish" },
+                  { icon: Bot, label: "Automate" },
+                ].map(({ icon: Icon, label }) => (
+                  <div key={label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-4">
+                    <Icon className="mx-auto mb-2 size-5 text-method-put-on-slate" aria-hidden />
+                    {label}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="flex items-baseline gap-3">
+                <h1 className="text-xl font-semibold">Your APIs</h1>
+                {loaded && <Kicker>{countLabel(projects.length, "project")}</Kicker>}
+              </div>
+              <p className="mt-1 text-sm text-ink-3">Each project gets a public mock URL and an MCP-accessible management surface.</p>
+            </div>
+            <Sparkles className="hidden size-5 text-accent sm:block" aria-hidden />
           </div>
           <div className="overflow-hidden rounded-lg border border-line bg-surface">
             <NewProjectRow existingProjects={projects} onCreate={create} autoFocus={loaded && projects.length === 0} />
@@ -53,12 +83,16 @@ export default function ProjectsPage() {
           ) : !loaded ? (
             <Skeleton className="h-40 w-full rounded-lg" />
           ) : projects.length === 0 ? (
-            <p className="px-1 text-sm text-ink-3">Define a resource, mock its endpoints, send a request.</p>
+            <div className="rounded-xl border border-dashed border-line-strong bg-surface/70 p-8 text-center">
+              <Braces className="mx-auto mb-3 size-8 text-accent" aria-hidden />
+              <p className="font-medium text-ink">Create your first API above</p>
+              <p className="mt-1 text-sm text-ink-3">Define a resource, mock its endpoints, send a request.</p>
+            </div>
           ) : (
             <ProjectList projects={projects} />
           )}
         </main>
       </ContextMenuTarget>
-    </div>
+    </DashboardShell>
   );
 }

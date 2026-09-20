@@ -13,7 +13,7 @@
 import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import proxy, { config } from "./proxy";
+import proxy, { config, isAuthRequired } from "./proxy";
 
 const auth = vi.fn();
 vi.mock("@/auth", () => ({ auth: (...args: unknown[]) => auth(...args) }));
@@ -23,16 +23,30 @@ function request(pathname: string): NextRequest {
 }
 
 describe("proxy", () => {
-  const originalFlag = process.env.AUTH_REQUIRED;
+  const authEnvKeys = ["AUTH_REQUIRED", "AUTH_GOOGLE_ID", "AUTH_GOOGLE_SECRET", "AUTH_SECRET"] as const;
+  const originalEnv = Object.fromEntries(authEnvKeys.map((key) => [key, process.env[key]]));
+
+  function clearAuthEnv() {
+    for (const key of authEnvKeys) delete process.env[key];
+  }
+
+  function configureOAuth() {
+    process.env.AUTH_GOOGLE_ID = "google-client-id";
+    process.env.AUTH_GOOGLE_SECRET = "google-client-secret";
+    process.env.AUTH_SECRET = "auth-secret";
+  }
 
   afterEach(() => {
     auth.mockReset();
-    if (originalFlag === undefined) delete process.env.AUTH_REQUIRED;
-    else process.env.AUTH_REQUIRED = originalFlag;
+    for (const key of authEnvKeys) {
+      const value = originalEnv[key];
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
   });
 
-  it("does nothing when AUTH_REQUIRED is off (the default): no redirect, auth() not even consulted", async () => {
-    delete process.env.AUTH_REQUIRED;
+  it("does nothing when OAuth is not configured and AUTH_REQUIRED is unset", async () => {
+    clearAuthEnv();
 
     const response = await proxy(request("/projects"));
 
@@ -40,17 +54,47 @@ describe("proxy", () => {
     expect(auth).not.toHaveBeenCalled();
   });
 
+  it("requires authentication automatically when Google OAuth is fully configured", async () => {
+    clearAuthEnv();
+    configureOAuth();
+    auth.mockResolvedValue(null);
+
+    const response = await proxy(request("/projects"));
+
+    expect(isAuthRequired()).toBe(true);
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe("/sign-in");
+    expect(location.searchParams.get("callbackUrl")).toBe("/projects");
+  });
+
+  it("keeps AUTH_REQUIRED=false as an explicit break-glass bypass", async () => {
+    clearAuthEnv();
+    configureOAuth();
+    process.env.AUTH_REQUIRED = "false";
+
+    const response = await proxy(request("/projects"));
+
+    expect(isAuthRequired()).toBe(false);
+    expect(response.headers.get("location")).toBeNull();
+    expect(auth).not.toHaveBeenCalled();
+  });
+
   it("redirects an unauthenticated app page to /sign-in when AUTH_REQUIRED is on", async () => {
+    clearAuthEnv();
     process.env.AUTH_REQUIRED = "true";
     auth.mockResolvedValue(null);
 
     const response = await proxy(request("/projects"));
 
     expect(response.status).toBe(307);
-    expect(new URL(response.headers.get("location")!).pathname).toBe("/sign-in");
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe("/sign-in");
+    expect(location.searchParams.get("callbackUrl")).toBe("/projects");
   });
 
   it("lets an authenticated request through when AUTH_REQUIRED is on", async () => {
+    clearAuthEnv();
     process.env.AUTH_REQUIRED = "true";
     auth.mockResolvedValue({ user: { id: "usr_1" } });
 
@@ -60,6 +104,7 @@ describe("proxy", () => {
   });
 
   it("fails toward the sign-in page, never an error page, if auth() throws", async () => {
+    clearAuthEnv();
     process.env.AUTH_REQUIRED = "true";
     auth.mockImplementation(async () => {
       throw new Error("database unreachable");
@@ -71,7 +116,20 @@ describe("proxy", () => {
     expect(new URL(response.headers.get("location")!).pathname).toBe("/sign-in");
   });
 
+  it("preserves a deep link so sign-in can return the user to the requested page", async () => {
+    clearAuthEnv();
+    process.env.AUTH_REQUIRED = "true";
+    auth.mockResolvedValue(null);
+
+    const response = await proxy(request("/mcp?tab=deployed"));
+    const location = new URL(response.headers.get("location")!);
+
+    expect(location.pathname).toBe("/sign-in");
+    expect(location.searchParams.get("callbackUrl")).toBe("/mcp?tab=deployed");
+  });
+
   it("never redirects the sign-in page itself, even unauthenticated", async () => {
+    clearAuthEnv();
     process.env.AUTH_REQUIRED = "true";
     auth.mockResolvedValue(null);
 

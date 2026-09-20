@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requireAccess } from "@/lib/api/auth";
+import { requireProjectAccess } from "@/lib/api/auth";
 import { fail, firstIssue, handle, ok, readJson } from "@/lib/api/respond";
 import { requiredString } from "@/lib/api/schemas";
 import { pgProjectService } from "@/lib/services/pg/project-service";
@@ -18,10 +18,10 @@ const patchSchema = z.object({
 
 export async function GET(req: Request, context: Context): Promise<Response> {
   return handle(async () => {
-    const denied = requireAccess(req);
-    if (denied) return denied;
     const { id } = await context.params;
-    const project = await pgProjectService.get(id);
+    const access = await requireProjectAccess(req, id);
+    if (access instanceof Response) return access;
+    const project = access.userId ? await pgProjectService.get(id, access.userId) : await pgProjectService.get(id);
     if (!project) return fail(404, "This API no longer exists.");
     return ok(project);
   });
@@ -29,9 +29,9 @@ export async function GET(req: Request, context: Context): Promise<Response> {
 
 export async function PATCH(req: Request, context: Context): Promise<Response> {
   return handle(async () => {
-    const denied = requireAccess(req);
-    if (denied) return denied;
     const { id } = await context.params;
+    const access = await requireProjectAccess(req, id);
+    if (access instanceof Response) return access;
 
     const parsed = patchSchema.safeParse(await readJson(req));
     if (!parsed.success) return fail(400, firstIssue(parsed.error));
@@ -43,9 +43,9 @@ export async function PATCH(req: Request, context: Context): Promise<Response> {
 
 export async function DELETE(req: Request, context: Context): Promise<Response> {
   return handle(async () => {
-    const denied = requireAccess(req);
-    if (denied) return denied;
     const { id } = await context.params;
+    const access = await requireProjectAccess(req, id);
+    if (access instanceof Response) return access;
     const removed = await pgProjectService.remove(id);
     return ok(removed);
   });

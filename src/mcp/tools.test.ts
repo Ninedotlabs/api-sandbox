@@ -42,6 +42,7 @@ describe("TOOLS", () => {
         "update_resource",
         "delete_resource",
         "create_endpoints",
+        "generate_crud_endpoints",
         "update_endpoint",
         "delete_endpoint",
         "set_endpoint_response",
@@ -84,6 +85,7 @@ describe("TOOLS", () => {
         projectId: "prj_1",
         routes: [{ method: "GET", path: "/posts", modelId: null, action: "list" }],
       },
+      generate_crud_endpoints: { projectId: "prj_1", modelId: "mdl_1" },
       update_endpoint: { projectId: "prj_1", routeId: "rte_1" },
       delete_endpoint: { projectId: "prj_1", routeId: "rte_1" },
       set_endpoint_response: { projectId: "prj_1", routeId: "rte_1", mode: "static", body: { ok: true } },
@@ -110,6 +112,7 @@ describe("TOOLS", () => {
       update_resource: ["projectId", "modelId", "name"],
       delete_resource: ["projectId", "modelId"],
       create_endpoints: ["projectId", "routes"],
+      generate_crud_endpoints: ["projectId", "modelId"],
       update_endpoint: ["projectId", "routeId"],
       delete_endpoint: ["projectId", "routeId"],
       set_endpoint_response: ["projectId", "routeId", "mode"],
@@ -256,6 +259,83 @@ describe("TOOLS", () => {
       const routes = [{ method: "GET", path: "/posts", modelId: null, action: "list" }];
       await findTool("create_endpoints").handler({ projectId: "prj_1", routes }, client);
       expect(client.post).toHaveBeenCalledWith("/api/v1/projects/prj_1/routes", { routes });
+    });
+
+    describe("generate_crud_endpoints", () => {
+      const model = {
+        id: "mdl_1",
+        name: "Widget",
+        fields: [{ id: "fld_1", name: "title", type: "text", required: false, unique: false }],
+      };
+      const project = { id: "prj_1", models: [model], routes: [] };
+
+      it("fetches the project, builds the five standard routes for the resource via buildCrudRoutes, and posts them", async () => {
+        const client = mockClient({
+          get: vi.fn(async () => project),
+          post: vi.fn(async (_path: string, body: unknown) => (body as { routes: unknown[] }).routes),
+        });
+
+        const result = (await findTool("generate_crud_endpoints").handler({ projectId: "prj_1", modelId: "mdl_1" }, client)) as Array<{
+          method: string;
+          path: string;
+          action: string;
+        }>;
+
+        expect(client.get).toHaveBeenCalledWith("/api/v1/projects/prj_1");
+        expect(client.post).toHaveBeenCalledWith(
+          "/api/v1/projects/prj_1/routes",
+          expect.objectContaining({
+            routes: expect.arrayContaining([
+              expect.objectContaining({ method: "GET", path: "/widgets", action: "list", modelId: "mdl_1" }),
+              expect.objectContaining({ method: "GET", path: "/widgets/:id", action: "get", modelId: "mdl_1" }),
+              expect.objectContaining({ method: "POST", path: "/widgets", action: "create", modelId: "mdl_1" }),
+              expect.objectContaining({ method: "PUT", path: "/widgets/:id", action: "update", modelId: "mdl_1" }),
+              expect.objectContaining({ method: "DELETE", path: "/widgets/:id", action: "delete", modelId: "mdl_1" }),
+            ]),
+          }),
+        );
+        expect(result).toHaveLength(5);
+      });
+
+      it("only builds the requested actions when actions is given", async () => {
+        const client = mockClient({
+          get: vi.fn(async () => project),
+          post: vi.fn(async (_path: string, body: unknown) => (body as { routes: unknown[] }).routes),
+        });
+
+        await findTool("generate_crud_endpoints").handler({ projectId: "prj_1", modelId: "mdl_1", actions: ["list"] }, client);
+
+        expect(client.post).toHaveBeenCalledWith("/api/v1/projects/prj_1/routes", {
+          routes: [expect.objectContaining({ method: "GET", path: "/widgets", action: "list" })],
+        });
+      });
+
+      it("skips routes that already exist and, when everything already exists, does not call post at all", async () => {
+        const existing = {
+          id: "prj_1",
+          models: [model],
+          routes: [
+            { id: "rte_1", method: "GET", path: "/widgets", modelId: "mdl_1", action: "list", description: "", filters: [] },
+            { id: "rte_2", method: "GET", path: "/widgets/:id", modelId: "mdl_1", action: "get", description: "", filters: [] },
+            { id: "rte_3", method: "POST", path: "/widgets", modelId: "mdl_1", action: "create", description: "", filters: [] },
+            { id: "rte_4", method: "PUT", path: "/widgets/:id", modelId: "mdl_1", action: "update", description: "", filters: [] },
+            { id: "rte_5", method: "DELETE", path: "/widgets/:id", modelId: "mdl_1", action: "delete", description: "", filters: [] },
+          ],
+        };
+        const client = mockClient({ get: vi.fn(async () => existing), post: vi.fn() });
+
+        const result = await findTool("generate_crud_endpoints").handler({ projectId: "prj_1", modelId: "mdl_1" }, client);
+
+        expect(client.post).not.toHaveBeenCalled();
+        expect(result).toEqual([]);
+      });
+
+      it("throws a plain-language error when the resource no longer exists", async () => {
+        const client = mockClient({ get: vi.fn(async () => ({ id: "prj_1", models: [], routes: [] })) });
+        await expect(
+          findTool("generate_crud_endpoints").handler({ projectId: "prj_1", modelId: "missing" }, client),
+        ).rejects.toThrow("This resource no longer exists.");
+      });
     });
 
     describe("update_endpoint", () => {

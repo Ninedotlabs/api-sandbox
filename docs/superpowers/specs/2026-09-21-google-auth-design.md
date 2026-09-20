@@ -23,7 +23,7 @@ One detail to verify during implementation: the adapter expects to be able to in
 - `auth.ts` at the project root configures Auth.js v5 with the Google provider and the Postgres adapter, using `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` and `AUTH_SECRET` from the environment. Database sessions, not JWT — we already have a `sessions` table, and database sessions can be revoked.
 - `/api/auth/[...nextauth]/route.ts` mounts the handlers.
 - A sign-in page in the existing visual system: the product name, one sentence on what it does, and a single "Continue with Google" button. No carousel, no marketing.
-- Middleware redirects unauthenticated requests for app pages to sign-in. **`/api/<slug>/*` is exempt** — it must never redirect, never 401, and never set a cookie. A mock API that suddenly demands a session would break every client pointed at it.
+- Proxy redirects unauthenticated requests for app pages to sign-in once the complete Google/Auth.js configuration is present. `AUTH_REQUIRED=false` remains an explicit break-glass bypass for recovering from a bad OAuth deployment. **`/api/<slug>/*` is exempt** — it must never redirect, never 401, and never set a cookie. A mock API that suddenly demands a session would break every client pointed at it.
 
 ## 4. Claiming existing projects
 

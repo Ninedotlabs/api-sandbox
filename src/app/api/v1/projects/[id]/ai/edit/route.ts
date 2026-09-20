@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { parseEditPlan, PlanError, type ExistingResourceSummary } from "@/lib/ai/plan";
 import { callEditResponses, type AiConfig } from "@/lib/ai/request";
-import { requireAccess } from "@/lib/api/auth";
+import { requireProjectAccess } from "@/lib/api/auth";
 import { fail, firstIssue, handle, ok, readJson } from "@/lib/api/respond";
 import { applyEditPlanPg } from "@/lib/services/pg/apply-plan";
 import { pgProjectService } from "@/lib/services/pg/project-service";
@@ -62,9 +62,9 @@ async function buildExistingResources(project: Project): Promise<ExistingResourc
  */
 export async function POST(req: Request, context: Context): Promise<Response> {
   return handle(async () => {
-    const denied = requireAccess(req);
-    if (denied) return denied;
     const { id } = await context.params;
+    const access = await requireProjectAccess(req, id);
+    if (access instanceof Response) return access;
 
     const parsedBody = bodySchema.safeParse(await readJson(req));
     if (!parsedBody.success) return fail(400, firstIssue(parsedBody.error));

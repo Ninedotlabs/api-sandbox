@@ -16,22 +16,29 @@ import { auth } from "@/auth";
  *    `/api/<slug>/*` (a project's public mock endpoints - must never redirect, 401, or
  *    receive a cookie), nor for `/api/auth/*`, `/api/v1/*`, `/api/mcp`, or `/api/ai/*`.
  *    That is a framework-level exclusion, not a runtime check that could have a bug.
- * 2. Gated behind `AUTH_REQUIRED` (default OFF). Flipping it on requires a real, verified
- *    Google sign-in first - see the task report. With it off, this file changes nothing
- *    about how the app behaves today.
+ * 2. The gate turns on automatically once the complete Google/Auth.js configuration is
+ *    present. `AUTH_REQUIRED=true` can force it on, while `AUTH_REQUIRED=false` is an
+ *    explicit break-glass bypass for recovering from a bad OAuth deployment.
  *
  * On top of that, `auth()` is wrapped in try/catch: a broken adapter or misconfigured
  * credentials must send a visitor to `/sign-in`, never crash into an error page - the
  * whole point of gating this behind a flag is to make that failure mode recoverable.
  */
 const EXEMPT_PATHS = ["/sign-in"];
+const REQUIRED_AUTH_ENV = ["AUTH_GOOGLE_ID", "AUTH_GOOGLE_SECRET", "AUTH_SECRET"] as const;
+
+export function isAuthRequired(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.AUTH_REQUIRED === "true") return true;
+  if (env.AUTH_REQUIRED === "false") return false;
+  return REQUIRED_AUTH_ENV.every((key) => Boolean(env[key]?.trim()));
+}
 
 function isExempt(pathname: string): boolean {
   return EXEMPT_PATHS.some((path) => pathname === path);
 }
 
 export default async function proxy(request: NextRequest) {
-  if (process.env.AUTH_REQUIRED !== "true") return NextResponse.next();
+  if (!isAuthRequired()) return NextResponse.next();
 
   const { pathname } = request.nextUrl;
   if (isExempt(pathname)) return NextResponse.next();
@@ -51,7 +58,9 @@ export default async function proxy(request: NextRequest) {
     process.stderr.write(`[proxy] auth() failed; failing toward sign-in rather than an error page: ${message}\n`);
   }
 
-  return NextResponse.redirect(new URL("/sign-in", request.url));
+  const signInUrl = new URL("/sign-in", request.url);
+  signInUrl.searchParams.set("callbackUrl", `${pathname}${request.nextUrl.search}`);
+  return NextResponse.redirect(signInUrl);
 }
 
 export const config = {

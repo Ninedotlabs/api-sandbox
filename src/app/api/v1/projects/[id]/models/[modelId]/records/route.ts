@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requireAccess } from "@/lib/api/auth";
+import { requireProjectAccess } from "@/lib/api/auth";
 import { fail, firstIssue, handle, ok, readJson } from "@/lib/api/respond";
 import { createId } from "@/lib/ids";
 import { pgRecordService } from "@/lib/services/pg/record-service";
@@ -18,9 +18,9 @@ const replaceSchema = z.object({
 
 export async function GET(req: Request, context: Context): Promise<Response> {
   return handle(async () => {
-    const denied = requireAccess(req);
-    if (denied) return denied;
     const { id, modelId } = await context.params;
+    const access = await requireProjectAccess(req, id);
+    if (access instanceof Response) return access;
     const records = await pgRecordService.sampleData(id, modelId);
     return ok(records);
   });
@@ -28,9 +28,9 @@ export async function GET(req: Request, context: Context): Promise<Response> {
 
 export async function PUT(req: Request, context: Context): Promise<Response> {
   return handle(async () => {
-    const denied = requireAccess(req);
-    if (denied) return denied;
     const { id, modelId } = await context.params;
+    const access = await requireProjectAccess(req, id);
+    if (access instanceof Response) return access;
 
     const parsed = replaceSchema.safeParse(await readJson(req));
     if (!parsed.success) return fail(400, firstIssue(parsed.error));
@@ -43,9 +43,9 @@ export async function PUT(req: Request, context: Context): Promise<Response> {
 
 export async function POST(req: Request, context: Context): Promise<Response> {
   return handle(async () => {
-    const denied = requireAccess(req);
-    if (denied) return denied;
     const { id, modelId } = await context.params;
+    const access = await requireProjectAccess(req, id);
+    if (access instanceof Response) return access;
 
     const parsed = recordShape.safeParse(await readJson(req));
     if (!parsed.success) return fail(400, firstIssue(parsed.error));

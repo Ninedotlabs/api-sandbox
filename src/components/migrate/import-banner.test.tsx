@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Project } from "@/lib/types";
 import { useProjectStore } from "@/store/project-store";
@@ -44,6 +44,26 @@ it("offers to import found projects, naming how many", async () => {
   expect(await screen.findByText(/found 2 apis saved in this browser/i)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /import/i })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /not now/i })).toBeInTheDocument();
+});
+
+it("retries the check once the project list loads, offering after a cold-start failure", async () => {
+  // The first check runs while the database is still cold; `projectsToOffer` can't confirm
+  // the account is empty, so it (correctly) answers "don't offer". Once the project list
+  // itself finishes loading - the store's `loaded` flag flips true - the banner should
+  // re-check rather than staying hidden until a manual reload.
+  projectsToOffer.mockResolvedValueOnce([]).mockResolvedValueOnce([project()]);
+  useProjectStore.setState({ loadProjects: vi.fn().mockResolvedValue(undefined), loaded: false } as never);
+
+  render(<ImportBanner />);
+  await waitFor(() => expect(projectsToOffer).toHaveBeenCalledTimes(1));
+  expect(screen.queryByText(/found 1 api saved in this browser/i)).not.toBeInTheDocument();
+
+  act(() => {
+    useProjectStore.setState({ loaded: true } as never);
+  });
+
+  expect(await screen.findByText(/found 1 api saved in this browser/i)).toBeInTheDocument();
+  expect(projectsToOffer).toHaveBeenCalledTimes(2);
 });
 
 it("never imports without an explicit click", async () => {

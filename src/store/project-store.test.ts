@@ -14,6 +14,18 @@ beforeEach(() => {
   vi.mocked(toast.error).mockClear();
 });
 
+it("records loadError on a failed load without setting loaded, then clears it on a successful retry", async () => {
+  vi.spyOn(projectService, "list").mockRejectedValueOnce(new Error("Could not reach your account. Please try again."));
+
+  await useProjectStore.getState().loadProjects();
+  expect(useProjectStore.getState().loaded).toBe(false);
+  expect(useProjectStore.getState().loadError).toBe("Could not reach your account. Please try again.");
+
+  await useProjectStore.getState().loadProjects();
+  expect(useProjectStore.getState().loaded).toBe(true);
+  expect(useProjectStore.getState().loadError).toBeNull();
+});
+
 it("loads, creates, deletes and restores projects", async () => {
   await useProjectStore.getState().loadProjects();
   expect(useProjectStore.getState().loaded).toBe(true);

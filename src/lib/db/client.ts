@@ -31,12 +31,23 @@ function resolveSsl(connectionString: string): false | { rejectUnauthorized: fal
 // enough for this app's traffic and leaves headroom for other processes.
 const MAX_POOL_CONNECTIONS = 3;
 
+// Neon (and most managed Postgres) auto-suspends when idle; the first connect after that wakes
+// compute and can take several seconds, per `AGENTS.md` and the same reasoning
+// `vitest.setup.pg.ts` uses for its own one-time probe. A short timeout would turn a normal
+// cold start into a hard failure, so this is generous on purpose.
+const CONNECTION_TIMEOUT_MILLIS = 30_000;
+
 function createPool(): Pool {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error("DATABASE_URL is not set. Add it to .env.local.");
   }
-  return new Pool({ connectionString, ssl: resolveSsl(connectionString), max: MAX_POOL_CONNECTIONS });
+  return new Pool({
+    connectionString,
+    ssl: resolveSsl(connectionString),
+    max: MAX_POOL_CONNECTIONS,
+    connectionTimeoutMillis: CONNECTION_TIMEOUT_MILLIS,
+  });
 }
 
 export function getPool(): Pool {
@@ -46,11 +57,48 @@ export function getPool(): Pool {
   return globalThis.__universalApiPgPool;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Bounded on purpose: this covers a cold start waking compute, not a general-purpose retry
+// loop (see the roadmap note ruling those out for the same class of failure - masking a real
+// outage instead of surfacing it). A handful of quick attempts is enough to ride out the
+// window where the first connect can fail outright while DNS/compute comes back; anything
+// still failing after that is a real problem the caller should see.
+const MAX_CONNECT_ATTEMPTS = 3;
+const CONNECT_RETRY_DELAY_MILLIS = 300;
+
+/**
+ * Checks out a client from the pool, retrying a bounded number of times if *acquiring the
+ * connection itself* fails. Once a client is acquired, whatever happens on it - a query error,
+ * a reset mid-query - is never retried here: a write might have partially applied, and
+ * retrying it blind could apply it twice. Only the connect step, which runs no user query, is
+ * safe to retry.
+ */
+async function connectWithRetry(): Promise<PoolClient> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= MAX_CONNECT_ATTEMPTS; attempt++) {
+    try {
+      return await getPool().connect();
+    } catch (error) {
+      lastError = error;
+      if (attempt < MAX_CONNECT_ATTEMPTS) await sleep(CONNECT_RETRY_DELAY_MILLIS);
+    }
+  }
+  throw lastError;
+}
+
 export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
   params?: unknown[],
 ): Promise<QueryResult<T>> {
-  return getPool().query<T>(text, params);
+  const client = await connectWithRetry();
+  try {
+    return await client.query<T>(text, params);
+  } finally {
+    client.release();
+  }
 }
 
 /**
@@ -58,7 +106,7 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
  * back if `fn` throws. The client is always released back to the pool.
  */
 export async function withTransaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
-  const client = await getPool().connect();
+  const client = await connectWithRetry();
   try {
     await client.query("begin");
     const result = await fn(client);

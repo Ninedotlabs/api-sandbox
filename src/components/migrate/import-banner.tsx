@@ -21,18 +21,31 @@ type Stage =
 export function ImportBanner() {
   const [stage, setStage] = useState<Stage>({ kind: "checking" });
   const loadProjects = useProjectStore((s) => s.loadProjects);
+  const projectsLoaded = useProjectStore((s) => s.loaded);
 
   useEffect(() => {
     let live = true;
     projectsToOffer().then((projects) => {
-      if (live) setStage(projects.length > 0 ? { kind: "offer", projects } : { kind: "hidden" });
+      if (!live) return;
+      setStage((prev) => {
+        // Never clobber an offer already shown, or an import in progress/done, with a later
+        // re-check's answer - this effect only exists to retry a check that couldn't confirm
+        // anything the first time, never to second-guess one that already did.
+        if (prev.kind !== "checking" && prev.kind !== "hidden") return prev;
+        return projects.length > 0 ? { kind: "offer", projects } : { kind: "hidden" };
+      });
     });
     return () => {
       live = false;
     };
-    // Checked once per mount: the answer ("does the server already have projects") doesn't
-    // change from anything this component itself does besides the import it triggers below.
-  }, []);
+    // Re-runs once the project list finishes loading. `projectsToOffer` treats a network
+    // failure the same as "the account isn't empty" - correctly, since it can't tell the
+    // difference and offering anyway risks a duplicate import - but on a cold database start
+    // that failure is transient, not permanent. By the time the project list itself has
+    // loaded (which retries through the same cold start at the db layer, see
+    // `src/lib/db/client.ts`), the database is warm, so re-checking then gets a real answer
+    // instead of leaving the banner hidden until the user manually reloads.
+  }, [projectsLoaded]);
 
   if (stage.kind === "checking" || stage.kind === "hidden") return null;
 

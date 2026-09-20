@@ -1,4 +1,4 @@
-import { createEvent, fireEvent, screen } from "@testing-library/react";
+import { createEvent, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Project } from "@/lib/types";
 import { useProjectStore } from "@/store/project-store";
@@ -21,7 +21,43 @@ function openMenu(target: HTMLElement) {
 }
 
 beforeEach(() => {
-  useProjectStore.setState({ projects: [], loaded: true });
+  useProjectStore.setState({ projects: [], loaded: true, loadError: null });
+});
+
+describe("first load", () => {
+  it("shows a loading state before the first response, never an empty account", () => {
+    useProjectStore.setState({ projects: [], loaded: false, loadError: null });
+    const { container } = renderUi(<ProjectsPage />);
+    expect(container.querySelector('[data-slot="skeleton"]')).toBeInTheDocument();
+    expect(screen.queryByText(/define a resource/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/0 project/i)).not.toBeInTheDocument();
+  });
+
+  it("shows a readable error with a retry when the load fails, never an empty account", async () => {
+    const user = userEvent.setup();
+    const loadProjects = vi.fn().mockResolvedValue(undefined);
+    useProjectStore.setState({
+      projects: [],
+      loaded: false,
+      loadError: "Something went wrong. Please try again.",
+      loadProjects,
+    });
+    renderUi(<ProjectsPage />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/account could not be reached/i);
+    expect(screen.queryByText(/define a resource/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/0 project/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /retry/i }));
+    await waitFor(() => expect(loadProjects).toHaveBeenCalled());
+  });
+
+  it("shows the empty state only once the list has confirmed the account is empty", () => {
+    useProjectStore.setState({ projects: [], loaded: true, loadError: null });
+    renderUi(<ProjectsPage />);
+    expect(screen.getByText(/define a resource/i)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });
 
 it("offers New project on the page background, and focuses the name input", async () => {

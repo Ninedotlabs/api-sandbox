@@ -24,6 +24,11 @@ export type { EditUndo, RecordSnapshot, RemovedFieldSnapshot } from "@/lib/servi
 interface ProjectState {
   projects: Project[];
   loaded: boolean;
+  /** Set when the most recent `loadProjects` failed, and cleared as soon as another one is
+   * tried. `loaded` staying `false` doesn't distinguish "still loading" from "failed and given
+   * up" - a first request that fails while a cold, serverless database wakes up (see
+   * `src/lib/db/client.ts`) must not be rendered the same as a genuinely empty account. */
+  loadError: string | null;
   loadProjects(): Promise<void>;
   createProject(input: CreateProjectInput): Promise<Project>;
   updateProject(id: string, patch: Partial<Pick<Project, "name" | "description" | "slug">>): Promise<void>;
@@ -102,8 +107,15 @@ export const useProjectStore = create<ProjectState>()((set, get) => {
   return {
     projects: [],
     loaded: false,
+    loadError: null,
     async loadProjects() {
-      set({ projects: await projectService.list(), loaded: true });
+      set({ loadError: null });
+      try {
+        const projects = await projectService.list();
+        set({ projects, loaded: true, loadError: null });
+      } catch (e) {
+        set({ loadError: e instanceof Error ? e.message : "Could not reach your account. Please try again." });
+      }
     },
     async createProject(input) {
       const project = await projectService.create(input);

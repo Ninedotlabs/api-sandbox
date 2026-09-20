@@ -9,11 +9,14 @@ vi.mock("next-auth/react", () => ({ signIn: (...args: unknown[]) => signIn(...ar
 import SignInPage from "./page";
 
 describe("SignInPage", () => {
-  it("renders the product name, a one-line description, and nothing else", () => {
+  it("renders the pitch, an example endpoint, and the one way in", () => {
     render(<SignInPage />);
 
-    expect(screen.getByRole("heading", { name: "Universal API" })).toBeInTheDocument();
-    expect(screen.getByText(/build an api without writing code/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /design a mock api/i })).toBeInTheDocument();
+    expect(screen.getByText(/call the result over HTTP/i)).toBeInTheDocument();
+    // The example request is the pitch: a developer learns more from a real endpoint and its
+    // status than from prose, so it is load-bearing content rather than decoration.
+    expect(screen.getByText("/api/bookshop/books")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /continue with google/i })).toBeInTheDocument();
   });
 

@@ -1,0 +1,25 @@
+import { requireAccess } from "@/lib/api/auth";
+import { fail, firstIssue, handle, ok, readJson } from "@/lib/api/respond";
+import { removedRouteSchema } from "@/lib/api/schemas";
+import { pgRouteService } from "@/lib/services/pg/route-service";
+
+export const runtime = "nodejs";
+
+interface Context {
+  params: Promise<{ id: string; routeId: string }>;
+}
+
+export async function POST(req: Request, context: Context): Promise<Response> {
+  return handle(async () => {
+    const denied = requireAccess(req);
+    if (denied) return denied;
+    const { id, routeId } = await context.params;
+
+    const parsed = removedRouteSchema.safeParse(await readJson(req));
+    if (!parsed.success) return fail(400, firstIssue(parsed.error));
+
+    const removed = { ...parsed.data, route: { ...parsed.data.route, id: routeId } };
+    const route = await pgRouteService.restore(id, removed);
+    return ok(route);
+  });
+}

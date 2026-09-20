@@ -197,7 +197,7 @@ export const editWireSchema = wireSchema.extend({
   ),
 });
 
-export interface ExistingResourceSummary { name: string; fields: PlanField[] }
+export interface ExistingResourceSummary { name: string; fields: PlanField[]; recordIds?: string[] }
 export interface CustomEndpointPlan { method: HttpMethod; path: string; resourceName: string | null; description: string }
 export interface EditPlan extends ApiPlan { customEndpoints: CustomEndpointPlan[] }
 
@@ -224,6 +224,9 @@ export function parseEditPlan(raw: unknown, existing: ExistingResourceSummary[])
   const parsed = editWireSchema.safeParse(raw);
   if (!parsed.success) throw new PlanError("The model's answer did not match the expected shape.");
   const warnings: string[] = [];
+  // Stable by exact name, never mutated — unlike existingByLowerName below, which loses an
+  // entry once it's matched to a resource in this edit's plan.
+  const existingByName = new Map(existing.map((r) => [r.name, r]));
   const existingByLowerName = new Map(existing.map((r) => [r.name.toLowerCase(), r]));
   const taken = new Set(existing.map((r) => r.name.toLowerCase()));
   const linkTargets = new Set(existing.map((r) => r.name));
@@ -290,7 +293,15 @@ export function parseEditPlan(raw: unknown, existing: ExistingResourceSummary[])
   // mention because it already exists.
   const models: Model[] = mergedFieldsByResource.map((fields, i) => ({
     id: `plan-${i}`, name: plan.resources[i].name,
-    fields: fields.map((f, j) => ({ id: `plan-${i}-${j}`, name: f.name, type: f.type, required: f.required, unique: f.unique, options: f.options, linkTo: f.linkTo ? `plan-${plan.resources.findIndex((x) => x.name === f.linkTo)}` : undefined })),
+    fields: fields.map((f, j) => {
+      const targetIndex = f.linkTo ? plan.resources.findIndex((x) => x.name === f.linkTo) : -1;
+      // -1 means f.linkTo is an existing resource this edit doesn't touch, so it has no
+      // synthetic model in this dataset. linkTo is left undefined rather than a bogus
+      // "plan--1" id; this is safe only because link fields are stripped out of the record
+      // body before validateBody runs below, so this synthetic model's linkTo is never
+      // actually dereferenced.
+      return { id: `plan-${i}-${j}`, name: f.name, type: f.type, required: f.required, unique: f.unique, options: f.options, linkTo: targetIndex >= 0 ? `plan-${targetIndex}` : undefined };
+    }),
   }));
   const dataset: Dataset = Object.fromEntries(models.map((m) => [m.id, []]));
 
@@ -335,9 +346,17 @@ export function parseEditPlan(raw: unknown, existing: ExistingResourceSummary[])
         if (targetIndex < 0) {
           // f.linkTo is an existing resource this edit doesn't touch (it was already
           // validated against linkTargets when the field was built), so there is no
-          // positional index to resolve against — the raw value is already that
-          // resource's real id.
-          pending.body[field] = raw;
+          // positional index to resolve against — the raw value must already be one of that
+          // resource's real ids. If the caller told us what those ids are, hold the model to
+          // them (an unrecognized id is silent data corruption, e.g. linking to an arbitrary
+          // unrelated record); otherwise trust the raw value unchanged.
+          const recordIds = existingByName.get(f.linkTo)?.recordIds;
+          if (recordIds && !recordIds.includes(raw)) {
+            pending.body[field] = null;
+            unresolvedCounts.set(field, (unresolvedCounts.get(field) ?? 0) + 1);
+          } else {
+            pending.body[field] = raw;
+          }
           continue;
         }
         const parsedIndex = Number(raw.trim());

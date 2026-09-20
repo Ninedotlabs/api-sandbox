@@ -183,6 +183,28 @@ it("edit: a link can target an existing resource that isn't itself part of this 
   expect(warnings).toEqual([]);
 });
 
+it("edit: a link into an untouched resource is accepted when it matches one of its known record ids", () => {
+  const existingBookWithIds: ExistingResourceSummary = { ...existingBook, recordIds: ["10", "11"] };
+  const raw = {
+    resources: [{ name: "Review", description: "", fields: [{ name: "rating", type: "number", required: true, unique: false, options: null, linkTo: null }, { name: "book", type: "link", required: true, unique: false, options: null, linkTo: "Book" }], records: [{ entries: [{ field: "rating", value: "5" }, { field: "book", value: "11" }] }] }],
+    customEndpoints: [],
+  };
+  const { plan, warnings } = parseEditPlan(raw, [existingBookWithIds]);
+  expect(plan.resources[0].records[0]).toEqual({ rating: 5, book: "11" });
+  expect(warnings).toEqual([]);
+});
+
+it("edit: a link into an untouched resource is nulled and warned about when it doesn't match a known record id", () => {
+  const existingBookWithIds: ExistingResourceSummary = { ...existingBook, recordIds: ["10", "11"] };
+  const raw = {
+    resources: [{ name: "Review", description: "", fields: [{ name: "rating", type: "number", required: true, unique: false, options: null, linkTo: null }, { name: "book", type: "link", required: true, unique: false, options: null, linkTo: "Book" }], records: [{ entries: [{ field: "rating", value: "5" }, { field: "book", value: "1" }] }] }],
+    customEndpoints: [],
+  };
+  const { plan, warnings } = parseEditPlan(raw, [existingBookWithIds]);
+  expect(plan.resources[0].records[0]).toEqual({ rating: 5, book: null });
+  expect(warnings).toContain("Review: 1 sample record had an unknown book link and was left empty.");
+});
+
 it("edit: caps and validates customEndpoints, resolving resourceName or leaving it null", () => {
   const raw = {
     resources: [{ name: "Book", description: "", fields: [], records: [] }],

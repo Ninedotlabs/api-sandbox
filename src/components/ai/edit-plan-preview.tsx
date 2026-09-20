@@ -3,7 +3,7 @@
 import { Kicker } from "@/components/domain/kicker";
 import { MethodLabel } from "@/components/domain/method-label";
 import { TypeBadge } from "@/components/domain/type-badge";
-import type { EditDiff, ResourceDiff } from "@/lib/ai/diff";
+import { fieldChangeDetails, type EditDiff, type ResourceDiff } from "@/lib/ai/diff";
 import { countLabel } from "@/lib/format";
 
 function ResourceBlock({ resource }: { resource: ResourceDiff }) {
@@ -16,7 +16,18 @@ function ResourceBlock({ resource }: { resource: ResourceDiff }) {
             <li key={change.name} className="flex flex-wrap items-center gap-2 text-[13px]">
               <span className="font-mono text-ink">{change.name}</span>
               <TypeBadge type={change.after.type} />
-              <span className="text-[11px] text-ink-3">{change.kind === "added" ? "new" : `was ${change.before!.type}`}</span>
+              {change.kind === "added" ? (
+                <span className="text-[11px] text-ink-3">new</span>
+              ) : (
+                // Every attribute that differs, not just type — a field can be re-listed
+                // with only its required/unique/options/linkTo changed, and each of those
+                // is a change to the underlying record data just as much as a type change.
+                fieldChangeDetails(change.before!, change.after).map((line) => (
+                  <span key={line} className="text-[11px] text-ink-3">
+                    {line}
+                  </span>
+                ))
+              )}
             </li>
           ))}
         </ul>
@@ -28,6 +39,12 @@ function ResourceBlock({ resource }: { resource: ResourceDiff }) {
             : `Replaces this resource's sample data with ${countLabel(resource.recordCount, "record")}.`}
         </p>
       )}
+      {resource.inboundLinks.map((link) => (
+        <p key={`${link.modelName}.${link.fieldName}`} className="mt-2 text-[13px] text-warning">
+          {countLabel(link.recordCount, `${link.modelName} record`)}{" "}
+          {link.recordCount === 1 ? "links" : "link"} to this resource and will lose {link.recordCount === 1 ? "its" : "their"} link.
+        </p>
+      ))}
     </section>
   );
 }

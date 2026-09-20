@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ContextMenuTarget } from "@/components/domain/context-menu-target";
+import { copyToClipboard } from "@/components/domain/copy-to-clipboard";
 import { Kicker } from "@/components/domain/kicker";
 import { MethodLabel } from "@/components/domain/method-label";
 import {
@@ -14,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useWorkspace, type ConsoleDraft } from "@/components/workspace/workspace-context";
+import { consoleItems } from "@/lib/context-menu-items";
 import { groupRoutes } from "@/lib/routes";
 import { consoleService, type LogEntry } from "@/lib/services";
 import type { TestResponse } from "@/lib/types";
@@ -133,6 +136,15 @@ export function ConsolePanel() {
     }
   }
 
+  const menuItems = consoleItems(
+    { project, route, response: loaded.response, body: loaded.draft?.body, logEmpty: entries.length === 0 },
+    {
+      onCopyResponse: (json) => void copyToClipboard(json),
+      onCopyCurl: (curl) => void copyToClipboard(curl),
+      onClearLog: () => void clear(),
+    },
+  );
+
   return (
     <div className="flex min-h-full flex-col gap-4 p-4">
       <div className="space-y-2">
@@ -160,16 +172,18 @@ export function ConsolePanel() {
       </div>
 
       {route ? (
-        <div className="rounded-lg border border-line bg-panel p-3">
-          <RequestForm
-            key={`${route.id}:${loaded.seq}`}
-            project={project}
-            route={route}
-            sending={sending}
-            initial={loaded.draft ?? undefined}
-            onSend={send}
-          />
-        </div>
+        <ContextMenuTarget items={menuItems} asChild>
+          <div data-testid="console-request-target" className="rounded-lg border border-line bg-panel p-3">
+            <RequestForm
+              key={`${route.id}:${loaded.seq}`}
+              project={project}
+              route={route}
+              sending={sending}
+              initial={loaded.draft ?? undefined}
+              onSend={send}
+            />
+          </div>
+        </ContextMenuTarget>
       ) : (
         <p className="rounded-lg border border-line bg-panel p-3 text-[13px] text-ink-3">
           {groups.length === 0
@@ -179,7 +193,11 @@ export function ConsolePanel() {
       )}
 
       <MockStrip sending={sending} slug={project.slug} />
-      <ResponsePanel response={loaded.response} loading={sending} />
+      <ContextMenuTarget items={menuItems} asChild>
+        <div data-testid="console-response-target">
+          <ResponsePanel response={loaded.response} loading={sending} />
+        </div>
+      </ContextMenuTarget>
       <RequestLog entries={entries} onReplay={replay} onClear={clear} />
     </div>
   );

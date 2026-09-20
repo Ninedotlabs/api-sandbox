@@ -1,6 +1,6 @@
 "use client";
 
-import { Folder, FolderOpen, Plus, Sparkles } from "lucide-react";
+import { Folder, FolderOpen, Plus, Sparkles, Wand2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CopyButton } from "@/components/domain/copy-button";
@@ -71,7 +71,7 @@ function Path({ path }: { path: string }) {
 }
 
 /** What the editor pane is showing instead of the guide, if anything. */
-export type WorkspaceMode = "idle" | "new-resource" | "ai";
+export type WorkspaceMode = "idle" | "new-resource" | "ai" | "ai-edit";
 
 interface Props {
   /** The editor pane's current mode; uncontrolled when left out. */
@@ -275,6 +275,15 @@ export function ApiTree({ onModeChange }: Props = {}) {
         >
           <Sparkles className="size-3.5" />
           Generate with AI
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 w-full gap-1 rounded-md"
+          onClick={() => onModeChange?.("ai-edit")}
+        >
+          <Wand2 className="size-3.5" />
+          Edit with AI
         </Button>
       </div>
     </div>

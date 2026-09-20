@@ -108,6 +108,14 @@ it("asks the page to open the AI panel", async () => {
   expect(onModeChange).toHaveBeenCalledWith("ai");
 });
 
+it("also offers Edit with AI in the footer", async () => {
+  const onModeChange = vi.fn();
+  renderTree(storeProject(), { onModeChange });
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Edit with AI" }));
+  expect(onModeChange).toHaveBeenCalledWith("ai-edit");
+});
+
 it("closes the mobile rail drawer once an endpoint is selected", async () => {
   renderTree();
   const user = userEvent.setup();

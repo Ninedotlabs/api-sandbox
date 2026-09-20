@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { AiEditPanel } from "@/components/ai/ai-edit-panel";
 import { AiGeneratePanel } from "@/components/ai/ai-generate-panel";
 import { ConsolePanel } from "@/components/console/console-panel";
 import { EndpointEditor } from "@/components/editor/endpoint-editor";
@@ -31,6 +32,22 @@ function Editor({ mode, onModeChange }: { mode: WorkspaceMode; onModeChange: (mo
           onModeChange("idle");
           select({ kind: "resource", id: modelId });
           setRailOpen(false);
+        }}
+      />
+    );
+  }
+
+  if (mode === "ai-edit") {
+    return (
+      <AiEditPanel
+        project={project}
+        onCancel={() => onModeChange("idle")}
+        onApplied={(modelId) => {
+          onModeChange("idle");
+          if (modelId) {
+            select({ kind: "resource", id: modelId });
+            setRailOpen(false);
+          }
         }}
       />
     );

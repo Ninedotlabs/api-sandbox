@@ -140,6 +140,7 @@ it("edit: matches an existing resource by name instead of renaming it", () => {
   const raw = {
     resources: [{ name: "book", description: "", fields: [{ name: "genre", type: "choice", required: false, unique: false, options: ["Fiction"], linkTo: null }], records: [] }],
     customEndpoints: [],
+    removals: { resources: [], fields: [], endpoints: [] },
   };
   const { plan, warnings } = parseEditPlan(raw, [existingBook]);
   expect(plan.resources[0].name).toBe("Book");
@@ -155,6 +156,7 @@ it("edit: validates a changed resource's records against its current fields merg
       records: [{ entries: [{ field: "title", value: "Dune" }, { field: "price", value: "12.5" }, { field: "genre", value: "Fiction" }] }],
     }],
     customEndpoints: [],
+    removals: { resources: [], fields: [], endpoints: [] },
   };
   const { plan, warnings } = parseEditPlan(raw, [existingBook]);
   // "title" and "price" aren't in this resource's plan fields, but they're on the current
@@ -164,7 +166,7 @@ it("edit: validates a changed resource's records against its current fields merg
 });
 
 it("edit: a brand-new resource still avoids clashing with an existing name", () => {
-  const raw = { resources: [{ name: "Book", description: "", fields: [{ name: "isbn", type: "text", required: false, unique: false, options: null, linkTo: null }], records: [] }, { name: "Book", description: "", fields: [], records: [] }], customEndpoints: [] };
+  const raw = { resources: [{ name: "Book", description: "", fields: [{ name: "isbn", type: "text", required: false, unique: false, options: null, linkTo: null }], records: [] }, { name: "Book", description: "", fields: [], records: [] }], customEndpoints: [], removals: { resources: [], fields: [], endpoints: [] } };
   // Two resources both literally named "Book": the first matches the existing one, the
   // second is new and must not collide with either.
   const { plan, warnings } = parseEditPlan(raw, [existingBook]);
@@ -176,6 +178,7 @@ it("edit: a link can target an existing resource that isn't itself part of this 
   const raw = {
     resources: [{ name: "Review", description: "", fields: [{ name: "rating", type: "number", required: true, unique: false, options: null, linkTo: null }, { name: "book", type: "link", required: true, unique: false, options: null, linkTo: "Book" }], records: [{ entries: [{ field: "rating", value: "5" }, { field: "book", value: "1" }] }] }],
     customEndpoints: [],
+    removals: { resources: [], fields: [], endpoints: [] },
   };
   const { plan, warnings } = parseEditPlan(raw, [existingBook]);
   expect(plan.resources[0].fields.find((f) => f.name === "book")!.linkTo).toBe("Book");
@@ -188,6 +191,7 @@ it("edit: a link into an untouched resource is accepted when it matches one of i
   const raw = {
     resources: [{ name: "Review", description: "", fields: [{ name: "rating", type: "number", required: true, unique: false, options: null, linkTo: null }, { name: "book", type: "link", required: true, unique: false, options: null, linkTo: "Book" }], records: [{ entries: [{ field: "rating", value: "5" }, { field: "book", value: "11" }] }] }],
     customEndpoints: [],
+    removals: { resources: [], fields: [], endpoints: [] },
   };
   const { plan, warnings } = parseEditPlan(raw, [existingBookWithIds]);
   expect(plan.resources[0].records[0]).toEqual({ rating: 5, book: "11" });
@@ -199,6 +203,7 @@ it("edit: a link into an untouched resource is nulled and warned about when it d
   const raw = {
     resources: [{ name: "Review", description: "", fields: [{ name: "rating", type: "number", required: true, unique: false, options: null, linkTo: null }, { name: "book", type: "link", required: true, unique: false, options: null, linkTo: "Book" }], records: [{ entries: [{ field: "rating", value: "5" }, { field: "book", value: "1" }] }] }],
     customEndpoints: [],
+    removals: { resources: [], fields: [], endpoints: [] },
   };
   const { plan, warnings } = parseEditPlan(raw, [existingBookWithIds]);
   expect(plan.resources[0].records[0]).toEqual({ rating: 5, book: null });
@@ -213,6 +218,7 @@ it("edit: caps and validates customEndpoints, resolving resourceName or leaving 
       { method: "GET", path: "not-a-path", resourceName: null, description: "" },
       { method: "GET", path: "/ping", resourceName: "Nobody", description: "" },
     ],
+    removals: { resources: [], fields: [], endpoints: [] },
   };
   const { plan, warnings } = parseEditPlan(raw, [existingBook]);
   expect(plan.customEndpoints).toHaveLength(2);
@@ -228,6 +234,7 @@ it("edit: drops a duplicate custom endpoint (same method+path as another entry) 
       { method: "GET", path: "/books/bestsellers", resourceName: "Book", description: "Top sellers" },
       { method: "GET", path: "/books/bestsellers", resourceName: "Book", description: "Top sellers again" },
     ],
+    removals: { resources: [], fields: [], endpoints: [] },
   };
   const { plan, warnings } = parseEditPlan(raw, [existingBook]);
   expect(plan.customEndpoints).toHaveLength(1);
@@ -238,6 +245,7 @@ it("edit: resolves a custom endpoint's resourceName to the existing resource's c
   const raw = {
     resources: [],
     customEndpoints: [{ method: "GET", path: "/books/bestsellers", resourceName: "book", description: "" }],
+    removals: { resources: [], fields: [], endpoints: [] },
   };
   const { plan } = parseEditPlan(raw, [existingBook]);
   expect(plan.customEndpoints[0].resourceName).toBe("Book");
@@ -252,17 +260,119 @@ it("edit: resolves a case-mismatched resourceName even when that same resource i
   const raw = {
     resources: [{ name: "Book", description: "", fields: [{ name: "isbn", type: "text", required: false, unique: false, options: null, linkTo: null }], records: [] }],
     customEndpoints: [{ method: "GET", path: "/books/bestsellers", resourceName: "book", description: "" }],
+    removals: { resources: [], fields: [], endpoints: [] },
   };
   const { plan } = parseEditPlan(raw, [existingBook]);
   expect(plan.customEndpoints[0].resourceName).toBe("Book");
 });
 
 it("edit: an answer with nothing to change is valid, not an error", () => {
-  const { plan, warnings } = parseEditPlan({ resources: [], customEndpoints: [] }, [existingBook]);
-  expect(plan).toEqual({ resources: [], customEndpoints: [] });
+  const { plan, warnings } = parseEditPlan({ resources: [], customEndpoints: [], removals: { resources: [], fields: [], endpoints: [] } }, [existingBook]);
+  expect(plan).toEqual({ resources: [], customEndpoints: [], removals: { resources: [], fields: [], endpoints: [] } });
   expect(warnings).toEqual([]);
 });
 
 it("edit: still rejects a malformed answer", () => {
   expect(() => parseEditPlan({ nope: true }, [existingBook])).toThrow(PlanError);
+});
+
+// --- Removals -------------------------------------------------------------------------
+
+const existingUser: ExistingResourceSummary = {
+  name: "User",
+  fields: [
+    { name: "fullName", type: "text", required: true, unique: false },
+    { name: "email", type: "email", required: true, unique: true },
+  ],
+};
+
+it("edit: resolves a resource removal to the existing resource's exact casing", () => {
+  const raw = { resources: [], customEndpoints: [], removals: { resources: ["user"], fields: [], endpoints: [] } };
+  const { plan, warnings } = parseEditPlan(raw, [existingUser]);
+  expect(plan.removals).toEqual({ resources: ["User"], fields: [], endpoints: [] });
+  expect(warnings).toEqual([]);
+});
+
+it("edit: drops a resource removal naming an unknown resource, with a warning", () => {
+  const raw = { resources: [], customEndpoints: [], removals: { resources: ["Nobody"], fields: [], endpoints: [] } };
+  const { plan, warnings } = parseEditPlan(raw, [existingUser]);
+  expect(plan.removals).toEqual({ resources: [], fields: [], endpoints: [] });
+  expect(warnings).toContain('Skipped removing an unknown resource ("Nobody").');
+});
+
+it("edit: this is the bug report — 'i don't want user email in response' resolves to a field removal on User.email", () => {
+  const raw = { resources: [], customEndpoints: [], removals: { resources: [], fields: [{ resource: "user", field: "EMAIL" }], endpoints: [] } };
+  const { plan, warnings } = parseEditPlan(raw, [existingUser]);
+  expect(plan.removals).toEqual({ resources: [], fields: [{ resource: "User", field: "email" }], endpoints: [] });
+  expect(warnings).toEqual([]);
+});
+
+it("edit: drops a field removal naming an unknown resource, with a warning", () => {
+  const raw = { resources: [], customEndpoints: [], removals: { resources: [], fields: [{ resource: "Nobody", field: "email" }], endpoints: [] } };
+  const { plan, warnings } = parseEditPlan(raw, [existingUser]);
+  expect(plan.removals!.fields).toEqual([]);
+  expect(warnings).toContain('Skipped removing a field from an unknown resource ("Nobody").');
+});
+
+it("edit: drops a field removal naming an unknown field, with a warning", () => {
+  const raw = { resources: [], customEndpoints: [], removals: { resources: [], fields: [{ resource: "User", field: "nickname" }], endpoints: [] } };
+  const { plan, warnings } = parseEditPlan(raw, [existingUser]);
+  expect(plan.removals!.fields).toEqual([]);
+  expect(warnings).toContain('User: skipped removing an unknown field ("nickname").');
+});
+
+it("edit: drops a field removal that would leave the resource with no fields, with a warning", () => {
+  // Two removals against a two-field resource: the first succeeds, the second would leave
+  // User with zero fields and is dropped instead.
+  const raw = {
+    resources: [], customEndpoints: [],
+    removals: { resources: [], fields: [{ resource: "User", field: "email" }, { resource: "User", field: "fullName" }], endpoints: [] },
+  };
+  const { plan, warnings } = parseEditPlan(raw, [existingUser]);
+  expect(plan.removals!.fields).toEqual([{ resource: "User", field: "email" }]);
+  expect(warnings).toContain('User: skipped removing "fullName" because it is the last remaining field.');
+});
+
+it("edit: a field added by this same plan counts toward the remaining total, so removing every original field is allowed", () => {
+  const raw = {
+    resources: [{ name: "User", description: "", fields: [{ name: "age", type: "number", required: false, unique: false, options: null, linkTo: null }], records: [] }],
+    customEndpoints: [],
+    removals: { resources: [], fields: [{ resource: "User", field: "fullName" }, { resource: "User", field: "email" }], endpoints: [] },
+  };
+  const { plan, warnings } = parseEditPlan(raw, [existingUser]);
+  expect(plan.removals!.fields).toEqual([{ resource: "User", field: "fullName" }, { resource: "User", field: "email" }]);
+  expect(warnings).toEqual([]);
+});
+
+it("edit: an endpoint removal matching an existing route is kept", () => {
+  const raw = { resources: [], customEndpoints: [], removals: { resources: [], fields: [], endpoints: [{ method: "DELETE", path: "/users/:id" }] } };
+  const { plan, warnings } = parseEditPlan(raw, [existingUser], [{ method: "DELETE", path: "/users/:id" }]);
+  expect(plan.removals).toEqual({ resources: [], fields: [], endpoints: [{ method: "DELETE", path: "/users/:id" }] });
+  expect(warnings).toEqual([]);
+});
+
+it("edit: an endpoint removal matching no existing route is dropped with a warning", () => {
+  const raw = { resources: [], customEndpoints: [], removals: { resources: [], fields: [], endpoints: [{ method: "GET", path: "/nope" }] } };
+  const { plan, warnings } = parseEditPlan(raw, [existingUser], [{ method: "DELETE", path: "/users/:id" }]);
+  expect(plan.removals!.endpoints).toEqual([]);
+  expect(warnings).toContain("Skipped removing an endpoint that doesn't exist (GET /nope).");
+});
+
+it("edit: without existing routes, endpoint removals can't be validated and are dropped with a warning", () => {
+  const raw = { resources: [], customEndpoints: [], removals: { resources: [], fields: [], endpoints: [{ method: "DELETE", path: "/users/:id" }] } };
+  const { plan, warnings } = parseEditPlan(raw, [existingUser]);
+  expect(plan.removals!.endpoints).toEqual([]);
+  expect(warnings.length).toBeGreaterThan(0);
+});
+
+it("edit: additions and removals are independent — a plan can add a field to a resource and remove a different field from it", () => {
+  const raw = {
+    resources: [{ name: "User", description: "", fields: [{ name: "age", type: "number", required: false, unique: false, options: null, linkTo: null }], records: [] }],
+    customEndpoints: [],
+    removals: { resources: [], fields: [{ resource: "User", field: "fullName" }], endpoints: [] },
+  };
+  const { plan, warnings } = parseEditPlan(raw, [existingUser]);
+  expect(plan.resources[0].fields.map((f) => f.name)).toEqual(["age"]);
+  expect(plan.removals!.fields).toEqual([{ resource: "User", field: "fullName" }]);
+  expect(warnings).toEqual([]);
 });

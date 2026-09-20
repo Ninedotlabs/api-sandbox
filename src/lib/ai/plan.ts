@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { FIELD_TYPES } from "@/lib/field-types";
+import { METHODS } from "@/lib/methods";
 import { validateBody, type Dataset } from "@/lib/mock-engine";
 import type { Field, FieldType, HttpMethod, Model } from "@/lib/types";
 import { PATH_RE, validateFieldName, validateModelName } from "@/lib/validation";
@@ -7,6 +8,7 @@ import { PATH_RE, validateFieldName, validateModelName } from "@/lib/validation"
 export class PlanError extends Error {}
 
 export const fieldTypeEnum = z.enum(FIELD_TYPES.map((t) => t.type) as [FieldType, ...FieldType[]]);
+export const httpMethodEnum = z.enum(METHODS as [HttpMethod, ...HttpMethod[]]);
 
 export const wireSchema = z.object({
   resources: z.array(
@@ -186,20 +188,35 @@ export function parsePlan(raw: unknown, existingNames: string[]): { plan: ApiPla
   return { plan, warnings };
 }
 
+const removalWireSchema = z.object({
+  resources: z.array(z.string()),
+  fields: z.array(z.object({ resource: z.string(), field: z.string() })),
+  endpoints: z.array(z.object({ method: httpMethodEnum, path: z.string() })),
+});
+
 export const editWireSchema = wireSchema.extend({
   customEndpoints: z.array(
     z.object({
-      method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]),
+      method: httpMethodEnum,
       path: z.string(),
       resourceName: z.string().nullable(),
       description: z.string(),
     }),
   ),
+  // Always present (strictJsonSchema requires every key), even when nothing is being
+  // removed — the model is told to send empty arrays in that case.
+  removals: removalWireSchema,
 });
 
 export interface ExistingResourceSummary { name: string; fields: PlanField[]; recordIds?: string[] }
+export interface ExistingRouteSummary { method: HttpMethod; path: string }
 export interface CustomEndpointPlan { method: HttpMethod; path: string; resourceName: string | null; description: string }
-export interface EditPlan extends ApiPlan { customEndpoints: CustomEndpointPlan[] }
+export interface FieldRemoval { resource: string; field: string }
+export interface EndpointRemoval { method: HttpMethod; path: string }
+export interface RemovalPlan { resources: string[]; fields: FieldRemoval[]; endpoints: EndpointRemoval[] }
+// Optional so code built before removals existed (and its tests) keeps compiling; parseEditPlan
+// itself always populates it.
+export interface EditPlan extends ApiPlan { customEndpoints: CustomEndpointPlan[]; removals?: RemovalPlan }
 
 function toPlanFieldMap(fields: PlanField[]): Map<string, PlanField> {
   return new Map(fields.map((f) => [f.name.toLowerCase(), f]));
@@ -218,7 +235,11 @@ function mergeFieldsByName(base: PlanField[], overrides: PlanField[]): PlanField
   return merged;
 }
 
-export function parseEditPlan(raw: unknown, existing: ExistingResourceSummary[]): { plan: EditPlan; warnings: string[] } {
+export function parseEditPlan(
+  raw: unknown,
+  existing: ExistingResourceSummary[],
+  existingRoutes?: ExistingRouteSummary[],
+): { plan: EditPlan; warnings: string[] } {
   const parsed = editWireSchema.safeParse(raw);
   if (!parsed.success) throw new PlanError("The model's answer did not match the expected shape.");
   const warnings: string[] = [];
@@ -258,7 +279,7 @@ export function parseEditPlan(raw: unknown, existing: ExistingResourceSummary[])
 
   // Fields: cleaned the same way parsePlan cleans them, except a name that matches one of
   // this resource's *current* fields is a change, not a duplicate.
-  const plan: EditPlan = { resources: [], customEndpoints: [] };
+  const plan: EditPlan = { resources: [], customEndpoints: [], removals: { resources: [], fields: [], endpoints: [] } };
   const mergedFieldsByResource: PlanField[][] = [];
   for (const { wire: r, existingMatch } of resolved) {
     const fields: PlanField[] = [];
@@ -395,6 +416,67 @@ export function parseEditPlan(raw: unknown, existing: ExistingResourceSummary[])
       ? (resourceNames.has(c.resourceName) ? c.resourceName : (existingByNameLowerStable.get(c.resourceName.toLowerCase())?.name ?? null))
       : null;
     plan.customEndpoints.push({ method: c.method, path: c.path, resourceName, description: c.description.trim() });
+  }
+
+  // Removals, validated against the project's actual current state. Resource names are
+  // resolved against existingByNameLowerStable — the never-mutated index — for the same
+  // reason the customEndpoints resourceName resolution above uses it and not
+  // existingByLowerName: that one has entries deleted out from under it as resources are
+  // matched in the loop near the top of this function.
+
+  // 1. Resources
+  const removalResourceNames = new Set<string>();
+  for (const name of parsed.data.removals.resources) {
+    const match = existingByNameLowerStable.get(name.trim().toLowerCase());
+    if (!match) { warnings.push(`Skipped removing an unknown resource (${JSON.stringify(name)}).`); continue; }
+    removalResourceNames.add(match.name);
+  }
+  plan.removals!.resources = [...removalResourceNames];
+
+  // 2. Fields — validated against each resource's *effective* field set: the merged
+  // (existing + this plan's additions/changes) list for a resource this edit also touches,
+  // or just its current fields otherwise. That merged view is what makes "add a field, remove
+  // a different one, in the same answer" work, and what the last-field guard below counts
+  // against.
+  const effectiveFieldsByName = new Map<string, PlanField[]>();
+  resolved.forEach(({ existingMatch }, i) => {
+    if (existingMatch) effectiveFieldsByName.set(existingMatch.name, mergedFieldsByResource[i]);
+  });
+  for (const r of existing) {
+    if (!effectiveFieldsByName.has(r.name)) effectiveFieldsByName.set(r.name, r.fields);
+  }
+  const remainingFieldCount = new Map<string, number>();
+  for (const [name, fields] of effectiveFieldsByName) remainingFieldCount.set(name, fields.length);
+
+  const seenFieldRemovals = new Set<string>();
+  for (const f of parsed.data.removals.fields) {
+    const resourceMatch = existingByNameLowerStable.get(f.resource.trim().toLowerCase());
+    if (!resourceMatch) { warnings.push(`Skipped removing a field from an unknown resource (${JSON.stringify(f.resource)}).`); continue; }
+    const fields = effectiveFieldsByName.get(resourceMatch.name) ?? [];
+    const fieldMatch = fields.find((x) => x.name.toLowerCase() === f.field.trim().toLowerCase());
+    if (!fieldMatch) { warnings.push(`${resourceMatch.name}: skipped removing an unknown field (${JSON.stringify(f.field)}).`); continue; }
+    const key = `${resourceMatch.name}\u0000${fieldMatch.name}`;
+    if (seenFieldRemovals.has(key)) continue;
+    const remaining = remainingFieldCount.get(resourceMatch.name) ?? fields.length;
+    if (remaining <= 1) { warnings.push(`${resourceMatch.name}: skipped removing ${JSON.stringify(fieldMatch.name)} because it is the last remaining field.`); continue; }
+    seenFieldRemovals.add(key);
+    remainingFieldCount.set(resourceMatch.name, remaining - 1);
+    plan.removals!.fields.push({ resource: resourceMatch.name, field: fieldMatch.name });
+  }
+
+  // 3. Endpoints — can only be validated against the project's actual routes, which the
+  // caller must supply; without them, every endpoint removal is dropped rather than passed
+  // downstream unvalidated.
+  const routesKnown = existingRoutes !== undefined;
+  const routeSet = new Set((existingRoutes ?? []).map((r) => `${r.method} ${r.path}`));
+  const seenEndpointRemovals = new Set<string>();
+  for (const e of parsed.data.removals.endpoints) {
+    const key = `${e.method} ${e.path}`;
+    if (seenEndpointRemovals.has(key)) continue;
+    if (!routesKnown) { warnings.push(`Skipped removing ${e.method} ${e.path} because the project's current routes weren't given, so it can't be confirmed.`); continue; }
+    if (!routeSet.has(key)) { warnings.push(`Skipped removing an endpoint that doesn't exist (${e.method} ${e.path}).`); continue; }
+    seenEndpointRemovals.add(key);
+    plan.removals!.endpoints.push({ method: e.method, path: e.path });
   }
 
   return { plan, warnings };

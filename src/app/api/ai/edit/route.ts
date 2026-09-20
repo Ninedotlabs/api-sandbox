@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { fieldTypeEnum, parseEditPlan, PlanError, type ExistingResourceSummary } from "@/lib/ai/plan";
+import { fieldTypeEnum, httpMethodEnum, parseEditPlan, PlanError, type ExistingResourceSummary, type ExistingRouteSummary } from "@/lib/ai/plan";
 import { callEditResponses, type AiConfig } from "@/lib/ai/request";
 
 export const runtime = "nodejs";
@@ -20,6 +20,9 @@ const bodySchema = z.object({
     .array(z.object({ name: z.string(), fields: z.array(planFieldSchema).max(20), recordIds: z.array(z.string()).max(20).optional() }))
     .max(20)
     .default([]),
+  // Needed to validate endpoint removals; omitted or empty just means none can be confirmed,
+  // so parseEditPlan drops any the model proposes rather than passing them through unchecked.
+  existingRoutes: z.array(z.object({ method: httpMethodEnum, path: z.string() })).max(200).optional(),
 });
 
 function config(): AiConfig | null {
@@ -34,8 +37,9 @@ export async function POST(req: Request) {
   if (!parsed.success) return err(400, "Describe what should change (up to 2000 characters).");
   const cfg = config();
   if (!cfg) return err(503, "AI is not configured. Add the Azure settings to .env.local and restart.");
-  const { instruction, existing } = parsed.data;
+  const { instruction, existing, existingRoutes } = parsed.data;
   const existingResources: ExistingResourceSummary[] = existing;
+  const existingRouteSummaries: ExistingRouteSummary[] | undefined = existingRoutes;
 
   let repairNotes: string[] | undefined;
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -50,7 +54,7 @@ export async function POST(req: Request) {
     if (result.status < 200 || result.status >= 300) return err(502, `AI request failed (${result.status}).`);
     try {
       const raw = JSON.parse(result.text ?? "");
-      const { plan, warnings } = parseEditPlan(raw, existingResources);
+      const { plan, warnings } = parseEditPlan(raw, existingResources, existingRouteSummaries);
       return NextResponse.json({ plan, warnings });
     } catch (e) {
       repairNotes = [e instanceof PlanError ? e.message : "The answer was not valid JSON."];

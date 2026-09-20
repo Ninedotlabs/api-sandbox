@@ -34,6 +34,6 @@ export function buildEditInstruction(opts: { existing: ExistingResourceSummary[]
     "Use choice with an options list for fixed sets, and link with linkTo set to another resource's exact name. A link's value is a 1-based index (\"1\", \"2\", ...) into the target's new records if you're adding or changing it, or one of its existing ids (listed above) if you're not.",
     "Every record must include all required fields, respect unique fields, use realistic varied values, and give every value as a string (numbers like \"12.5\", booleans \"true\"/\"false\", dates \"2026-01-31\").",
     "For an endpoint beyond list/get/create/update/delete, add it to customEndpoints with a method, a path starting with /, its resource (or null), and a one-sentence description; standard endpoints are automatic — never list them in customEndpoints.",
-    "Never propose removing a resource, field or endpoint. If part of the instruction asks for a removal, ignore that part and do the rest.",
+    "Always include removals ({ resources, fields, endpoints }), using empty arrays when there's nothing to remove. Propose a removal only when the instruction explicitly asks for something to go: name resources by their exact name, fields as { resource, field }, endpoints as { method, path }. Never propose a removal as a side effect of another change, never to tidy up something unused or redundant, and never for a resource the instruction didn't mention. If the instruction both adds/changes something and asks for a removal, do both.",
   ].filter(Boolean).join("\n");
 }

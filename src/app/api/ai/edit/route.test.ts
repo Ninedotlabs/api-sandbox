@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { POST } from "./route";
 
-const ok = JSON.stringify({ output_text: JSON.stringify({ resources: [{ name: "Review", description: "", fields: [{ name: "rating", type: "number", required: true, unique: false, options: null, linkTo: null }], records: [] }], customEndpoints: [] }) });
+const ok = JSON.stringify({ output_text: JSON.stringify({ resources: [{ name: "Review", description: "", fields: [{ name: "rating", type: "number", required: true, unique: false, options: null, linkTo: null }], records: [] }], customEndpoints: [], removals: { resources: [], fields: [], endpoints: [] } }) });
 const post = (body: unknown) => POST(new Request("http://t/api/ai/edit", { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } }));
 
 beforeEach(() => {
@@ -62,6 +62,7 @@ const bookLinkResources = (bookLinkValue: string) => JSON.stringify({
       },
     ],
     customEndpoints: [],
+    removals: { resources: [], fields: [], endpoints: [] },
   }),
 });
 const existingBookWithRecordIds = { name: "Book", fields: [{ name: "title", type: "text", required: true, unique: false }], recordIds: ["1", "2"] };
@@ -81,5 +82,39 @@ it("accepts a link into an existing resource whose id is in the posted recordIds
   expect(res.status).toBe(200);
   const body = await res.json();
   expect(body.plan.resources[0].records[0].book).toBe("2");
+  expect(body.warnings).toEqual([]);
+});
+
+const removalOutput = JSON.stringify({
+  output_text: JSON.stringify({
+    resources: [],
+    customEndpoints: [],
+    removals: { resources: [], fields: [{ resource: "user", field: "email" }], endpoints: [] },
+  }),
+});
+const existingUser = { name: "User", fields: [{ name: "fullName", type: "text", required: true, unique: false }, { name: "email", type: "email", required: true, unique: true }] };
+
+it("parses a field removal and resolves it to the existing resource's exact casing", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(removalOutput, { status: 200 }));
+  const res = await post({ instruction: "i dont want user email in response", existing: [existingUser] });
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.plan.removals).toEqual({ resources: [], fields: [{ resource: "User", field: "email" }], endpoints: [] });
+  expect(body.warnings).toEqual([]);
+});
+
+it("passes existingRoutes through so endpoint removals can be validated", async () => {
+  const raw = JSON.stringify({
+    output_text: JSON.stringify({
+      resources: [],
+      customEndpoints: [],
+      removals: { resources: [], fields: [], endpoints: [{ method: "DELETE", path: "/users/:id" }] },
+    }),
+  });
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(raw, { status: 200 }));
+  const res = await post({ instruction: "remove the delete user endpoint", existing: [existingUser], existingRoutes: [{ method: "DELETE", path: "/users/:id" }] });
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.plan.removals).toEqual({ resources: [], fields: [], endpoints: [{ method: "DELETE", path: "/users/:id" }] });
   expect(body.warnings).toEqual([]);
 });

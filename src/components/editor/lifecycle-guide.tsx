@@ -1,6 +1,6 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { Check, Sparkles } from "lucide-react";
 import { Kicker } from "@/components/domain/kicker";
 import { Button } from "@/components/ui/button";
 import type { ChecklistStep } from "@/lib/onboarding";
@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 
 export interface LifecycleActions {
   define: () => void;
+  /** Open the AI panel; offered alongside DEFINE. */
+  generate: () => void;
   mock: () => void;
   request: () => void;
   respond: () => void;
@@ -18,7 +20,7 @@ interface Props {
   actions: LifecycleActions;
 }
 
-type Phase = keyof LifecycleActions;
+type Phase = Exclude<keyof LifecycleActions, "generate">;
 
 const PHASES: { id: Phase; kicker: string; title: string; description: string; cta: string }[] = [
   {
@@ -101,14 +103,22 @@ export function LifecycleGuide({ steps, actions }: Props) {
               </span>
               <p className="text-sm font-medium text-ink">{phase.title}</p>
               <p className="text-[13px] text-ink-2">{phase.description}</p>
-              <Button
-                variant={current ? "default" : "outline"}
-                size="sm"
-                className="mt-auto w-fit rounded-md"
-                onClick={actions[phase.id]}
-              >
-                {phase.cta}
-              </Button>
+              <div className="mt-auto flex flex-wrap gap-1.5">
+                <Button
+                  variant={current ? "default" : "outline"}
+                  size="sm"
+                  className="w-fit rounded-md"
+                  onClick={actions[phase.id]}
+                >
+                  {phase.cta}
+                </Button>
+                {phase.id === "define" && (
+                  <Button variant="ghost" size="sm" className="w-fit gap-1 rounded-md" onClick={actions.generate}>
+                    <Sparkles className="size-3.5" />
+                    Generate with AI
+                  </Button>
+                )}
+              </div>
             </li>
           );
         })}

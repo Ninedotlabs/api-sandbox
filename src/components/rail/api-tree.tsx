@@ -1,6 +1,6 @@
 "use client";
 
-import { Folder, FolderOpen, Plus } from "lucide-react";
+import { Folder, FolderOpen, Plus, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CopyButton } from "@/components/domain/copy-button";
@@ -70,13 +70,16 @@ function Path({ path }: { path: string }) {
   );
 }
 
+/** What the editor pane is showing instead of the guide, if anything. */
+export type WorkspaceMode = "idle" | "new-resource" | "ai";
+
 interface Props {
-  /** Whether the inline "new resource" row is showing; uncontrolled when left out. */
-  creating?: boolean;
-  onCreatingChange?: (creating: boolean) => void;
+  /** The editor pane's current mode; uncontrolled when left out. */
+  mode?: WorkspaceMode;
+  onModeChange?: (mode: WorkspaceMode) => void;
 }
 
-export function ApiTree({ creating, onCreatingChange }: Props = {}) {
+export function ApiTree({ onModeChange }: Props = {}) {
   const { project, selection, select, setRailOpen } = useWorkspace();
   const addRoutes = useProjectStore((s) => s.addRoutes);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
@@ -84,7 +87,6 @@ export function ApiTree({ creating, onCreatingChange }: Props = {}) {
   const rows = useRef(new Map<string, HTMLDivElement | null>());
   const pendingFocus = useRef<string | null>(null);
 
-  const startCreating = () => onCreatingChange?.(true);
 
   const items = useMemo(() => flatten(project, collapsed), [project, collapsed]);
   const selectedKey =
@@ -249,14 +251,30 @@ export function ApiTree({ creating, onCreatingChange }: Props = {}) {
         })}
       </div>
 
-      <div className="sticky bottom-0 flex gap-1 border-t border-line bg-rail p-2">
-        <Button variant="outline" size="sm" className="h-7 flex-1 gap-1 rounded-md" onClick={startCreating}>
-          <Plus className="size-3.5" />
-          Resource
-        </Button>
-        <Button variant="outline" size="sm" className="h-7 flex-1 gap-1 rounded-md" onClick={() => void addEndpoint()}>
-          <Plus className="size-3.5" />
-          Endpoint
+      <div className="sticky bottom-0 space-y-1 border-t border-line bg-rail p-2">
+        <div className="flex gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 flex-1 gap-1 rounded-md"
+            onClick={() => onModeChange?.("new-resource")}
+          >
+            <Plus className="size-3.5" />
+            Resource
+          </Button>
+          <Button variant="outline" size="sm" className="h-7 flex-1 gap-1 rounded-md" onClick={() => void addEndpoint()}>
+            <Plus className="size-3.5" />
+            Endpoint
+          </Button>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 w-full gap-1 rounded-md"
+          onClick={() => onModeChange?.("ai")}
+        >
+          <Sparkles className="size-3.5" />
+          Generate with AI
         </Button>
       </div>
     </div>

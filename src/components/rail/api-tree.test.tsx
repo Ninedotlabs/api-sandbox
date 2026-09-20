@@ -93,11 +93,19 @@ it("previews the example request when an endpoint is hovered", async () => {
 });
 
 it("asks the page to start creating a resource", async () => {
-  const onCreatingChange = vi.fn();
-  renderTree(storeProject(), { onCreatingChange });
+  const onModeChange = vi.fn();
+  renderTree(storeProject(), { onModeChange });
   const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: /Resource/ }));
-  expect(onCreatingChange).toHaveBeenCalledWith(true);
+  await user.click(screen.getByRole("button", { name: /^Resource$/ }));
+  expect(onModeChange).toHaveBeenCalledWith("new-resource");
+});
+
+it("asks the page to open the AI panel", async () => {
+  const onModeChange = vi.fn();
+  renderTree(storeProject(), { onModeChange });
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Generate with AI" }));
+  expect(onModeChange).toHaveBeenCalledWith("ai");
 });
 
 it("closes the mobile rail drawer once an endpoint is selected", async () => {

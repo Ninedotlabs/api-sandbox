@@ -18,7 +18,7 @@ function project(routes: Project["routes"] = []): Project {
   };
 }
 
-const actions = { define: vi.fn(), mock: vi.fn(), request: vi.fn(), respond: vi.fn() };
+const actions = { define: vi.fn(), generate: vi.fn(), mock: vi.fn(), request: vi.fn(), respond: vi.fn() };
 
 beforeEach(() => Object.values(actions).forEach((fn) => fn.mockClear()));
 
@@ -39,6 +39,8 @@ it("marks define current when nothing exists yet", async () => {
   expect(screen.getByRole("listitem", { name: /DEFINE/ })).toHaveAttribute("data-state", "current");
   await user.click(screen.getByRole("button", { name: "Add a resource" }));
   expect(actions.define).toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Generate with AI" }));
+  expect(actions.generate).toHaveBeenCalled();
 });
 
 it("marks every step done once the project is tested and documented", () => {

@@ -38,3 +38,23 @@ Recorded so they survive a context reset. Each line is a user decision unless ma
 
 - Secrets live only in `.env.local` (gitignored): `AZURE_AI_*`, `DATABASE_URL`, MCP token.
 - The Azure API key pasted in chat earlier this session is compromised and must be rotated.
+
+## Database findings (verified 2026-09-20, against the live Neon instance)
+
+Schema smoke test — all passed:
+- case-insensitive resource-name uniqueness per project
+- duplicate (project, method, path) route rejected
+- invalid field type rejected by the check constraint
+- duplicate project slug rejected
+- `link_to` is NULLED when its target model is deleted, rather than the field cascading away
+- jsonb `filters` round-trips as an array
+- deleting a project cascades to models and routes; records cascade with their model
+
+Neon auto-suspend: the instance suspends after idle and the next connect takes ~5 seconds.
+During a suspend, connects with a 12-20s timeout failed outright and looked like an outage.
+Confirmed it was NOT connection exhaustion: a successful connect reported 1 backend connection.
+Implications:
+- Integration tests need `connectionTimeoutMillis` >= 30000 on the first connect. Retry loops are
+  the wrong fix — they would mask real failures later.
+- On Vercel, the first request after an idle period pays this cold start. If that becomes
+  user-visible, the options are a paid Neon tier without auto-suspend, or a keep-warm ping.

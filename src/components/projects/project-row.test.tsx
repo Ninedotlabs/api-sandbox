@@ -38,6 +38,30 @@ beforeEach(() => {
   vi.mocked(toast.error).mockClear();
 });
 
+it("is a real anchor to the project, so native middle-click / Cmd-click open it in a new tab", () => {
+  const row = renderRow();
+  expect(row.tagName).toBe("A");
+  expect(row).toHaveAttribute("href", "/projects/p1");
+});
+
+it("starts a rename by clicking the name directly, without navigating", async () => {
+  const user = userEvent.setup();
+  renderRow();
+  await user.click(screen.getByText("Shop"));
+  expect(await screen.findByRole("textbox", { name: "Project name" })).toBeInTheDocument();
+  expect(push).not.toHaveBeenCalled();
+});
+
+it("opens the project in a new tab via the context menu", async () => {
+  const user = userEvent.setup();
+  const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+  const row = renderRow();
+  openMenu(row);
+  await user.click(screen.getByRole("menuitem", { name: "Open in new tab" }));
+  expect(openSpy).toHaveBeenCalledWith("/projects/p1", "_blank", "noopener");
+  openSpy.mockRestore();
+});
+
 it("navigates to the workspace on Open, and to the reference page on Open reference", async () => {
   const user = userEvent.setup();
   const row = renderRow();

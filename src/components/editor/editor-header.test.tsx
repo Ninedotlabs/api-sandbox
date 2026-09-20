@@ -31,7 +31,7 @@ it("renames inline, and keeps editing while the name is invalid", async () => {
     />,
   );
 
-  await user.click(screen.getByRole("button", { name: "Resource name: Product" }));
+  await user.click(screen.getByText("Product"));
   const input = screen.getByLabelText("Resource name");
   await user.clear(input);
   await user.keyboard("{Enter}");

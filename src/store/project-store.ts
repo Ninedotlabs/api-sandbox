@@ -251,7 +251,18 @@ export const useProjectStore = create<ProjectState>()((set, get) => {
           endpointCount += routes.length;
         }
         const projectNow = (await projectService.get(projectId))!;
+        // Defensive: parseEditPlan already dedupes same method+path within a single answer,
+        // but this filter must never depend on that holding true — a second independent
+        // duplicate here would otherwise make routeService.createMany throw mid-apply, after
+        // fields and records for this same call have already been written (see I2).
+        const seenCustom = new Set<string>();
         const customRoutes = plan.customEndpoints
+          .filter((c) => {
+            const key = `${c.method} ${c.path}`;
+            if (seenCustom.has(key)) return false;
+            seenCustom.add(key);
+            return true;
+          })
           .map((c) => ({ ...c, modelId: c.resourceName ? (ids.get(c.resourceName) ?? null) : null }))
           .filter((c) => !projectNow.routes.some((r) => r.method === c.method && r.path === c.path))
           .map((c) => ({ id: createId("rt"), method: c.method, path: c.path, modelId: c.modelId, action: "custom" as const, description: c.description, filters: [] }));

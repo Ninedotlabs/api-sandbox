@@ -1,3 +1,4 @@
+import { computeEditDiff } from "@/lib/ai/diff";
 import type { EditPlan } from "@/lib/ai/plan";
 import { buildCrudRoutes } from "@/lib/crud";
 import { consoleService, routeService } from "@/lib/services";
@@ -265,4 +266,101 @@ it("edit: a brand-new resource's seeded records are not snapshotted (nothing exi
   };
   const result = await useProjectStore.getState().applyEditPlan(project.id, plan);
   expect(result.replacedRecords).toEqual([]);
+});
+
+// I2: applyEditPlan must dedupe customEndpoints defensively (same method+path within the
+// plan itself), so a duplicate — however it got there — can never make routeService.createMany
+// throw mid-apply and abort a partly-applied run.
+it("edit: applies custom endpoints — resolves modelId, filters ones that already exist, and a duplicate doesn't throw mid-apply", async () => {
+  const project = await useProjectStore.getState().createProject({ name: "Shop", description: "", templateId: null });
+  const book = await useProjectStore.getState().createModel(project.id, "Book");
+  await useProjectStore.getState().addRoutes(project.id, [{ id: "rt-existing", method: "GET", path: "/ping", modelId: null, action: "custom", description: "", filters: [] }]);
+
+  const plan: EditPlan = {
+    resources: [],
+    customEndpoints: [
+      { method: "GET", path: "/books/bestsellers", resourceName: "Book", description: "Top sellers" },
+      { method: "GET", path: "/books/bestsellers", resourceName: "Book", description: "Duplicate" },
+      { method: "GET", path: "/ping", resourceName: null, description: "Already exists" },
+      { method: "GET", path: "/health", resourceName: null, description: "Health check" },
+    ],
+  };
+  const result = await useProjectStore.getState().applyEditPlan(project.id, plan);
+  const after = useProjectStore.getState().projects.find((p) => p.id === project.id)!;
+  expect(after.routes.filter((r) => r.path === "/books/bestsellers")).toHaveLength(1);
+  expect(after.routes.find((r) => r.path === "/books/bestsellers")!.modelId).toBe(book.id);
+  expect(after.routes.filter((r) => r.path === "/ping")).toHaveLength(1);
+  expect(after.routes.some((r) => r.path === "/health")).toBe(true);
+  expect(result.endpointCount).toBe(2);
+});
+
+it("preview/apply equivalence: computeEditDiff's endpoint count and field changes match what applyEditPlan does, even with a duplicate custom endpoint", async () => {
+  const project = await useProjectStore.getState().createProject({ name: "Shop", description: "", templateId: null });
+  const book = await useProjectStore.getState().createModel(project.id, "Book");
+  await useProjectStore.getState().saveModel(project.id, { ...book, fields: [{ id: "f-title", name: "title", type: "text", required: true, unique: false }] });
+
+  const plan: EditPlan = {
+    resources: [
+      { name: "Book", description: "", fields: [{ name: "genre", type: "text", required: false, unique: false }], records: [] },
+      { name: "Author", description: "", fields: [{ name: "name", type: "text", required: true, unique: false }], records: [] },
+    ],
+    customEndpoints: [
+      { method: "GET", path: "/books/bestsellers", resourceName: "Book", description: "Top sellers" },
+      { method: "GET", path: "/books/bestsellers", resourceName: "Book", description: "Top sellers (dup)" },
+    ],
+  };
+  const before = useProjectStore.getState().projects.find((p) => p.id === project.id)!;
+  const diff = computeEditDiff(before, plan);
+
+  const result = await useProjectStore.getState().applyEditPlan(project.id, plan);
+  expect(result.endpointCount).toBe(diff.newEndpoints.length);
+
+  const after = useProjectStore.getState().projects.find((p) => p.id === project.id)!;
+  const bookAfter = after.models.find((m) => m.name === "Book")!;
+  const authorAfter = after.models.find((m) => m.name === "Author")!;
+  const bookDiff = diff.changedResources.find((r) => r.name === "Book")!;
+  const authorDiff = diff.newResources.find((r) => r.name === "Author")!;
+  for (const change of bookDiff.fields) {
+    const field = bookAfter.fields.find((f) => f.name === change.name)!;
+    expect(field.type).toBe(change.after.type);
+    expect(field.required).toBe(change.after.required);
+  }
+  for (const change of authorDiff.fields) {
+    const field = authorAfter.fields.find((f) => f.name === change.name)!;
+    expect(field.type).toBe(change.after.type);
+  }
+  // The duplicate custom endpoint must not have thrown mid-apply, and must not double-create.
+  expect(after.routes.filter((r) => r.path === "/books/bestsellers")).toHaveLength(1);
+});
+
+// C1 / record-rewrite: changing a choice field's options invalidates any existing record
+// value that isn't one of the new options; the mock engine's ensureDataset then silently
+// regenerates it on the next read. This is the mechanism C1 exists to make visible in the
+// preview — apply semantics themselves are unchanged.
+it("edit: changing a choice field's options invalidates existing records, which are then regenerated on next read", async () => {
+  const project = await useProjectStore.getState().createProject({ name: "Shop", description: "", templateId: null });
+  const order = await useProjectStore.getState().createModel(project.id, "Order");
+  await useProjectStore.getState().saveModel(project.id, {
+    ...order,
+    fields: [{ id: "f-status", name: "status", type: "choice", required: true, unique: false, options: ["Pending", "Shipped"] }],
+  });
+  await consoleService.seedRecords(project.id, order.id, [{ status: "Pending" }, { status: "Shipped" }]);
+
+  const plan: EditPlan = {
+    resources: [{ name: "Order", description: "", fields: [{ name: "status", type: "choice", required: true, unique: false, options: ["Refunded"] }], records: [] }],
+    customEndpoints: [],
+  };
+  await useProjectStore.getState().applyEditPlan(project.id, plan);
+
+  const after = useProjectStore.getState().projects.find((p) => p.id === project.id)!;
+  const orderAfter = after.models.find((m) => m.id === order.id)!;
+  expect(orderAfter.fields.find((f) => f.name === "status")!.options).toEqual(["Refunded"]);
+
+  const records = await consoleService.sampleData(project.id, order.id);
+  expect(records).toHaveLength(2);
+  for (const r of records) {
+    expect(["Pending", "Shipped"]).not.toContain(r.status);
+    // "Refunded" is the only option left, so faker's arrayElement is deterministic here.
+    expect(r.status).toBe("Refunded");
+  }
 });

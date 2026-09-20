@@ -1,10 +1,9 @@
 "use client";
 
-import { SearchX } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Suspense } from "react";
-import { EmptyState } from "@/components/domain/empty-state";
+import { Kicker } from "@/components/domain/kicker";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { TopBar } from "@/components/shell/top-bar";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
@@ -28,17 +27,13 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
   if (!loaded) return <LoadingShell />;
   if (!project) {
     return (
-      <div className="p-8">
-        <EmptyState
-          icon={SearchX}
-          title="Project not found"
-          description="It may have been deleted."
-          action={
-            <Button asChild>
-              <Link href="/projects">Back to your projects</Link>
-            </Button>
-          }
-        />
+      <div className="mx-auto max-w-xl space-y-3 px-6 py-16 text-center">
+        <Kicker>Not found</Kicker>
+        <h1 className="text-xl font-semibold text-ink">Project not found</h1>
+        <p className="text-sm text-ink-3">{"It may have been deleted."}</p>
+        <Button asChild className="mt-2">
+          <Link href="/projects">Back to your projects</Link>
+        </Button>
       </div>
     );
   }

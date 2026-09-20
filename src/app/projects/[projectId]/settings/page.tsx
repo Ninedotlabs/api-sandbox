@@ -3,10 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/domain/page-header";
+import { Kicker } from "@/components/domain/kicker";
 import { TwoStepButton } from "@/components/domain/two-step-button";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -65,12 +64,17 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 px-6 py-10">
-      <PageHeader title="Settings" description="Rename your API or change its address." />
-      <form onSubmit={save} className="space-y-5 rounded-2xl border bg-surface p-5">
+      <div className="space-y-1">
+        <Kicker>Settings</Kicker>
+        <h1 className="text-xl font-semibold text-ink">{project.name}</h1>
+        <p className="text-sm text-ink-3">{"Rename your API or change its address."}</p>
+      </div>
+
+      <form onSubmit={save} className="space-y-5 rounded-lg border border-line bg-surface p-5">
         <div className="space-y-2">
           <Label htmlFor="settings-name">API name</Label>
           <Input id="settings-name" value={name} aria-invalid={!!errors.name} onChange={(e) => setName(e.target.value)} />
-          {errors.name && <p role="alert" className="text-sm text-destructive">{errors.name}</p>}
+          {errors.name && <p role="alert" className="text-sm text-danger">{errors.name}</p>}
         </div>
         <div className="space-y-2">
           <Label htmlFor="settings-description">Description</Label>
@@ -79,25 +83,25 @@ export default function SettingsPage() {
         <div className="space-y-2">
           <Label htmlFor="settings-slug">Address</Label>
           <div className="flex items-center gap-2">
-            <code className="font-mono text-sm text-muted-foreground">/api/</code>
+            <code className="font-mono text-sm text-ink-3">/api/</code>
             <Input id="settings-slug" className="font-mono" value={slug} aria-invalid={!!errors.slug} onChange={(e) => setSlug(e.target.value)} />
           </div>
-          {errors.slug && <p role="alert" className="text-sm text-destructive">{errors.slug}</p>}
+          {errors.slug && <p role="alert" className="text-sm text-danger">{errors.slug}</p>}
         </div>
         <div className="flex justify-end">
           <Button type="submit">Save settings</Button>
         </div>
       </form>
 
-      <Card className="rounded-2xl border-danger/30">
-        <CardHeader>
-          <CardTitle className="text-destructive">Delete this API</CardTitle>
-          <CardDescription>Removes its models, routes and docs. You can undo right after.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <TwoStepButton label="Delete API" confirmLabel="Sure? Delete" onConfirm={() => void remove()} />
-        </CardContent>
-      </Card>
+      <div className="space-y-3 rounded-lg border border-danger/30 bg-surface p-5">
+        <div>
+          <h2 className="font-semibold text-danger">Delete this API</h2>
+          <p className="mt-1 text-sm text-ink-3">
+            {"Removes its resources, endpoints and reference. You can undo right after."}
+          </p>
+        </div>
+        <TwoStepButton label="Delete API" confirmLabel="Sure? Delete" onConfirm={() => void remove()} />
+      </div>
     </div>
   );
 }

@@ -13,9 +13,10 @@
 ## Global Constraints
 
 - Audience: developers. Terms: **resource** (model), **schema** (fields), **endpoint** (route), **console**, **reference**. Plain-language descriptions remain as secondary text.
-- Tokens (exact): page `#F4F4F2`, rail `#ECEDEF`, surface `#FAFAF8`, panel `#EEF0F3`, panel-strong `#E4E7EC`, line `#DDDFE3`, line-strong `#C9CDD4`, ink `#1F2328`, ink-2 `#4B5563`, ink-3 `#6B7280`, accent `#4F46E5`, accent-soft `#E0E7FF`, accent-ink `#3730A3`, slate `#1B1F27`, slate-2 `#242935`, slate-ink `#E6E8EC`, slate-muted `#8B93A1`, success `#15803D`, warning `#B45309`, danger `#B91C1C`.
+- Tokens (exact): page `#F4F4F2`, rail `#ECEDEF`, surface `#FAFAF8`, panel `#EEF0F3`, panel-strong `#E4E7EC`, line `#DDDFE3`, line-strong `#C9CDD4`, ink `#1F2328`, ink-2 `#4B5563`, ink-3 `#676D7B`, accent `#4F46E5`, accent-soft `#E0E7FF`, accent-ink `#3730A3`, slate `#1B1F27`, slate-2 `#242935`, slate-ink `#E6E8EC`, slate-muted `#8B93A1`, success `#15803D`, warning `#B45309`, danger `#B91C1C`.
 - Method colours (text / tint): GET `#15803D`/`#DCFCE7`, POST `#1D4ED8`/`#DBEAFE`, PUT `#B45309`/`#FEF3C7`, PATCH `#6D28D9`/`#EDE9FE`, DELETE `#B91C1C`/`#FEE2E2`. `MethodLabel` is mono 11px semibold, 56px wide, 4px radius.
-- Syntax colours light: key `#3730A3`, string `#0F766E`, number `#B45309`, boolean `#6D28D9`, null/punct `#6B7280`. Slate: key `#A5B4FC`, string `#6EE7B7`, number `#FCD34D`, boolean `#C4B5FD`, null/punct `#8B93A1`.
+- Syntax colours light: key `#3730A3`, string `#0F766E`, number `#B45309`, boolean `#6D28D9`, null/punct `#676D7B`. Slate: key `#A5B4FC`, string `#6EE7B7`, number `#FCD34D`, boolean `#C4B5FD`, null/punct `#8B93A1`.
+- Contrast fix (Task 8): `ink-3`/`syntax-muted` moved from `#6B7280` to `#676D7B` — the original failed 4.5:1 against `--color-page`/`--color-panel` (4.39:1 / 4.23:1); the darker value clears both (4.71:1 / 4.54:1). All other tokens and method-text-on-tint pairs passed as specified.
 - Fonts: Instrument Sans (`--font-sans`), JetBrains Mono (`--font-mono`). No script font. Kickers: mono 11px uppercase, tracking 0.08em, `text-ink-3`.
 - Radius 6px controls, 8px panels, 10px popovers, 4px chips. Shadows only on popovers/palette. Focus ring 2px accent, offset 2px.
 - Page background: page colour + dot grid `radial-gradient(var(--color-line) 1px, transparent 1px)` at 24px. Panels flat.
@@ -166,7 +167,7 @@ Keep the three `@import` lines and the `@custom-variant dark (&:is(.dark *));` l
   --color-line-strong: #c9cdd4;
   --color-ink: #1f2328;
   --color-ink-2: #4b5563;
-  --color-ink-3: #6b7280;
+  --color-ink-3: #676d7b;
   --color-accent: #4f46e5;
   --color-accent-soft: #e0e7ff;
   --color-accent-ink: #3730a3;
@@ -198,7 +199,7 @@ Keep the three `@import` lines and the `@custom-variant dark (&:is(.dark *));` l
   --color-syntax-string: #0f766e;
   --color-syntax-number: #b45309;
   --color-syntax-boolean: #6d28d9;
-  --color-syntax-muted: #6b7280;
+  --color-syntax-muted: #676d7b;
   --color-syntax-key-slate: #a5b4fc;
   --color-syntax-string-slate: #6ee7b7;
   --color-syntax-number-slate: #fcd34d;

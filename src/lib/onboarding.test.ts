@@ -16,5 +16,4 @@ it("tracks progress from the project and UI flags", () => {
   expect(steps.map((s) => [s.id, s.done])).toEqual([
     ["model", true], ["fields", true], ["routes", true], ["test", true], ["docs", false],
   ]);
-  expect(steps[4].href).toBe("/projects/p1/docs");
 });

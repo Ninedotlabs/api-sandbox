@@ -1,5 +1,7 @@
 # Paper & Ink redesign — UI design spec
 
+Superseded by `2026-09-20-workspace-redesign.md`.
+
 Supersedes the visual system and shell/flow sections of `2026-09-19-universal-api-ui-design.md`. Domain logic, the service layer, the stores and the mock engine are unchanged.
 
 ## Why

@@ -52,7 +52,7 @@ export function ProjectMenu({ project }: { project: Project }) {
           <MoreVertical className="size-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56 rounded-2xl">
+      <DropdownMenuContent align="start" className="w-56 rounded-xl">
         <DropdownMenuItem asChild>
           <Link href={`/projects/${project.id}/settings`}>
             <Settings className="size-4" /> Settings

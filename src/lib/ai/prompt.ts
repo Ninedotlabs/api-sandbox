@@ -30,10 +30,10 @@ export function buildEditInstruction(opts: { existing: ExistingResourceSummary[]
       ? `These resources already exist:\n${resourceList}`
       : "No resources exist yet; anything you return is new.",
     "For a resource you are adding, use its full field list and up to 8 realistic sample records, as if starting fresh.",
-    "For a resource you're changing, use its existing name and list in \"fields\" only what's added or changed. If you also change its data, \"records\" must be the complete new sample set with a value for every field; otherwise leave \"records\" empty.",
+    "For a resource you're changing, use its existing exact name and list in \"fields\" only what's added or changed — never repeat a field you're leaving alone. If you also change its data, \"records\" must be the complete new sample set, including a value for every field it has, both ones you listed and ones it already had; otherwise leave \"records\" empty.",
     "Use choice with an options list for fixed sets, and link with linkTo set to another resource's exact name. A link's value is a 1-based index (\"1\", \"2\", ...) into the target's new records if you're adding or changing it, or one of its existing ids (listed above) if you're not.",
     "Every record must include all required fields, respect unique fields, use realistic varied values, and give every value as a string (numbers like \"12.5\", booleans \"true\"/\"false\", dates \"2026-01-31\").",
-    "For an endpoint beyond list/get/create/update/delete, add it to customEndpoints with a method, a path starting with /, its resource (or null), and a one-sentence description; standard endpoints are automatic.",
+    "For an endpoint beyond list/get/create/update/delete, add it to customEndpoints with a method, a path starting with /, its resource (or null), and a one-sentence description; standard endpoints are automatic — never list them in customEndpoints.",
     "Never propose removing a resource, field or endpoint. If part of the instruction asks for a removal, ignore that part and do the rest.",
   ].filter(Boolean).join("\n");
 }

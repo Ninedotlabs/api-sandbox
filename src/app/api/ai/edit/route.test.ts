@@ -48,13 +48,38 @@ it("maps upstream 401 and timeouts", async () => {
   expect((await post({ instruction: "x" })).status).toBe(504);
 });
 
-it("accepts recordIds on existing resources and still returns a parsed plan", async () => {
-  vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(ok, { status: 200 }));
-  const res = await post({
-    instruction: "Add reviews",
-    existing: [{ name: "Book", fields: [{ name: "title", type: "text", required: true, unique: false }], recordIds: ["1", "2"] }],
-  });
+const bookLinkResources = (bookLinkValue: string) => JSON.stringify({
+  output_text: JSON.stringify({
+    resources: [
+      {
+        name: "Review",
+        description: "",
+        fields: [
+          { name: "rating", type: "number", required: true, unique: false, options: null, linkTo: null },
+          { name: "book", type: "link", required: false, unique: false, options: null, linkTo: "Book" },
+        ],
+        records: [{ entries: [{ field: "rating", value: "5" }, { field: "book", value: bookLinkValue }] }],
+      },
+    ],
+    customEndpoints: [],
+  }),
+});
+const existingBookWithRecordIds = { name: "Book", fields: [{ name: "title", type: "text", required: true, unique: false }], recordIds: ["1", "2"] };
+
+it("rejects a link into an existing resource whose id isn't in the posted recordIds", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(bookLinkResources("9"), { status: 200 }));
+  const res = await post({ instruction: "Add reviews", existing: [existingBookWithRecordIds] });
   expect(res.status).toBe(200);
   const body = await res.json();
-  expect(body.plan.resources[0].name).toBe("Review");
+  expect(body.plan.resources[0].records[0].book).toBeNull();
+  expect(body.warnings).toContain("Review: 1 sample record had an unknown book link and was left empty.");
+});
+
+it("accepts a link into an existing resource whose id is in the posted recordIds", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(bookLinkResources("2"), { status: 200 }));
+  const res = await post({ instruction: "Add reviews", existing: [existingBookWithRecordIds] });
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.plan.resources[0].records[0].book).toBe("2");
+  expect(body.warnings).toEqual([]);
 });

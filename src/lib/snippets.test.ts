@@ -1,6 +1,11 @@
+import { afterEach, vi } from "vitest";
 import { buildCrudRoutes } from "./crud";
 import { buildSnippets } from "./snippets";
 import type { Model, Project } from "./types";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 const product: Model = { id: "m1", name: "Product", fields: [] };
 const routes = buildCrudRoutes(product, ["get", "create"], []);
@@ -33,4 +38,11 @@ it("escapes single quotes in the cURL body and renders Python literals for trick
     `curl -X POST http://localhost:3000/api/shop/products \\\n  -H "Content-Type: application/json" \\\n  -d '{"name":"O'\\''Brien","tags":["a,\\"b","c\\":d"],"active":true,"note":null}'`,
   );
   expect(s.python).toContain('"tags": ["a,\\"b", "c\\":d"], "active": True, "note": None');
+});
+
+it("builds snippets against the configured NEXT_PUBLIC_APP_URL, not localhost", () => {
+  vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://api-sandbox-eight.vercel.app");
+  const get = routes.find((r) => r.action === "get")!;
+  const s = buildSnippets(project, get);
+  expect(s.curl).toBe("curl https://api-sandbox-eight.vercel.app/api/shop/products/1");
 });

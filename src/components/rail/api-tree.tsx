@@ -11,6 +11,7 @@ import { MethodLabel } from "@/components/domain/method-label";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { Button } from "@/components/ui/button";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { getAppOrigin, getAppOriginDisplay } from "@/lib/app-origin";
 import { endpointItems, resourceItems } from "@/lib/context-menu-items";
 import { createId } from "@/lib/ids";
 import { groupRoutes, uniquePath } from "@/lib/routes";
@@ -20,8 +21,6 @@ import { validateModelName } from "@/lib/validation";
 import { useProjectStore } from "@/store/project-store";
 import { EndpointPreview } from "./endpoint-preview";
 import { TreeNode } from "./tree-node";
-
-const ORIGIN = "localhost:3000";
 
 /** `posInSet`/`setSize` count siblings at the item's own level, not rows in the flat list. */
 type TreeItem = { key: string; posInSet: number; setSize: number } & (
@@ -256,9 +255,9 @@ export function ApiTree({ onModeChange }: Props = {}) {
   return (
     <div className="flex min-h-full flex-col">
       <div className="flex items-center gap-1 border-b border-line px-3 py-2">
-        <span className="font-mono text-xs text-ink-3">{ORIGIN}</span>
+        <span className="font-mono text-xs text-ink-3">{getAppOriginDisplay()}</span>
         <span className="truncate font-mono text-xs text-ink">{baseUrl(project.slug)}</span>
-        <CopyButton text={`http://${ORIGIN}${baseUrl(project.slug)}`} className="ml-auto size-6" />
+        <CopyButton text={`${getAppOrigin()}${baseUrl(project.slug)}`} className="ml-auto size-6" />
       </div>
 
       <div role="tree" aria-label="Resources and endpoints" className="flex-1 py-1" onKeyDown={onKeyDown}>

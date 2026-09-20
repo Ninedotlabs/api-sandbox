@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
  * The local MCP entry point: `claude mcp add universal-api -- node ./dist/mcp/stdio.js`.
- * Reads `UNIVERSAL_API_URL` (default `http://localhost:3000`) and `UNIVERSAL_API_TOKEN` from
- * the environment and speaks MCP over stdio - see `src/app/api/mcp/route.ts` for the deployed,
- * HTTP counterpart. Both register the exact same `TOOLS` (see `src/mcp/server.ts`).
+ * Reads `UNIVERSAL_API_URL` (default: see `getAppOrigin` in `src/lib/app-origin.ts`) and
+ * `UNIVERSAL_API_TOKEN` from the environment and speaks MCP over stdio - see
+ * `src/app/api/mcp/route.ts` for the deployed, HTTP counterpart. Both register the exact same
+ * `TOOLS` (see `src/mcp/server.ts`).
  *
  * This file is meant to be run, not imported - it starts the server unconditionally at module
  * load. Its config logic lives in `stdio-config.ts` instead, precisely so that logic can be

@@ -8,19 +8,25 @@
  * A person copies the command once, then swaps the placeholder for the token they copy
  * separately.
  */
+import { getAppOriginDisplay } from "./app-origin";
+
 export const TOKEN_PLACEHOLDER = "<your-token>";
 
 const STDIO_ENTRYPOINT = "./dist/mcp/stdio.js";
-const DEFAULT_HOST = "localhost:3000";
 
 /**
  * Builds the deployed snippet's origin from the current request's own `host` (and, if
  * present, `x-forwarded-proto`) headers - see `src/app/mcp/page.tsx`, which reads them via
  * `next/headers`. That way the snippet is immediately usable against whatever host the page
  * is actually being viewed on, local or deployed, without guessing at a domain.
+ *
+ * `host` should always be present in practice (every real HTTP request carries a `Host`
+ * header) - `getAppOriginDisplay()` only comes into play as a defensive fallback, using
+ * `NEXT_PUBLIC_APP_URL`/`NEXT_PUBLIC_VERCEL_URL`/localhost precedence instead of a bare
+ * hardcoded host.
  */
 export function resolveOrigin(host: string | null, forwardedProto: string | null): string {
-  const safeHost = host ?? DEFAULT_HOST;
+  const safeHost = host ?? getAppOriginDisplay();
   const isLocal = safeHost.startsWith("localhost") || safeHost.startsWith("127.0.0.1");
   const proto = forwardedProto ?? (isLocal ? "http" : "https");
   return `${proto}://${safeHost}`;

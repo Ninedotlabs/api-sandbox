@@ -3,8 +3,10 @@ import { FIELD_TYPES, fieldTypeMeta } from "./field-types";
 import { countLabel, formatCell, timeAgo } from "./format";
 import { METHOD_META } from "./methods";
 import { fillPath, routeParams } from "./paths";
+import { matchRoute } from "./routes";
 import { article, baseUrl, pluralize, resourcePath, slugify } from "./slug";
 import { ACTION_META } from "./actions";
+import type { Route } from "./types";
 
 describe("slug helpers", () => {
   it("slugifies names", () => {
@@ -31,6 +33,52 @@ describe("paths", () => {
     expect(routeParams("/a/:id/b/:slug")).toEqual(["id", "slug"]);
     expect(fillPath("/products/:id", { id: "7" })).toBe("/products/7");
     expect(fillPath("/products/:id", {})).toBe("/products/:id");
+  });
+});
+
+describe("matchRoute", () => {
+  const routes: Route[] = [
+    { id: "rte_list", method: "GET", path: "/books", modelId: "mdl_book", action: "list", description: "", filters: [] },
+    { id: "rte_get", method: "GET", path: "/books/:id", modelId: "mdl_book", action: "get", description: "", filters: [] },
+    {
+      id: "rte_nested",
+      method: "GET",
+      path: "/authors/:authorId/books/:bookId",
+      modelId: "mdl_book",
+      action: "get",
+      description: "",
+      filters: [],
+    },
+  ];
+
+  it("matches a literal path and method", () => {
+    const match = matchRoute(routes, "GET", ["books"]);
+    expect(match?.route.id).toBe("rte_list");
+    expect(match?.params).toEqual({});
+  });
+
+  it("extracts a single :param", () => {
+    const match = matchRoute(routes, "GET", ["books", "7"]);
+    expect(match?.route.id).toBe("rte_get");
+    expect(match?.params).toEqual({ id: "7" });
+  });
+
+  it("extracts multiple :param segments", () => {
+    const match = matchRoute(routes, "GET", ["authors", "3", "books", "9"]);
+    expect(match?.route.id).toBe("rte_nested");
+    expect(match?.params).toEqual({ authorId: "3", bookId: "9" });
+  });
+
+  it("returns null when the method doesn't match", () => {
+    expect(matchRoute(routes, "POST", ["books"])).toBeNull();
+  });
+
+  it("returns null when no route has the right segment count", () => {
+    expect(matchRoute(routes, "GET", ["books", "7", "extra"])).toBeNull();
+  });
+
+  it("returns null for an unmatched literal segment", () => {
+    expect(matchRoute(routes, "GET", ["magazines"])).toBeNull();
   });
 });
 

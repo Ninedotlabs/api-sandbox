@@ -32,6 +32,13 @@ const MAX_INSTRUCTION = 2000;
 // A field the model can use to point a new link at a real record, capped so the request
 // body stays small even for a resource with a lot of sample data.
 const MAX_RECORD_IDS = 20;
+// The route's own caps (see the `existing` schema in src/app/api/ai/edit/route.ts): at most
+// 20 resources, and at most 20 fields on any one of them. Below these, a large project just
+// gets a partial-context edit instead of a hard, undiagnosable 400 on every attempt (I3).
+const MAX_RESOURCES = 20;
+const MAX_FIELDS = 20;
+
+interface SampleInfo { ids: string[]; count: number }
 
 export function AiEditPanel({ project, onApplied, onCancel }: Props) {
   const applyEditPlan = useProjectStore((s) => s.applyEditPlan);
@@ -39,32 +46,44 @@ export function AiEditPanel({ project, onApplied, onCancel }: Props) {
   const [instruction, setInstruction] = useState("");
   const [stage, setStage] = useState<Stage>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ plan: EditPlan; warnings: string[] } | null>(null);
+  const [result, setResult] = useState<{ plan: EditPlan; warnings: string[]; recordCounts: Record<string, number> } | null>(null);
   const busy = stage === "generating" || stage === "applying";
   const abort = useRef<AbortController | null>(null);
   const mounted = useRef(true);
   // Fetched once, lazily, and reused: real record ids are what let the server validate a
   // new link ("add Reviews linked to Book") against ids that actually exist, instead of
-  // nulling it out or pointing it at the wrong record. Loaded on mount so it's usually
-  // ready by the time the user submits, but never blocks typing.
-  const recordIds = useRef<Promise<Map<string, string[]>> | null>(null);
+  // nulling it out or pointing it at the wrong record. Also carries each model's full record
+  // count, used to disclose an inbound link about to dangle (I5). Loaded on mount so it's
+  // usually ready by the time the user submits, but never blocks typing.
+  const recordIds = useRef<Promise<Map<string, SampleInfo>> | null>(null);
 
-  function loadRecordIds(): Promise<Map<string, string[]>> {
+  function loadRecordIds(): Promise<Map<string, SampleInfo>> {
     if (!recordIds.current) {
       recordIds.current = Promise.all(
         project.models.map(async (model) => {
           const records = await consoleService.sampleData(project.id, model.id);
           const ids = records.slice(0, MAX_RECORD_IDS).map((r) => String((r as { id?: unknown }).id));
-          return [model.name, ids] as const;
+          return [model.name, { ids, count: records.length }] as const;
         }),
-      ).then((pairs) => new Map(pairs));
+      )
+        .then((pairs) => new Map(pairs))
+        .catch((e) => {
+          // Clear the memo so the next attempt (Retry, Regenerate, or a fresh generate())
+          // starts a new fetch instead of forever awaiting this same rejected promise —
+          // otherwise one transient failure disabled the whole panel until remount (I4).
+          recordIds.current = null;
+          throw e;
+        });
     }
     return recordIds.current;
   }
 
   useEffect(() => {
     mounted.current = true;
-    void loadRecordIds();
+    // Kicked off eagerly so it's usually ready by the time the user submits, but a failure
+    // here must not surface as an unhandled rejection — generate() awaits (and reports) the
+    // same memoized promise when it's actually needed (I4).
+    loadRecordIds().catch(() => {});
     return () => {
       mounted.current = false;
       abort.current?.abort();
@@ -79,14 +98,27 @@ export function AiEditPanel({ project, onApplied, onCancel }: Props) {
     abort.current?.abort();
     const controller = new AbortController();
     abort.current = controller;
+    let idsByName: Map<string, SampleInfo>;
     try {
-      const idsByName = await loadRecordIds();
+      idsByName = await loadRecordIds();
+    } catch {
       if (!mounted.current || controller.signal.aborted) return;
-      const existing: ExistingResourceSummary[] = project.models.map((m) => {
-        const ids = idsByName.get(m.name);
+      // Distinct from the AI-request failure below: this is this project's own sample data,
+      // not the AI service, and reporting it as the latter was a known misattribution (I4).
+      setError("Could not load this project's sample data. Try again.");
+      setStage("error");
+      return;
+    }
+    if (!mounted.current || controller.signal.aborted) return;
+    try {
+      const recordCounts: Record<string, number> = {};
+      for (const [name, info] of idsByName) recordCounts[name] = info.count;
+      const models = project.models.slice(0, MAX_RESOURCES);
+      const existing: ExistingResourceSummary[] = models.map((m) => {
+        const info = idsByName.get(m.name);
         return {
           name: m.name,
-          fields: m.fields.map((f) => ({
+          fields: m.fields.slice(0, MAX_FIELDS).map((f) => ({
             name: f.name,
             type: f.type,
             required: f.required,
@@ -94,7 +126,7 @@ export function AiEditPanel({ project, onApplied, onCancel }: Props) {
             ...(f.options ? { options: f.options } : {}),
             ...(f.linkTo ? { linkTo: project.models.find((x) => x.id === f.linkTo)?.name } : {}),
           })),
-          ...(ids && ids.length > 0 ? { recordIds: ids } : {}),
+          ...(info && info.ids.length > 0 ? { recordIds: info.ids } : {}),
         };
       });
       const response = await fetch("/api/ai/edit", {
@@ -111,7 +143,7 @@ export function AiEditPanel({ project, onApplied, onCancel }: Props) {
         setStage("error");
         return;
       }
-      setResult({ plan: data.plan, warnings: data.warnings ?? [] });
+      setResult({ plan: data.plan, warnings: data.warnings ?? [], recordCounts });
       setStage("preview");
     } catch (e) {
       if (!mounted.current || controller.signal.aborted || (e instanceof Error && e.name === "AbortError")) return;
@@ -155,14 +187,17 @@ export function AiEditPanel({ project, onApplied, onCancel }: Props) {
     }
   }
 
-  const diff: EditDiff | null = result ? computeEditDiff(project, result.plan) : null;
+  const diff: EditDiff | null = result ? computeEditDiff(project, result.plan, result.recordCounts) : null;
   const newCount = diff?.newResources.length ?? 0;
   const endpointCount = diff?.newEndpoints.length ?? 0;
   const nothingToApply = diff ? diff.newResources.length === 0 && diff.changedResources.length === 0 && diff.newEndpoints.length === 0 : true;
-  const applyLabel =
-    diff && (newCount > 0 || endpointCount > 0)
-      ? `Create ${countLabel(newCount, "resource")} and ${countLabel(endpointCount, "endpoint")}`
-      : "Update the API";
+  // Built from the non-zero counts only (M7) — with zero new resources, the label must read
+  // "Create 5 endpoints", not "Create 0 resources and 5 endpoints".
+  const applyLabelParts = [
+    ...(newCount > 0 ? [countLabel(newCount, "resource")] : []),
+    ...(endpointCount > 0 ? [countLabel(endpointCount, "endpoint")] : []),
+  ];
+  const applyLabel = applyLabelParts.length > 0 ? `Create ${applyLabelParts.join(" and ")}` : "Update the API";
 
   return (
     <section

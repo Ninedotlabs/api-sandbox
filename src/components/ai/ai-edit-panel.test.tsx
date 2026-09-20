@@ -142,6 +142,117 @@ it("labels the button 'Update the API' and disables it when there is nothing to 
   expect(screen.getByRole("button", { name: "Update the API" })).toBeDisabled();
 });
 
+// I3: the route caps `existing` at 20 resources and 20 fields each; nothing in the panel
+// enforced that, so a large project got a hard, undiagnosable failure on every attempt.
+it("I3: slices the request to the route's caps: 20 resources, and 20 fields on any one resource", async () => {
+  const user = userEvent.setup();
+  const manyModels = Array.from({ length: 21 }, (_, i) => ({
+    id: `m${i}`,
+    name: `Model${i}`,
+    fields:
+      i === 0
+        ? Array.from({ length: 21 }, (_, j) => ({ id: `f${i}-${j}`, name: `field${j}`, type: "text" as const, required: false, unique: false }))
+        : [{ id: `f${i}-0`, name: "name", type: "text" as const, required: false, unique: false }],
+  }));
+  const bigProject: Project = { ...project, models: manyModels };
+  const fetchSpy = vi
+    .spyOn(globalThis, "fetch")
+    .mockResolvedValue(new Response(JSON.stringify({ plan: { resources: [], customEndpoints: [] }, warnings: [] }), { status: 200 }));
+  renderUi(<AiEditPanel project={bigProject} onApplied={vi.fn()} onCancel={vi.fn()} />);
+  await user.type(screen.getByLabelText("Describe what should change"), "Add something");
+  await user.click(screen.getByRole("button", { name: "Preview changes" }));
+  await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+  const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
+  expect(body.existing.length).toBeLessThanOrEqual(20);
+  expect(body.existing[0].fields.length).toBeLessThanOrEqual(20);
+});
+
+// I4: a transient failure fetching sample data must not permanently disable the panel, and
+// must not report itself as an AI-service failure.
+it("I4: a failed sample-data fetch reports what actually failed and clears on retry", async () => {
+  const user = userEvent.setup();
+  // Rejects every call until explicitly switched to resolve below — a `...Once` would only
+  // fail the eager background fetch at mount, letting generate()'s own retry quietly
+  // succeed and mask the bug this test targets.
+  const sampleData = vi.spyOn(consoleService, "sampleData").mockRejectedValue(new Error("boom"));
+  renderUi(<AiEditPanel project={project} onApplied={vi.fn()} onCancel={vi.fn()} />);
+  await user.type(screen.getByLabelText("Describe what should change"), "Add reviews");
+  await user.click(screen.getByRole("button", { name: "Preview changes" }));
+  const alert = await screen.findByRole("alert");
+  expect(alert.textContent).not.toMatch(/Could not reach the AI service/);
+  sampleData.mockResolvedValue([]);
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ plan, warnings: [] }), { status: 200 }));
+  await user.click(screen.getByRole("button", { name: "Retry" }));
+  expect(await screen.findByText("Review")).toBeInTheDocument();
+});
+
+it("I4: does not produce an unhandled rejection when the initial background sample-data fetch fails", async () => {
+  vi.spyOn(consoleService, "sampleData").mockRejectedValue(new Error("boom"));
+  const unhandled = vi.fn();
+  process.on("unhandledRejection", unhandled);
+  renderUi(<AiEditPanel project={project} onApplied={vi.fn()} onCancel={vi.fn()} />);
+  await new Promise((r) => setTimeout(r, 0));
+  process.off("unhandledRejection", unhandled);
+  expect(unhandled).not.toHaveBeenCalled();
+});
+
+// M7: with zero new resources but new endpoints, the label must read from the non-zero
+// counts only ("Create 5 endpoints", not "Create 0 resources and 5 endpoints").
+it("M7: labels the apply button from non-zero counts only when there are endpoints but no new resources", async () => {
+  const user = userEvent.setup();
+  // Book already has every standard CRUD route, so the only new endpoints this plan
+  // produces are its two custom ones — isolating the label from standard-route noise.
+  const fullCrudProject: Project = {
+    ...project,
+    routes: [
+      { id: "r1", method: "GET", path: "/books", modelId: "m1", action: "list", description: "", filters: [] },
+      { id: "r2", method: "GET", path: "/books/:id", modelId: "m1", action: "get", description: "", filters: [] },
+      { id: "r3", method: "POST", path: "/books", modelId: "m1", action: "create", description: "", filters: [] },
+      { id: "r4", method: "PUT", path: "/books/:id", modelId: "m1", action: "update", description: "", filters: [] },
+      { id: "r5", method: "DELETE", path: "/books/:id", modelId: "m1", action: "delete", description: "", filters: [] },
+    ],
+  };
+  const endpointOnlyPlan = {
+    resources: [{ name: "Book", description: "", fields: [], records: [] }],
+    customEndpoints: [
+      { method: "GET", path: "/books/bestsellers", resourceName: "Book", description: "" },
+      { method: "GET", path: "/books/new", resourceName: "Book", description: "" },
+    ],
+  };
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ plan: endpointOnlyPlan, warnings: [] }), { status: 200 }));
+  renderUi(<AiEditPanel project={fullCrudProject} onApplied={vi.fn()} onCancel={vi.fn()} />);
+  await user.type(screen.getByLabelText("Describe what should change"), "Add endpoints");
+  await user.click(screen.getByRole("button", { name: "Preview changes" }));
+  expect(await screen.findByRole("button", { name: "Create 2 endpoints" })).toBeInTheDocument();
+});
+
+// I5: replacing a resource's records dangles any other resource's inbound link to it. The
+// panel already fetches every model's sample data (for real link ids); that same data must
+// feed the diff's inbound-link disclosure.
+it("I5: discloses inbound links from other resources when a resource's records are replaced", async () => {
+  const user = userEvent.setup();
+  const projectWithOrder: Project = {
+    ...project,
+    models: [
+      ...project.models,
+      { id: "m2", name: "Order", fields: [{ id: "f2", name: "book", type: "link", required: true, unique: false, linkTo: "m1" }] },
+    ],
+  };
+  vi.spyOn(consoleService, "sampleData").mockImplementation(async (_projectId, modelId) => {
+    if (modelId === "m2") return [{ id: "1", book: "1" }, { id: "2", book: "1" }, { id: "3", book: "2" }];
+    return [];
+  });
+  const changePlan = {
+    resources: [{ name: "Book", description: "", fields: [], records: [{ title: "New" }] }],
+    customEndpoints: [],
+  };
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ plan: changePlan, warnings: [] }), { status: 200 }));
+  renderUi(<AiEditPanel project={projectWithOrder} onApplied={vi.fn()} onCancel={vi.fn()} />);
+  await user.type(screen.getByLabelText("Describe what should change"), "Change Book's sample data");
+  await user.click(screen.getByRole("button", { name: "Preview changes" }));
+  expect(await screen.findByText(/3 Order records link to this resource and will lose their link/)).toBeInTheDocument();
+});
+
 it("shows the server error with a Retry button", async () => {
   const user = userEvent.setup();
   vi.spyOn(globalThis, "fetch").mockResolvedValue(

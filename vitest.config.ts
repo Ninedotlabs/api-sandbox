@@ -11,7 +11,7 @@ export default defineConfig({
     // belong to that checkout, not this one, and sweeping them up makes a green run look
     // red for reasons that have nothing to do with the code under test.
     exclude: ["**/node_modules/**", "**/dist/**", "**/.claude/**"],
-    setupFiles: ["./vitest.setup.ts"],
+    setupFiles: ["./vitest.setup.ts", "./vitest.setup.pg.ts"],
     css: false,
     // Node 22+ ships an experimental global `localStorage` that shadows
     // jsdom's implementation and lacks methods like `.clear()`. Disable it

@@ -14,6 +14,8 @@ export interface ProjectService {
   remove(id: string): Promise<void>;
   /** Put back a previously deleted project (used by Undo). */
   restore(project: Project): Promise<void>;
+  /** Deep-copy a project (models, fields, routes and records) under a new name and fresh ids. */
+  duplicate(id: string): Promise<Project>;
 }
 
 /** A deleted route plus where it sat, so Undo can put just that route back. */

@@ -19,6 +19,13 @@ describe("TOOL_DOCS", () => {
     expect(doc.args).toEqual([{ name: "projectId", type: "string", required: true }]);
   });
 
+  it("documents describe_api as a non-destructive project lookup", () => {
+    const doc = TOOL_DOCS.find((d) => d.name === "describe_api")!;
+    expect(doc.args).toEqual([{ name: "projectId", type: "string", required: true }]);
+    expect(doc.destructive).toBe(false);
+    expect(doc.description).toMatch(/without using AI/i);
+  });
+
   it("describes list_projects as taking no arguments", () => {
     const doc = TOOL_DOCS.find((d) => d.name === "list_projects")!;
     expect(doc.args).toEqual([]);

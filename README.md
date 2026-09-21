@@ -16,6 +16,17 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## MCP API reference
+
+The MCP server exposes an AI-free `describe_api` tool. Pass a `projectId` to receive the
+deployment URL, project base URL, resources, and a complete entry for every endpoint: its
+absolute URL template, example URL, parameters, request and response schemas, configured
+response behavior, examples, and ready-to-copy curl, JavaScript, and Python snippets.
+
+`describe_api` does not call an AI model. Clients that already know the project id can use its
+response directly without deriving URLs or interpreting the raw project structure. Use
+`list_projects` first when the id is not known.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

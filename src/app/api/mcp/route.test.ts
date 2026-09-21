@@ -74,6 +74,7 @@ describe("/api/mcp route", () => {
   // both call sites wouldn't be caught by comparing each to TOOLS separately.
   it("exposes the exact same tool list as the stdio transport", async () => {
     const stubClient: ApiClient = {
+      baseUrl: "http://localhost",
       get: async () => ({}),
       post: async () => ({}),
       patch: async () => ({}),

@@ -25,6 +25,8 @@ export interface RawEndpointResponse {
 }
 
 export interface ApiClient {
+  /** The deployment origin used for management and mock-endpoint requests. Never includes the bearer token. */
+  readonly baseUrl: string;
   get(path: string): Promise<unknown>;
   post(path: string, body?: unknown): Promise<unknown>;
   patch(path: string, body?: unknown): Promise<unknown>;
@@ -52,6 +54,7 @@ export function createApiClient(baseUrl: string, token: string): ApiClient {
   }
 
   return {
+    baseUrl: base,
     get: (path) => call("GET", path),
     post: (path, body) => call("POST", path, body),
     patch: (path, body) => call("PATCH", path, body),

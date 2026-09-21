@@ -51,3 +51,8 @@ it("states plainly that tokens are account-scoped and revocable", async () => {
   expect(screen.getByText(/each token belongs only to your account/i)).toBeInTheDocument();
   expect(screen.getByText(/revoke it here at any time/i)).toBeInTheDocument();
 });
+
+it("documents the AI-free describe_api workflow", async () => {
+  await renderPage();
+  expect(screen.getByText(/AI-free reference containing/i)).toBeInTheDocument();
+});

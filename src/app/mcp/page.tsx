@@ -49,6 +49,11 @@ export default async function McpPage() {
             Generated from the server&apos;s own tool list, so this table can&apos;t describe a tool that doesn&apos;t exist or miss
             one that does.
           </p>
+          <p className="text-sm text-ink-2">
+            Call <code className="font-mono text-ink">describe_api</code> with a project id to get an integration-ready,
+            AI-free reference containing the deployment URL, every endpoint&apos;s absolute URL, parameters, schemas, examples,
+            and copyable curl, JavaScript, and Python snippets.
+          </p>
           <ToolsTable />
         </section>
 

@@ -14,6 +14,7 @@ import { z } from "zod";
 import { buildCrudRoutes, type CrudAction } from "../lib/crud";
 import { createId } from "../lib/ids";
 import type { Model, Project } from "../lib/types";
+import { buildApiDescription } from "./api-description";
 import type { ApiClient } from "./client";
 
 const TEMPLATE_IDS = ["blog", "store", "todo"] as const;
@@ -155,6 +156,17 @@ export const TOOLS: McpTool[] = [
       "tools need but can't invent on their own.",
     schema: z.object({ projectId: requiredString("projectId is required") }),
     handler: async (args, client) => client.get(projectPath(args.projectId)),
+  }),
+
+  defineTool({
+    name: "describe_api",
+    description:
+      "Return a complete, integration-ready API reference for one project, including its deployment and base URLs, every endpoint's absolute URL, parameters, resource fields, request and response schemas, examples, and curl, JavaScript and Python snippets; it is generated directly from the saved definition without using AI.",
+    schema: z.object({ projectId: requiredString("projectId is required") }),
+    handler: async (args, client) => {
+      const project = (await client.get(projectPath(args.projectId))) as Project;
+      return buildApiDescription(project, client.baseUrl);
+    },
   }),
 
   defineTool({

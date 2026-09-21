@@ -9,6 +9,11 @@ afterEach(() => {
 });
 
 describe("createApiClient", () => {
+  it("exposes the normalized deployment URL without credentials", () => {
+    const client = createApiClient("http://localhost:3000/", "secret-token");
+    expect(client.baseUrl).toBe("http://localhost:3000");
+  });
+
   it("get() sends the bearer token and unwraps { data }", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ data: { id: "prj_1" } }));
     const client = createApiClient("http://localhost:3000", "secret-token");

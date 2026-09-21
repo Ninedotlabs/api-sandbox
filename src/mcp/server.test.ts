@@ -6,6 +6,7 @@ import { TOOLS } from "./tools";
 
 function stubApiClient(): ApiClient {
   return {
+    baseUrl: "http://localhost:3000",
     get: async () => ({}),
     post: async () => ({}),
     patch: async () => ({}),

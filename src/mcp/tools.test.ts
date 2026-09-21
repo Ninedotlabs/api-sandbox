@@ -1,4 +1,5 @@
 import type { ApiClient } from "./client";
+import type { Project } from "../lib/types";
 import { TOOLS, type McpTool } from "./tools";
 
 function findTool(name: string): McpTool {
@@ -12,6 +13,7 @@ function mockClient(overrides: Partial<ApiClient> = {}): ApiClient {
     throw new Error(`unexpected call to ApiClient.${method}`);
   };
   return {
+    baseUrl: "https://api.example.com",
     get: unimplemented("get"),
     post: unimplemented("post"),
     patch: unimplemented("patch"),
@@ -34,6 +36,7 @@ describe("TOOLS", () => {
       [
         "list_projects",
         "get_project",
+        "describe_api",
         "create_project",
         "update_project",
         "delete_project",
@@ -74,6 +77,7 @@ describe("TOOLS", () => {
     const requiredArgsByTool: Record<string, Record<string, unknown>> = {
       list_projects: {},
       get_project: { projectId: "prj_1" },
+      describe_api: { projectId: "prj_1" },
       create_project: { name: "Blog" },
       update_project: { projectId: "prj_1" },
       delete_project: { projectId: "prj_1" },
@@ -104,6 +108,7 @@ describe("TOOLS", () => {
     const requiredKeysByTool: Record<string, string[]> = {
       list_projects: [],
       get_project: ["projectId"],
+      describe_api: ["projectId"],
       create_project: ["name"],
       update_project: ["projectId"],
       delete_project: ["projectId"],
@@ -208,6 +213,82 @@ describe("TOOLS", () => {
       const client = mockClient({ get: vi.fn(async () => ({ id: "prj_1" })) });
       await findTool("get_project").handler({ projectId: "prj_1" }, client);
       expect(client.get).toHaveBeenCalledWith("/api/v1/projects/prj_1");
+    });
+
+    it("describe_api returns deployment-aware documentation for every endpoint without calling AI", async () => {
+      const project = {
+        id: "prj_1",
+        name: "Bookshop",
+        slug: "bookshop",
+        description: "Books for sale",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-02T00:00:00.000Z",
+        models: [
+          {
+            id: "mdl_book",
+            name: "Book",
+            fields: [
+              { id: "fld_title", name: "title", type: "text", required: true, unique: false },
+              { id: "fld_price", name: "price", type: "number", required: false, unique: false },
+            ],
+          },
+        ],
+        routes: [
+          {
+            id: "rte_get",
+            method: "GET",
+            path: "/books/:id",
+            modelId: "mdl_book",
+            action: "get",
+            description: "Get one book",
+            filters: [],
+          },
+          {
+            id: "rte_create",
+            method: "POST",
+            path: "/books",
+            modelId: "mdl_book",
+            action: "create",
+            description: "Create a book",
+            filters: [],
+          },
+        ],
+      } as Project;
+      const get = vi.fn(async () => project);
+      const client = mockClient({ baseUrl: "https://deployment.example/", get });
+
+      const result = (await findTool("describe_api").handler({ projectId: "prj_1" }, client)) as {
+        deploymentUrl: string;
+        baseUrl: string;
+        endpoints: Array<{
+          method: string;
+          urlTemplate: string;
+          exampleUrl: string;
+          pathParameters: Array<{ name: string; type: string; required: boolean }>;
+          request: Record<string, unknown>;
+          snippets: { curl: string };
+        }>;
+      };
+
+      expect(get).toHaveBeenCalledWith("/api/v1/projects/prj_1");
+      expect(result.deploymentUrl).toBe("https://deployment.example");
+      expect(result.baseUrl).toBe("https://deployment.example/api/bookshop");
+      expect(result.endpoints).toHaveLength(2);
+      expect(result.endpoints[0]).toMatchObject({
+        method: "GET",
+        urlTemplate: "https://deployment.example/api/bookshop/books/:id",
+        exampleUrl: "https://deployment.example/api/bookshop/books/1",
+        pathParameters: [{ name: "id", type: "string", required: true }],
+      });
+      expect(result.endpoints[1].request).toMatchObject({
+        contentType: "application/json",
+        bodySchema: {
+          type: "object",
+          required: ["title"],
+          properties: { title: { type: "string" }, price: { type: "number" } },
+        },
+      });
+      expect(result.endpoints[1].snippets.curl).toContain("https://deployment.example/api/bookshop/books");
     });
 
     it("create_project posts to /api/v1/projects with the given fields", async () => {

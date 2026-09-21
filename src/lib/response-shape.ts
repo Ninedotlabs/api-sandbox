@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import type { DataRecord, EngineResult } from "./mock-engine";
 import type { Model, ResponseQuery, ResponseQueryFilter, Route } from "./types";
 
@@ -195,7 +194,7 @@ export function applyResponseShape(route: Route, engineResult: EngineResult, con
     query: context.query,
     body: context.body,
     now: new Date().toISOString(),
-    uuid: randomUUID(),
+    uuid: crypto.randomUUID(),
   };
   const warnings = new Set<string>();
   const body = substitute(response?.template ?? null, placeholders, warnings);

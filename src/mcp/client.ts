@@ -45,6 +45,8 @@ export function createApiClient(baseUrl: string, token: string): ApiClient {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
+        // Lets the activity log tell MCP traffic apart from other token clients.
+        "X-Universal-Api-Client": "mcp",
       },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });

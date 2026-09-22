@@ -2,6 +2,7 @@ import { requireProjectAccess } from "@/lib/api/auth";
 import { fail, firstIssue, handle, ok, readJson } from "@/lib/api/respond";
 import { removedModelSchema } from "@/lib/api/schemas";
 import { pgModelService } from "@/lib/services/pg/model-service";
+import { recordRequestActivity } from "@/lib/activity/record";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,7 @@ export async function POST(req: Request, context: Context): Promise<Response> {
 
     const removed = { ...parsed.data, model: { ...parsed.data.model, id: modelId } };
     const model = await pgModelService.restore(id, removed);
+    await recordRequestActivity(access, { action: "model.restore", targetType: "model", targetId: modelId, projectId: id });
     return ok(model);
   });
 }

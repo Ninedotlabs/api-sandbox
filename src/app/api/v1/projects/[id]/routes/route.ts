@@ -5,6 +5,7 @@ import { newRouteSchema } from "@/lib/api/schemas";
 import { createId } from "@/lib/ids";
 import { pgRouteService } from "@/lib/services/pg/route-service";
 import type { Route } from "@/lib/types";
+import { recordRequestActivity } from "@/lib/activity/record";
 
 export const runtime = "nodejs";
 
@@ -29,6 +30,13 @@ export async function POST(req: Request, context: Context): Promise<Response> {
     // caller like MCP, which has no reason to invent one) gets one here.
     const routes = parsed.data.routes.map((r) => ({ ...r, id: r.id ?? createId("rte") })) as Route[];
     const created = await pgRouteService.createMany(id, routes);
+    await recordRequestActivity(access, {
+      action: "route.create",
+      targetType: "route",
+      targetId: created.length === 1 ? created[0].id : null,
+      projectId: id,
+      metadata: { routes: created.map((r) => `${r.method} ${r.path}`) },
+    });
     return ok(created, 201);
   });
 }

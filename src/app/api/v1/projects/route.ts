@@ -4,6 +4,7 @@ import { fail, firstIssue, handle, ok, readJson } from "@/lib/api/respond";
 import { requiredString } from "@/lib/api/schemas";
 import { pgProjectService } from "@/lib/services/pg/project-service";
 import type { TemplateId } from "@/lib/types";
+import { recordRequestActivity } from "@/lib/activity/record";
 
 export const runtime = "nodejs";
 
@@ -38,6 +39,7 @@ export async function POST(req: Request): Promise<Response> {
       templateId: parsed.data.templateId ?? null,
     };
     const project = access.userId ? await pgProjectService.create(input, access.userId) : await pgProjectService.create(input);
+    await recordRequestActivity(access, { action: "project.create", targetType: "project", targetId: project.id, projectId: project.id, metadata: { name: project.name } });
     return ok(project, 201);
   });
 }

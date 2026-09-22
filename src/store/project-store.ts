@@ -29,7 +29,15 @@ interface ProjectState {
    * up" - a first request that fails while a cold, serverless database wakes up (see
    * `src/lib/db/client.ts`) must not be rendered the same as a genuinely empty account. */
   loadError: string | null;
+  /** Projects that aren't the signed-in account's own - loaded by id because an admin opened
+   * one from `/admin`. They're kept out of the "Your APIs" list (see `useProjects`). */
+  foreignIds: string[];
+  /** Per-id state of `loadProjectById`, so a missing project is looked up once, not per render. */
+  lookups: Record<string, "pending" | "done">;
   loadProjects(): Promise<void>;
+  /** Fetches one project by id when it isn't in the account's own list. Resolves to whether it
+   * was found - the server decides whether this account may see it. */
+  loadProjectById(id: string): Promise<boolean>;
   createProject(input: CreateProjectInput): Promise<Project>;
   updateProject(id: string, patch: Partial<Pick<Project, "name" | "description" | "slug">>): Promise<void>;
   /** Returns what Undo needs to put back the whole project, including every model's records. */
@@ -108,14 +116,32 @@ export const useProjectStore = create<ProjectState>()((set, get) => {
     projects: [],
     loaded: false,
     loadError: null,
+    foreignIds: [],
+    lookups: {},
     async loadProjects() {
       set({ loadError: null });
       try {
         const projects = await projectService.list();
-        set({ projects, loaded: true, loadError: null });
+        set({ projects, loaded: true, loadError: null, foreignIds: [], lookups: {} });
       } catch (e) {
         set({ loadError: e instanceof Error ? e.message : "Could not reach your account. Please try again." });
       }
+    },
+    async loadProjectById(id) {
+      set((s) => ({ lookups: { ...s.lookups, [id]: "pending" } }));
+      let found = false;
+      try {
+        const project = await projectService.get(id);
+        if (project) {
+          replace(project);
+          set((s) => ({ foreignIds: s.foreignIds.includes(id) ? s.foreignIds : [...s.foreignIds, id] }));
+          found = true;
+        }
+      } catch {
+        // Treated as not found; the layout shows its "Project not found" state.
+      }
+      set((s) => ({ lookups: { ...s.lookups, [id]: "done" } }));
+      return found;
     },
     async createProject(input) {
       const project = await projectService.create(input);

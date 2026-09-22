@@ -1,9 +1,8 @@
 "use client";
 
-import { Bot, FolderKanban, LogOut, UserRound } from "lucide-react";
+import { Bot, FolderKanban, LogOut, ShieldCheck, UserRound } from "lucide-react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { useEffect, useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,22 +11,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useSessionUser } from "./use-session-user";
 
 export function UserAvatar() {
-  const [user, setUser] = useState<{ name?: string | null; email?: string | null; image?: string | null } | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    void fetch("/api/auth/session")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((session: { user?: { name?: string | null; email?: string | null; image?: string | null } } | null) => {
-        if (active) setUser(session?.user ?? null);
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, []);
+  const user = useSessionUser();
 
   const initials = user?.name
     ?.split(/\s+/)
@@ -70,6 +57,13 @@ export function UserAvatar() {
             <Bot aria-hidden /> MCP connection
           </Link>
         </DropdownMenuItem>
+        {user?.role === "admin" && (
+          <DropdownMenuItem asChild>
+            <Link href="/admin">
+              <ShieldCheck aria-hidden /> Admin
+            </Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => void signOut({ redirectTo: "/sign-in" })}>
           <LogOut aria-hidden /> Sign out

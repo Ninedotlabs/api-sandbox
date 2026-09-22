@@ -2,6 +2,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { fail, firstIssue, handle, ok, readJson } from "@/lib/api/respond";
 import { createApiToken, listApiTokens } from "@/lib/auth/api-token";
+import { recordActivity } from "@/lib/activity/record";
 
 export const runtime = "nodejs";
 
@@ -29,6 +30,8 @@ export async function POST(req: Request): Promise<Response> {
 
     const parsed = createSchema.safeParse(await readJson(req));
     if (!parsed.success) return fail(400, firstIssue(parsed.error));
-    return ok(await createApiToken(userId, parsed.data.name), 201);
+    const created = await createApiToken(userId, parsed.data.name);
+    await recordActivity({ actorUserId: userId, action: "token.create", channel: "ui", targetType: "token", targetId: created.summary.id, metadata: { name: created.summary.name } });
+    return ok(created, 201);
   });
 }

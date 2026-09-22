@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Boxes, CircleCheck, Globe2, Menu, Terminal } from "lucide-react";
+import { Bot, Boxes, CircleCheck, Globe2, Menu, ShieldCheck, Terminal } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -10,11 +10,15 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "./user-avatar";
+import { useSessionUser } from "./use-session-user";
 
 const NAV_ITEMS = [
   { href: "/projects", label: "Projects", description: "Build and test APIs", icon: Boxes },
   { href: "/mcp", label: "MCP connection", description: "Control everything with AI", icon: Bot },
-] as const;
+];
+
+// Shown only to admins. Hiding it is cosmetic - `/admin` itself 404s for everyone else.
+const ADMIN_ITEM = { href: "/admin", label: "Admin", description: "Users, activity and settings", icon: ShieldCheck };
 
 interface Props {
   title: string;
@@ -24,9 +28,14 @@ interface Props {
 
 function NavItems({ compact = false }: { compact?: boolean }) {
   const pathname = usePathname();
+  const user = useSessionUser();
+  const items = user?.role === "admin" ? [...NAV_ITEMS, ADMIN_ITEM] : NAV_ITEMS;
 
-  return NAV_ITEMS.map((item) => {
-    const active = pathname === item.href || (item.href === "/projects" && pathname.startsWith("/projects/"));
+  return items.map((item) => {
+    const active =
+      pathname === item.href ||
+      (item.href === "/projects" && pathname.startsWith("/projects/")) ||
+      (item.href === "/admin" && pathname.startsWith("/admin/"));
     const Icon = item.icon;
     return (
       <Link

@@ -20,8 +20,9 @@ export interface ProjectService {
    * Deep-copies a project: fresh ids for the project, every model, field and route
    * (`field.linkTo`/`route.modelId` remapped to the new ids), named `<name> copy` (`copy 2`,
    * `copy 3`… when taken), with its sample dataset copied and rekeyed to the new model ids.
+   * The copy belongs to `ownerId`; `anyOwner` lets an admin copy a project they don't own.
    */
-  duplicate(id: string, ownerId?: string): Promise<Project>;
+  duplicate(id: string, ownerId?: string, options?: { anyOwner?: boolean }): Promise<Project>;
 }
 
 /** A deleted route plus where it sat, so Undo can put just that route back. */

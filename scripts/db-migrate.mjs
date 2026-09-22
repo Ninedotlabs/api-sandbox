@@ -55,7 +55,7 @@ for (const file of files) {
 const ours = await client.query(`select tablename from pg_tables
   where schemaname = 'public'
     and tablename in ('users','accounts','sessions','verification_tokens',
-                      'projects','models','fields','routes','records','api_tokens','_migrations')
+                      'projects','models','fields','routes','records','api_tokens','activity_events','_migrations')
   order by 1`);
 console.log("\nuniversal-api tables present:", ours.rows.map((r) => r.tablename).join(", "));
 await client.end();

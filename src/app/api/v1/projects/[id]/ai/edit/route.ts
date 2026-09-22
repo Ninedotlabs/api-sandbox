@@ -7,6 +7,7 @@ import { applyEditPlanPg } from "@/lib/services/pg/apply-plan";
 import { pgProjectService } from "@/lib/services/pg/project-service";
 import { pgRecordService } from "@/lib/services/pg/record-service";
 import type { Project } from "@/lib/types";
+import { recordRequestActivity } from "@/lib/activity/record";
 
 export const runtime = "nodejs";
 
@@ -101,6 +102,7 @@ export async function POST(req: Request, context: Context): Promise<Response> {
       }
       if (parsed) {
         const applied = await applyEditPlanPg(id, parsed.plan);
+        await recordRequestActivity(access, { action: "ai.edit", targetType: "project", targetId: id, projectId: id });
         const updated = await pgProjectService.get(id);
         return ok({ project: updated, ...applied, warnings: parsed.warnings });
       }

@@ -5,6 +5,7 @@ import { requireProjectAccess } from "@/lib/api/auth";
 import { fail, firstIssue, handle, ok, readJson } from "@/lib/api/respond";
 import { applyPlanPg } from "@/lib/services/pg/apply-plan";
 import { pgProjectService } from "@/lib/services/pg/project-service";
+import { recordRequestActivity } from "@/lib/activity/record";
 
 export const runtime = "nodejs";
 
@@ -81,6 +82,7 @@ export async function POST(req: Request, context: Context): Promise<Response> {
       }
       if (parsed) {
         const applied = await applyPlanPg(id, parsed.plan);
+        await recordRequestActivity(access, { action: "ai.generate", targetType: "project", targetId: id, projectId: id, metadata: { modelCount: applied.modelIds.length, routeCount: applied.routeCount } });
         const updated = await pgProjectService.get(id);
         return ok({ project: updated, modelIds: applied.modelIds, routeCount: applied.routeCount, warnings: parsed.warnings }, 201);
       }

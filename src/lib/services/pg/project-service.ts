@@ -284,10 +284,10 @@ export const pgProjectService: ProjectService = {
     }
   },
 
-  async duplicate(id, ownerId) {
+  async duplicate(id, ownerId, options) {
     try {
       return await withTransaction(async (client) => {
-        const source = await loadProject(client, id, ownerId);
+        const source = await loadProject(client, id, options?.anyOwner ? undefined : ownerId);
         if (!source) throw new Error("This API no longer exists.");
 
         const baseName = `${source.name} copy`;

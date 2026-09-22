@@ -3,6 +3,7 @@ import { requireProjectAccess } from "@/lib/api/auth";
 import { fail, firstIssue, handle, ok, readJson } from "@/lib/api/respond";
 import { createId } from "@/lib/ids";
 import { pgRecordService } from "@/lib/services/pg/record-service";
+import { recordRequestActivity } from "@/lib/activity/record";
 
 export const runtime = "nodejs";
 
@@ -37,6 +38,7 @@ export async function PUT(req: Request, context: Context): Promise<Response> {
 
     await pgRecordService.seedRecords(id, modelId, parsed.data.records);
     const records = await pgRecordService.sampleData(id, modelId);
+    await recordRequestActivity(access, { action: "records.replace", targetType: "model", targetId: modelId, projectId: id, metadata: { count: parsed.data.records.length } });
     return ok(records);
   });
 }
@@ -53,6 +55,7 @@ export async function POST(req: Request, context: Context): Promise<Response> {
     const providedId = parsed.data.id;
     const record = { ...parsed.data, id: typeof providedId === "string" && providedId ? providedId : createId("rec") };
     await pgRecordService.insertRecord(id, modelId, record);
+    await recordRequestActivity(access, { action: "record.create", targetType: "record", targetId: record.id, projectId: id, metadata: { modelId } });
     return ok(record, 201);
   });
 }

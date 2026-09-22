@@ -2,6 +2,7 @@ import { requireAccess } from "@/lib/api/auth";
 import { fail, firstIssue, handle, ok, readJson } from "@/lib/api/respond";
 import { removedProjectSchema } from "@/lib/api/schemas";
 import { pgProjectService } from "@/lib/services/pg/project-service";
+import { recordRequestActivity } from "@/lib/activity/record";
 
 export const runtime = "nodejs";
 
@@ -24,6 +25,7 @@ export async function POST(req: Request, context: Context): Promise<Response> {
     if (access.userId) await pgProjectService.restore(removed, access.userId);
     else await pgProjectService.restore(removed);
     const restored = access.userId ? await pgProjectService.get(id, access.userId) : await pgProjectService.get(id);
+    await recordRequestActivity(access, { action: "project.restore", targetType: "project", targetId: id, projectId: id });
     return ok(restored);
   });
 }

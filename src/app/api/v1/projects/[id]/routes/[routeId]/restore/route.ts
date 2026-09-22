@@ -2,6 +2,7 @@ import { requireProjectAccess } from "@/lib/api/auth";
 import { fail, firstIssue, handle, ok, readJson } from "@/lib/api/respond";
 import { removedRouteSchema } from "@/lib/api/schemas";
 import { pgRouteService } from "@/lib/services/pg/route-service";
+import { recordRequestActivity } from "@/lib/activity/record";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,7 @@ export async function POST(req: Request, context: Context): Promise<Response> {
 
     const removed = { ...parsed.data, route: { ...parsed.data.route, id: routeId } };
     const route = await pgRouteService.restore(id, removed);
+    await recordRequestActivity(access, { action: "route.restore", targetType: "route", targetId: routeId, projectId: id });
     return ok(route);
   });
 }

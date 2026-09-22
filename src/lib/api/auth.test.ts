@@ -15,17 +15,25 @@ function req(headers: Record<string, string> = {}): Request {
 
 describe("requireAccess", () => {
   it("allows a same-origin request in isolated route tests", async () => {
-    expect(await requireAccess(req({ "Sec-Fetch-Site": "same-origin" }))).toEqual({ userId: null });
+    expect(await requireAccess(req({ "Sec-Fetch-Site": "same-origin" }))).toMatchObject({ userId: null, isAdmin: false });
   });
 
   it("allows a same-site request in isolated route tests", async () => {
-    expect(await requireAccess(req({ "Sec-Fetch-Site": "same-site" }))).toEqual({ userId: null });
+    expect(await requireAccess(req({ "Sec-Fetch-Site": "same-site" }))).toMatchObject({ userId: null, isAdmin: false });
   });
 
   it("allows the legacy credential only inside isolated tests", async () => {
     process.env.UNIVERSAL_API_TOKEN = "s3cret-token";
     const res = await requireAccess(req({ "Sec-Fetch-Site": "cross-site", Authorization: "Bearer s3cret-token" }));
-    expect(res).toEqual({ userId: null });
+    expect(res).toMatchObject({ userId: null, isAdmin: false });
+  });
+
+  it("marks token requests as api, or mcp when the MCP client says so, and never as admin", async () => {
+    process.env.UNIVERSAL_API_TOKEN = "s3cret-token";
+    const api = await requireAccess(req({ Authorization: "Bearer s3cret-token" }));
+    const mcp = await requireAccess(req({ Authorization: "Bearer s3cret-token", "X-Universal-Api-Client": "mcp" }));
+    expect(api).toMatchObject({ channel: "api", isAdmin: false });
+    expect(mcp).toMatchObject({ channel: "mcp", isAdmin: false });
   });
 
   it("rejects a request with no Sec-Fetch-Site and no token", async () => {

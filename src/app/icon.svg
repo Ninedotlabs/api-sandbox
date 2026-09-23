@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- The stand-in: the product's mark, drawn to survive 16px. Same geometry as
+       src/components/brand/mascot.tsx, minus the expressions it has no room for. -->
+  <g transform="translate(32 32) rotate(-7) scale(.97) translate(-32 -32)">
+    <path d="M16 3 H38 L61 26 V48 A13 13 0 0 1 48 61 H16 A13 13 0 0 1 3 48 V16 A13 13 0 0 1 16 3 Z" fill="#ffd23d"/>
+    <path d="M38 3 L61 26 H48 A10 10 0 0 1 38 16 Z" fill="#fff8dd"/>
+    <circle cx="24" cy="36" r="5.6" fill="#15181c"/>
+    <circle cx="43" cy="36" r="5.6" fill="#15181c"/>
+  </g>
+</svg>

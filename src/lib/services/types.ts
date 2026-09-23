@@ -10,7 +10,7 @@ export interface ProjectService {
   list(ownerId?: string): Promise<Project[]>;
   get(id: string, ownerId?: string): Promise<Project | null>;
   create(input: CreateProjectInput, ownerId?: string): Promise<Project>;
-  update(id: string, patch: Partial<Pick<Project, "name" | "description" | "slug">>): Promise<Project>;
+  update(id: string, patch: Partial<Pick<Project, "name" | "description" | "slug" | "icon">>): Promise<Project>;
   /** Deletes the project and everything under it (models, fields, routes, records — `records.model_id`
    * is `ON DELETE CASCADE`), returning what Undo needs to put it all back. */
   remove(id: string): Promise<RemovedProject>;

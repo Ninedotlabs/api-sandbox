@@ -57,6 +57,7 @@ async function assembleProject(runner: Queryable, row: ProjectRow): Promise<Proj
     name: row.name,
     slug: row.slug,
     description: row.description,
+    icon: row.icon,
     models,
     routes,
     createdAt: row.created_at.toISOString(),
@@ -66,7 +67,7 @@ async function assembleProject(runner: Queryable, row: ProjectRow): Promise<Proj
 
 async function loadProject(runner: Queryable, id: string, ownerId?: string): Promise<Project | null> {
   const { rows } = await runner.query<ProjectRow>(
-    `select id, name, slug, description, created_at, updated_at from projects
+    `select id, name, slug, description, icon, created_at, updated_at from projects
      where id = $1${ownerId ? " and owner_id = $2" : ""}`,
     ownerId ? [id, ownerId] : [id],
   );
@@ -137,7 +138,7 @@ async function insertRoutes(client: PoolClient, projectId: string, routes: Route
 export const pgProjectService: ProjectService = {
   async list(ownerId) {
     const { rows } = await query<ProjectRow>(
-      `select id, name, slug, description, created_at, updated_at from projects
+      `select id, name, slug, description, icon, created_at, updated_at from projects
        ${ownerId ? "where owner_id = $1" : ""} order by updated_at desc, id desc`,
       ownerId ? [ownerId] : [],
     );
@@ -212,6 +213,12 @@ export const pgProjectService: ProjectService = {
           sets.push(`description = $${sets.length + 1}`);
           values.push(patch.description);
         }
+        if (patch.icon !== undefined) {
+          // null is a real value here: it clears the choice and hands the project back to
+          // the slug-derived icon.
+          sets.push(`icon = $${sets.length + 1}`);
+          values.push(patch.icon);
+        }
         if (patch.slug !== undefined) {
           sets.push(`slug = $${sets.length + 1}`);
           values.push(patch.slug);
@@ -222,7 +229,7 @@ export const pgProjectService: ProjectService = {
 
         const row = (
           await client.query<ProjectRow>(
-            "select id, name, slug, description, created_at, updated_at from projects where id = $1",
+            "select id, name, slug, description, icon, created_at, updated_at from projects where id = $1",
             [id],
           )
         ).rows[0];

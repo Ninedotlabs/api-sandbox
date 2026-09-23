@@ -2,6 +2,7 @@ import { z } from "zod";
 import { requireProjectAccess } from "@/lib/api/auth";
 import { fail, firstIssue, handle, ok, readJson } from "@/lib/api/respond";
 import { requiredString } from "@/lib/api/schemas";
+import { isProjectIconId } from "@/lib/project-icons";
 import { pgProjectService } from "@/lib/services/pg/project-service";
 import { recordRequestActivity } from "@/lib/activity/record";
 
@@ -15,6 +16,13 @@ const patchSchema = z.object({
   name: requiredString("name is required").optional(),
   description: z.string().optional(),
   slug: requiredString("slug is required").optional(),
+  // Only an id the library knows: an unknown one would silently fall back to the derived
+  // icon, which looks like the choice was ignored. Null clears the choice on purpose.
+  icon: z
+    .string()
+    .refine(isProjectIconId, "icon is not one of the available project icons")
+    .nullable()
+    .optional(),
 });
 
 export async function GET(req: Request, context: Context): Promise<Response> {

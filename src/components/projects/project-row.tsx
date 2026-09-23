@@ -1,5 +1,6 @@
 "use client";
 
+import { Copy, MoreHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -7,12 +8,21 @@ import { toast } from "sonner";
 import { ContextMenuTarget } from "@/components/domain/context-menu-target";
 import { copyToClipboard } from "@/components/domain/copy-to-clipboard";
 import { InlineEdit } from "@/components/domain/inline-edit";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { projectItems } from "@/lib/context-menu-items";
 import { countLabel, timeAgo } from "@/lib/format";
 import { baseUrl } from "@/lib/slug";
 import type { Project } from "@/lib/types";
 import { validateProjectName } from "@/lib/validation";
 import { useProjectStore } from "@/store/project-store";
+import { IconPicker } from "./icon-picker";
+import { ProjectIcon } from "./project-icon";
 
 interface Props {
   project: Project;
@@ -25,6 +35,11 @@ function isEditControl(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && !!target.closest("input, [data-inline-edit-trigger]");
 }
 
+/** The row is a real `<a href>`; its buttons must not navigate with it. */
+function isRowControl(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && !!target.closest("button, [data-row-control]");
+}
+
 export function ProjectRow({ project, allProjects }: Props) {
   const router = useRouter();
   const updateProject = useProjectStore((s) => s.updateProject);
@@ -32,6 +47,7 @@ export function ProjectRow({ project, allProjects }: Props) {
   const deleteProject = useProjectStore((s) => s.deleteProject);
   const restoreProject = useProjectStore((s) => s.restoreProject);
   const [renaming, setRenaming] = useState(false);
+  const [pickingIcon, setPickingIcon] = useState(false);
 
   const open = () => router.push(`/projects/${project.id}`);
 
@@ -90,6 +106,8 @@ export function ProjectRow({ project, allProjects }: Props) {
   });
 
   return (
+    <>
+    <IconPicker project={project} open={pickingIcon} onOpenChange={setPickingIcon} />
     <ContextMenuTarget items={items} asChild>
       <Link
         href={`/projects/${project.id}`}
@@ -97,11 +115,21 @@ export function ProjectRow({ project, allProjects }: Props) {
           // Let the click through to Next's own navigation, except when it starts a rename —
           // a real `<a href>` is what makes native middle-click / Cmd-Click "open in a new tab"
           // work again, so this only needs to opt the rename control out, not reimplement Enter.
-          if (isEditControl(e.target)) e.preventDefault();
+          if (isEditControl(e.target) || isRowControl(e.target)) e.preventDefault();
         }}
         className="grid cursor-pointer grid-cols-[1fr_auto] items-center gap-x-6 gap-y-1 px-4 py-3 transition-colors duration-150 hover:bg-panel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:grid-cols-[1fr_auto_auto_auto]"
       >
-        <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            type="button"
+            data-row-control
+            aria-label={`Change the icon for ${project.name}`}
+            onClick={() => setPickingIcon(true)}
+            className="rounded-md transition-transform duration-150 hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            <ProjectIcon project={project} className="size-9" />
+          </button>
+          <div className="min-w-0">
           <InlineEdit
             value={project.name}
             ariaLabel="Project name"
@@ -112,13 +140,48 @@ export function ProjectRow({ project, allProjects }: Props) {
             className="font-semibold text-ink"
           />
           {project.description && <p className="truncate text-[13px] text-ink-3">{project.description}</p>}
+          </div>
         </div>
         <code className="truncate font-mono text-xs text-ink-2">{baseUrl(project.slug)}</code>
         <span className="font-mono text-xs text-ink-3">
           {countLabel(project.models.length, "resource")} · {countLabel(project.routes.length, "endpoint")}
         </span>
-        <span className="text-xs text-ink-3">Edited {timeAgo(project.updatedAt)}</span>
+        <span className="flex items-center gap-1 text-xs text-ink-3">
+          Edited {timeAgo(project.updatedAt)}
+          <button
+            type="button"
+            data-row-control
+            aria-label={`Copy the base URL for ${project.name}`}
+            title="Copy base URL"
+            onClick={() => void copyToClipboard(baseUrl(project.slug), "Base URL copied")}
+            className="ml-2 rounded-md p-1.5 text-ink-3 transition-colors hover:bg-panel-strong hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            <Copy className="size-3.5" aria-hidden />
+          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                data-row-control
+                aria-label={`Actions for ${project.name}`}
+                className="rounded-md p-1.5 text-ink-3 transition-colors hover:bg-panel-strong hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                <MoreHorizontal className="size-3.5" aria-hidden />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem onSelect={() => setPickingIcon(true)}>Change icon</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setTimeout(() => setRenaming(true), 0)}>Rename</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void duplicate()}>Duplicate</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onSelect={() => void remove()}>
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </span>
       </Link>
     </ContextMenuTarget>
+    </>
   );
 }

@@ -40,6 +40,7 @@ export interface ProjectRow {
   name: string;
   slug: string;
   description: string;
+  icon: string | null;
   created_at: Date;
   updated_at: Date;
 }

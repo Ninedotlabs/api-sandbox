@@ -4,6 +4,7 @@ import { ListTree, Search, SquareTerminal } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Wordmark } from "@/components/brand/wordmark";
+import { ProjectIcon } from "@/components/projects/project-icon";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -54,6 +55,7 @@ export function TopBar({ project }: { project?: Project }) {
           <span aria-hidden className="text-ink-3">
             /
           </span>
+          <ProjectIcon project={project} className="size-5" />
           <ProjectSwitcher project={project} />
         </>
       )}

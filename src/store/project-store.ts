@@ -39,7 +39,7 @@ interface ProjectState {
    * was found - the server decides whether this account may see it. */
   loadProjectById(id: string): Promise<boolean>;
   createProject(input: CreateProjectInput): Promise<Project>;
-  updateProject(id: string, patch: Partial<Pick<Project, "name" | "description" | "slug">>): Promise<void>;
+  updateProject(id: string, patch: Partial<Pick<Project, "name" | "description" | "slug" | "icon">>): Promise<void>;
   /** Returns what Undo needs to put back the whole project, including every model's records. */
   deleteProject(id: string): Promise<RemovedProject>;
   restoreProject(removed: RemovedProject): Promise<void>;

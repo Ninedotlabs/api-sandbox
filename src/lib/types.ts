@@ -72,6 +72,9 @@ export interface Project {
   name: string;
   slug: string;
   description: string;
+  /** The chosen icon's id. Null means "never chosen" — one is derived from the slug then,
+   * so every project has a face without needing a row written for it. */
+  icon?: string | null;
   models: Model[];
   routes: Route[];
   createdAt: string;

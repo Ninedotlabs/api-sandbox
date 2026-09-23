@@ -37,7 +37,22 @@ function isEditControl(target: EventTarget | null): boolean {
 
 /** The row is a real `<a href>`; its buttons must not navigate with it. */
 function isRowControl(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && !!target.closest("button, [data-row-control]");
+  return target instanceof Element && !!target.closest("button, [data-row-control]");
+}
+
+/**
+ * Runs a row control's action and cancels the row's navigation in the same event.
+ *
+ * The parent link also checks `isRowControl`, but a control must not depend on that: the
+ * anchor's default action belongs to this very click, so cancelling it here is what
+ * actually keeps a click on the icon from opening the project.
+ */
+function rowAction(run: () => void) {
+  return (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    run();
+  };
 }
 
 export function ProjectRow({ project, allProjects }: Props) {
@@ -124,7 +139,7 @@ export function ProjectRow({ project, allProjects }: Props) {
             type="button"
             data-row-control
             aria-label={`Change the icon for ${project.name}`}
-            onClick={() => setPickingIcon(true)}
+            onClick={rowAction(() => setPickingIcon(true))}
             className="rounded-md transition-transform duration-150 hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             <ProjectIcon project={project} className="size-9" />
@@ -153,7 +168,7 @@ export function ProjectRow({ project, allProjects }: Props) {
             data-row-control
             aria-label={`Copy the base URL for ${project.name}`}
             title="Copy base URL"
-            onClick={() => void copyToClipboard(baseUrl(project.slug), "Base URL copied")}
+            onClick={rowAction(() => void copyToClipboard(baseUrl(project.slug), "Base URL copied"))}
             className="ml-2 rounded-md p-1.5 text-ink-3 transition-colors hover:bg-panel-strong hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             <Copy className="size-3.5" aria-hidden />
@@ -164,6 +179,8 @@ export function ProjectRow({ project, allProjects }: Props) {
                 type="button"
                 data-row-control
                 aria-label={`Actions for ${project.name}`}
+                // Radix opens the menu on pointerdown; this only cancels the row's navigation.
+                onClick={rowAction(() => {})}
                 className="rounded-md p-1.5 text-ink-3 transition-colors hover:bg-panel-strong hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
                 <MoreHorizontal className="size-3.5" aria-hidden />

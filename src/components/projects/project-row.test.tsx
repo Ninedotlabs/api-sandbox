@@ -151,3 +151,29 @@ it("leaves the browser's menu alone on Shift+right-click", () => {
   expect(event.defaultPrevented).toBe(false);
   expect(screen.queryByRole("menu")).not.toBeInTheDocument();
 });
+
+it("opens the icon picker instead of the project when the icon is clicked", async () => {
+  renderRow();
+
+  // A real click lands on the SVG inside the button, not the button itself - which is how
+  // this navigated in the first place, since an SVG element is not an HTMLElement.
+  const svg = screen.getByLabelText(/Change the icon/).querySelector("svg")!;
+  const click = createEvent.click(svg, { bubbles: true, cancelable: true });
+  fireEvent(svg, click);
+
+  // The row is a real link, so the control has to cancel this very click.
+  expect(click.defaultPrevented).toBe(true);
+  expect(push).not.toHaveBeenCalled();
+  await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+});
+
+it("copies the base URL instead of opening the project", async () => {
+  renderRow();
+
+  const svg = screen.getByLabelText(/Copy the base URL/).querySelector("svg")!;
+  const click = createEvent.click(svg, { bubbles: true, cancelable: true });
+  fireEvent(svg, click);
+
+  expect(click.defaultPrevented).toBe(true);
+  expect(push).not.toHaveBeenCalled();
+});

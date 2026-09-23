@@ -9,56 +9,57 @@
 /* Keep these as real CSS variables (not `inline` values) so the `.dark` scope can
    replace them at runtime without rebuilding Tailwind utilities. */
 @theme {
-  --font-sans: var(--font-instrument-sans);
-  --font-mono: var(--font-jetbrains-mono);
+  --font-display: var(--font-bricolage);
+  --font-sans: var(--font-plex-sans);
+  --font-mono: var(--font-plex-mono);
 
-  --color-page: #f4f4f2;
-  --color-rail: #ecedef;
-  --color-surface: #fafaf8;
-  --color-panel: #eef0f3;
-  --color-panel-strong: #e4e7ec;
-  --color-line: #dddfe3;
-  --color-line-strong: #c9cdd4;
-  --color-ink: #1f2328;
-  --color-ink-2: #4b5563;
-  --color-ink-3: #626875;
-  --color-accent: #4f46e5;
-  --color-accent-soft: #e0e7ff;
-  --color-accent-ink: #3730a3;
-  --color-slate: #1b1f27;
-  --color-slate-2: #242935;
-  --color-slate-ink: #e6e8ec;
-  --color-slate-muted: #8b93a1;
-  --color-success: #15803d;
-  --color-warning: #b45309;
-  --color-danger: #b91c1c;
+  --color-page: #eeefe9;
+  --color-rail: #e7e8e1;
+  --color-surface: #ffffff;
+  --color-panel: #f6f7f2;
+  --color-panel-strong: #e8e9e1;
+  --color-line: #dbddd4;
+  --color-line-strong: #c6c9bd;
+  --color-ink: #15181c;
+  --color-ink-2: #3e454c;
+  --color-ink-3: #6a727b;
+  --color-accent: #2b59ff;
+  --color-accent-soft: #dfe6ff;
+  --color-accent-ink: #12307f;
+  --color-slate: #15181c;
+  --color-slate-2: #1d2126;
+  --color-slate-ink: #f2f3ee;
+  --color-slate-muted: #aab1b8;
+  --color-success: #0fb790;
+  --color-warning: #b07800;
+  --color-danger: #d12a4f;
 
-  --color-method-get: #15803d;
-  --color-method-get-tint: #dcfce7;
-  --color-method-post: #1d4ed8;
-  --color-method-post-tint: #dbeafe;
-  --color-method-put: #b45309;
-  --color-method-put-tint: #fef3c7;
-  --color-method-patch: #6d28d9;
-  --color-method-patch-tint: #ede9fe;
-  --color-method-delete: #b91c1c;
-  --color-method-delete-tint: #fee2e2;
-  --color-method-get-on-slate: #6ee7b7;
-  --color-method-post-on-slate: #93c5fd;
-  --color-method-put-on-slate: #fcd34d;
-  --color-method-patch-on-slate: #c4b5fd;
-  --color-method-delete-on-slate: #fca5a5;
+  --color-method-get: #0fb790;
+  --color-method-get-tint: #d9f5ee;
+  --color-method-post: #2b59ff;
+  --color-method-post-tint: #dfe6ff;
+  --color-method-put: #b07800;
+  --color-method-put-tint: #fdf0cf;
+  --color-method-patch: #7a5cff;
+  --color-method-patch-tint: #e9e4ff;
+  --color-method-delete: #ff3d6e;
+  --color-method-delete-tint: #ffe0e7;
+  --color-method-get-on-slate: #43e3b8;
+  --color-method-post-on-slate: #93aaff;
+  --color-method-put-on-slate: #ffd95e;
+  --color-method-patch-on-slate: #bfb0ff;
+  --color-method-delete-on-slate: #ff8fae;
 
-  --color-syntax-key: #3730a3;
-  --color-syntax-string: #0f766e;
-  --color-syntax-number: #b45309;
-  --color-syntax-boolean: #6d28d9;
-  --color-syntax-muted: #626875;
-  --color-syntax-key-slate: #a5b4fc;
-  --color-syntax-string-slate: #6ee7b7;
-  --color-syntax-number-slate: #fcd34d;
-  --color-syntax-boolean-slate: #c4b5fd;
-  --color-syntax-muted-slate: #8b93a1;
+  --color-syntax-key: #2b59ff;
+  --color-syntax-string: #0d8f72;
+  --color-syntax-number: #d12a4f;
+  --color-syntax-boolean: #6b4ff0;
+  --color-syntax-muted: #6a727b;
+  --color-syntax-key-slate: #93aaff;
+  --color-syntax-string-slate: #43e3b8;
+  --color-syntax-number-slate: #ff8fae;
+  --color-syntax-boolean-slate: #bfb0ff;
+  --color-syntax-muted-slate: #aab1b8;
 
   /* shadcn semantic tokens */
   --color-background: var(--color-page);
@@ -79,63 +80,61 @@
   --color-input: var(--color-line);
   --color-ring: var(--color-accent);
 
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 10px;
-  --shadow-pop: 0 8px 24px rgb(31 35 40 / 12%);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --shadow-pop: 0 2px 0 rgb(21 24 28 / 6%), 0 16px 28px -16px rgb(21 24 28 / 55%);
 }
 
 @layer base {
   :root { color-scheme: light; }
   .dark {
     color-scheme: dark;
-    --color-page: #0d1117;
-    --color-rail: #121821;
-    --color-surface: #161d27;
-    --color-panel: #1d2632;
-    --color-panel-strong: #273242;
-    --color-line: #2b3645;
-    --color-line-strong: #3a485a;
-    --color-ink: #f3f4f6;
-    --color-ink-2: #c3cad5;
-    --color-ink-3: #929dac;
-    --color-accent: #818cf8;
-    --color-accent-soft: #25245d;
-    --color-accent-ink: #c7d2fe;
-    --color-success: #4ade80;
-    --color-warning: #fbbf24;
-    --color-danger: #fb7185;
-    --color-method-get: #4ade80;
-    --color-method-get-tint: #153c2a;
-    --color-method-post: #60a5fa;
-    --color-method-post-tint: #172f52;
-    --color-method-put: #fbbf24;
-    --color-method-put-tint: #493814;
-    --color-method-patch: #a78bfa;
-    --color-method-patch-tint: #352460;
-    --color-method-delete: #fb7185;
-    --color-method-delete-tint: #4b1f2a;
-    --color-syntax-key: #a5b4fc;
-    --color-syntax-string: #6ee7b7;
-    --color-syntax-number: #fcd34d;
-    --color-syntax-boolean: #c4b5fd;
-    --color-syntax-muted: #929dac;
+    --color-page: #101215;
+    --color-rail: #14171b;
+    --color-surface: #1b1f24;
+    --color-panel: #171a1e;
+    --color-panel-strong: #23282e;
+    --color-line: #2a2f36;
+    --color-line-strong: #3a414a;
+    --color-ink: #eef0ea;
+    --color-ink-2: #bcc3ca;
+    --color-ink-3: #949ca4;
+    --color-accent: #6483ff;
+    --color-accent-soft: #1a2450;
+    --color-accent-ink: #c9d5ff;
+    --color-success: #2ad3ab;
+    --color-warning: #ffd95e;
+    --color-danger: #ff5c83;
+    --color-method-get: #2ad3ab;
+    --color-method-get-tint: #0d3b31;
+    --color-method-post: #6483ff;
+    --color-method-post-tint: #1a2450;
+    --color-method-put: #ffd95e;
+    --color-method-put-tint: #40340d;
+    --color-method-patch: #9b7eff;
+    --color-method-patch-tint: #2c2260;
+    --color-method-delete: #ff5c83;
+    --color-method-delete-tint: #451825;
+    --color-syntax-key: #93aaff;
+    --color-syntax-string: #43e3b8;
+    --color-syntax-number: #ff8fae;
+    --color-syntax-boolean: #bfb0ff;
+    --color-syntax-muted: #949ca4;
     --color-card: var(--color-surface);
     --color-popover: #1a2230;
     --color-primary-foreground: #ffffff;
     --color-input: var(--color-line);
-    --shadow-pop: 0 12px 32px rgb(0 0 0 / 35%);
+    --shadow-pop: 0 2px 0 rgb(0 0 0 / 50%), 0 18px 32px -18px rgb(0 0 0 / 95%);
   }
   * { @apply border-border outline-ring/50; }
   body {
     @apply bg-page font-sans text-ink antialiased;
     font-size: 14px;
     line-height: 1.5;
-    background-image: radial-gradient(var(--color-line) 1px, transparent 1px);
-    background-size: 24px 24px;
   }
-  h1, h2, h3 { letter-spacing: -0.01em; }
+  h1, h2, h3 { font-family: var(--font-bricolage), var(--font-plex-sans), system-ui, sans-serif; letter-spacing: -0.02em; }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   }

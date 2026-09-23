@@ -80,6 +80,17 @@ describe("proxy", () => {
     expect(auth).not.toHaveBeenCalled();
   });
 
+  it("lets the landing page through, so a signed-out visitor can read it", async () => {
+    clearAuthEnv();
+    process.env.AUTH_REQUIRED = "true";
+    auth.mockResolvedValue(null);
+
+    const response = await proxy(request("/"));
+
+    expect(response.headers.get("location")).toBeNull();
+    expect(auth).not.toHaveBeenCalled();
+  });
+
   it("redirects an unauthenticated app page to /sign-in when AUTH_REQUIRED is on", async () => {
     clearAuthEnv();
     process.env.AUTH_REQUIRED = "true";

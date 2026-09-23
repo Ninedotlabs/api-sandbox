@@ -1,0 +1,26 @@
+/*
+ * The mascot's own styles, deliberately outside the `.landing` scope: the mark is the
+ * product's brand, not a landing-page decoration, so it also appears in the app's wordmark
+ * and on the sign-in page. Nothing here styles anything but `.mascot`.
+ */
+
+.mascot { display: block; overflow: visible; }
+.mascot .eye-wink { display: none; }
+.mascot .eye { transition: transform 0.2s cubic-bezier(0.2, 0.7, 0.3, 1); transform-box: fill-box; transform-origin: center; }
+.mascot[data-mood="wink"] .eye-r { display: none; }
+.mascot[data-mood="wink"] .eye-wink { display: block; }
+.mascot[data-mood="alarm"] .eye { transform: scale(1.22) translateY(-1px); }
+
+@keyframes mascot-blink {
+  0%, 91%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.08); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Each instance carries its own `--bd`, so several mascots never blink in unison.
+     The alarmed face holds its wide eyes instead of blinking. */
+  .mascot:not([data-mood="alarm"]) .eye {
+    animation: mascot-blink 6.5s ease-in-out infinite;
+    animation-delay: var(--bd, 0s);
+  }
+}

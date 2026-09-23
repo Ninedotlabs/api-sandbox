@@ -1,15 +1,22 @@
 import Link from "next/link";
+import { Mascot, MascotSymbol } from "@/components/brand/mascot";
 import { cn } from "@/lib/utils";
 
+/**
+ * The product's signature: the stand-in, then the name. One component so the mark, the
+ * name and the link home can never drift apart between the rail, the top bar and sign-in.
+ *
+ * It carries its own `<MascotSymbol />` because the wordmark appears on screens the landing
+ * page never renders, and an SVG `<use>` with no symbol to point at draws nothing.
+ */
 export function Wordmark({ className }: { className?: string }) {
   return (
     <Link href="/projects" aria-label="Universal API home" className={cn("inline-flex items-center gap-2 text-ink", className)}>
-      <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden className="shrink-0">
-        <path d="M7 4 3 10l4 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="m13 4 4 6-4 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M6.5 10h7" stroke="var(--color-accent)" strokeWidth="2" strokeLinecap="round" />
-      </svg>
-      <span className="text-[17px] font-semibold tracking-tight">universal</span>
+      <MascotSymbol />
+      <Mascot className="size-6 shrink-0" blinkDelay="1.7s" />
+      <span className="font-display text-[17px] font-extrabold tracking-tight">
+        universal<span className="text-method-delete">.</span>api
+      </span>
     </Link>
   );
 }

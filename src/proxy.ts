@@ -24,7 +24,9 @@ import { auth } from "@/auth";
  * credentials must send a visitor to `/sign-in`, never crash into an error page - the
  * whole point of gating this behind a flag is to make that failure mode recoverable.
  */
-const EXEMPT_PATHS = ["/sign-in"];
+// `/` is the public landing page: gating it would hide the product from everyone who
+// does not already have an account.
+const EXEMPT_PATHS = ["/", "/sign-in"];
 const REQUIRED_AUTH_ENV = ["AUTH_GOOGLE_ID", "AUTH_GOOGLE_SECRET", "AUTH_SECRET"] as const;
 
 export function isAuthRequired(env: NodeJS.ProcessEnv = process.env): boolean {

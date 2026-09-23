@@ -158,6 +158,15 @@ describe("proxy", () => {
     }
   });
 
+  it("the matcher skips the tab icons, which a browser fetches with no session", () => {
+    const nextConfig = {};
+
+    // A 307 to /sign-in for these means an empty tab icon, so the gate must not run.
+    for (const url of ["/favicon.ico", "/icon.svg", "/apple-icon.png"]) {
+      expect(unstable_doesMiddlewareMatch({ config, nextConfig, url })).toBe(false);
+    }
+  });
+
   it("the matcher covers ordinary app pages", () => {
     const nextConfig = {};
 

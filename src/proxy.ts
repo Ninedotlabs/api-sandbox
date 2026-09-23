@@ -66,5 +66,7 @@ export default async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  // The app's own icons are excluded alongside `favicon.ico`: a browser fetches them
+  // without a session, and a 307 to /sign-in means no icon at all in the tab.
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|icon.svg|apple-icon).*)"],
 };

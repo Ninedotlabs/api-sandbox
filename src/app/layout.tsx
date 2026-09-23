@@ -22,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning className={`${display.variable} ${sans.variable} ${mono.variable}`}>
       <head>
         <Script id="theme-init" strategy="beforeInteractive">
-          {`try{const t=localStorage.getItem("universal-api-theme");const d=t==="dark"||(!t&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);document.documentElement.style.colorScheme=d?"dark":"light"}catch{}`}
+          {`try{const t=localStorage.getItem("universal-api-theme");const d=t!=="light";document.documentElement.classList.toggle("dark",d);document.documentElement.style.colorScheme=d?"dark":"light"}catch{document.documentElement.classList.add("dark");document.documentElement.style.colorScheme="dark"}`}
         </Script>
       </head>
       <body>

@@ -21,7 +21,9 @@ function currentTheme(): boolean {
 }
 
 export function ThemeToggle() {
-  const dark = useSyncExternalStore(subscribe, currentTheme, () => false);
+  // Dark is the product's default, so the server snapshot has to say dark too - otherwise
+  // the toggle renders the wrong icon for a frame before hydration corrects it.
+  const dark = useSyncExternalStore(subscribe, currentTheme, () => true);
 
   function toggleTheme() {
     const next = !dark;
